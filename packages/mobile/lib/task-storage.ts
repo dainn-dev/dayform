@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseJson } from "./json";
 import { Task, categories, dateKey, fromKey, repeats, seedTasks } from "./planner";
 
 export const TASKS_STORAGE_KEY = "dayform.tasks.v1";
@@ -43,11 +44,13 @@ export const taskSchema = z.object({
   remind: z.number().int().min(0).max(MAX_REMIND_MINUTES).nullable().optional(),
   seriesId: z.string().min(1).max(MAX_ID_LENGTH).nullable().optional(),
   repeat: z.enum(repeats).nullable().optional(),
+  repeatUntil: dateString.nullable().optional(),
 })
   .refine(task => (task.date === null) === (task.start === null))
   .refine(task => task.remind == null || task.start !== null)
   .refine(task => (task.seriesId == null && task.repeat == null) || task.date !== null)
-  .refine(task => (task.seriesId == null) === (task.repeat == null));
+  .refine(task => (task.seriesId == null) === (task.repeat == null))
+  .refine(task => task.repeatUntil == null || (task.repeat != null && task.date !== null && task.repeatUntil >= task.date));
 
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 /** Compile-time guard: fails to typecheck when the schema and the Task model drift apart. */
@@ -90,14 +93,6 @@ async function copyTo(storage: KeyValueStorage, key: string, value: string): Pro
     return true;
   } catch {
     return false;
-  }
-}
-
-function parseJson(raw: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: JSON.parse(raw) };
-  } catch {
-    return { ok: false };
   }
 }
 

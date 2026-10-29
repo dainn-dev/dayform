@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import { actionLabels, DONE_ACTION_ID, REMINDER_CATEGORY_ID, SNOOZE_ACTION_ID } from "./notification-actions";
 import type { PlannedReminder, ReminderLanguage, ReminderScheduler } from "./reminders";
 
 export type ReminderPermission = "granted" | "denied" | "undetermined";
@@ -47,6 +48,21 @@ export async function ensureReminderChannel(language: ReminderLanguage): Promise
   await Notifications.deleteNotificationChannelAsync(LEGACY_REMINDER_CHANNEL_ID);
 }
 
+/**
+ * Registers the category that gives reminders their "Done" and "Snooze" buttons. Both open the app:
+ * on Android an action that opens no UI cannot run JS while the app is killed. Safe to call repeatedly
+ * (it replaces the category, which is how a language change updates the button titles).
+ */
+export async function registerReminderCategory(language: ReminderLanguage): Promise<void> {
+  if (isWeb) return;
+  const labels = actionLabels(language);
+  const options = { opensAppToForeground: true };
+  await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY_ID, [
+    { identifier: DONE_ACTION_ID, buttonTitle: labels.done, options },
+    { identifier: SNOOZE_ACTION_ID, buttonTitle: labels.snooze, options },
+  ]);
+}
+
 export async function getReminderPermission(): Promise<ReminderPermission> {
   if (isWeb) return "denied";
   return toPermission(await Notifications.getPermissionsAsync());
@@ -69,7 +85,13 @@ export function createExpoScheduler(): ReminderScheduler {
       if (isWeb) return;
       await Notifications.scheduleNotificationAsync({
         identifier: reminder.id,
-        content: { title: reminder.title, body: reminder.body, data: { taskId: reminder.taskId } },
+        content: {
+          title: reminder.title,
+          body: reminder.body,
+          // Privacy: the data carries only the id, never the title.
+          data: { taskId: reminder.taskId },
+          categoryIdentifier: REMINDER_CATEGORY_ID,
+        },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: reminder.fireAt,

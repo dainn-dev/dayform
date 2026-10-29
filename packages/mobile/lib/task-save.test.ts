@@ -314,3 +314,126 @@ describe("validateForm", () => {
     expect(validateForm({ ...ok, scheduled: false, date: "nope", time: "nope" })).toBeNull();
   });
 });
+
+describe("planSave: monthly repeat and end date", () => {
+  test("a new monthly task with an end date creates a series that stops on it (inclusive)", () => {
+    const { candidate, update } = plan(form({ date: "2026-01-31", repeat: "monthly", repeatUntil: "2026-02-28" }), ctx({ today: "2026-01-31" }));
+    expect(candidate.repeatUntil).toBe("2026-02-28");
+    const result = update([]);
+    expect(result.map(t => t.date)).toEqual(["2026-01-31", "2026-02-28"]);
+    expect(result.every(t => t.repeat === "monthly" && t.repeatUntil === "2026-02-28")).toBe(true);
+    expect(valid(result)).toBe(true);
+  });
+
+  test("the end date is dropped without a repeat, and for a backlog task", () => {
+    const noRepeat = plan(form({ repeat: null, repeatUntil: "2026-04-01" }), ctx());
+    expect(noRepeat.candidate.repeatUntil).toBeUndefined();
+    expect(valid(noRepeat.update([]))).toBe(true);
+    const backlog = plan(form({ scheduled: false, repeat: "daily", repeatUntil: "2026-04-01" }), ctx());
+    expect(backlog.candidate).toMatchObject({ date: null, repeat: null });
+    expect(backlog.candidate.repeatUntil).toBeUndefined();
+    expect(valid(backlog.update([]))).toBe(true);
+  });
+
+  test("a plain task gains a repeating series with an end date", () => {
+    const existing = plain();
+    const result = plan(form({ title: "Plain", time: "10:00", repeat: "weekly", repeatUntil: "2026-03-16" }), ctx({ existing })).update([existing]);
+    expect(result.map(t => t.date)).toEqual([TODAY, "2026-03-09", "2026-03-16"]);
+    expect(result.every(t => t.repeatUntil === "2026-03-16")).toBe(true);
+    expect(valid(result)).toBe(true);
+  });
+
+  describe("on a series occurrence", () => {
+    const tasks = makeSeries("daily");
+    const target = byDate(tasks, "2026-03-04");
+    const run = (scope: SaveContext["scope"], f: Partial<SaveForm>) =>
+      planSave(form({ title: "Stretch", date: "2026-03-04", repeat: "daily", ...f }), ctx({ existing: target, scope }));
+
+    test("changing only the end date is a rule change: scope this is refused", () => {
+      expect(run("this", { repeatUntil: "2026-03-10" })).toEqual({ ok: false, reason: "rule-change-needs-scope" });
+    });
+
+    test("scope following trims the later occurrences after the new end date", () => {
+      const result = plan(form({ title: "Stretch", date: "2026-03-04", repeat: "daily", repeatUntil: "2026-03-10" }), ctx({ existing: target, scope: "following" })).update(tasks);
+      expect(result.at(-1)?.date).toBe("2026-03-10");
+      expect(result).toHaveLength(9);
+      expect(byDate(result, "2026-03-03").repeatUntil).toBeUndefined();
+      expect(result.filter(t => (t.date as string) >= "2026-03-04").every(t => t.repeatUntil === "2026-03-10")).toBe(true);
+      expect(valid(result)).toBe(true);
+    });
+
+    test("scope all behaves like following for the end date (applies from the edited occurrence on)", () => {
+      const result = plan(form({ title: "Stretch", date: "2026-03-04", repeat: "daily", repeatUntil: "2026-03-10" }), ctx({ existing: target, scope: "all" })).update(tasks);
+      expect(result.at(-1)?.date).toBe("2026-03-10");
+    });
+
+    test("clearing the end date resumes the series", () => {
+      const limited = createSeries(plain({ id: "tpl", repeatUntil: "2026-03-10" }), "daily", TODAY, () => "L");
+      const at = byDate(limited, "2026-03-04");
+      const cleared = plan(form({ title: "Plain", time: "10:00", date: "2026-03-04", repeat: "daily", repeatUntil: null }), ctx({ existing: at, scope: "following" })).update(limited);
+      expect(cleared.at(-1)?.date).toBe("2026-04-27");
+      expect(extendSeries(cleared, "2026-04-20").length).toBeGreaterThan(cleared.length);
+    });
+
+    test("an unchanged end date and rule keep scope this allowed and the series untouched", () => {
+      const limited = createSeries(plain({ id: "tpl", repeatUntil: "2026-03-10" }), "daily", TODAY, () => "L");
+      const at = byDate(limited, "2026-03-04");
+      const result = plan(form({ title: "Renamed", time: "10:00", date: "2026-03-04", repeat: "daily", repeatUntil: "2026-03-10" }), ctx({ existing: at, scope: "this" })).update(limited);
+      expect(result).toHaveLength(limited.length);
+      expect(byDate(result, "2026-03-04").title).toBe("Renamed");
+      expect(byDate(result, "2026-03-05").title).toBe("Plain");
+    });
+
+    test("a stale occurrence (already gone) is re-added as a plain task without a series or end date", () => {
+      const gone = plan(form({ title: "Stretch", date: "2026-03-04", repeat: "daily", repeatUntil: "2026-03-10" }), ctx({ existing: target, scope: "following" })).update([]);
+      expect(gone).toHaveLength(1);
+      expect(gone[0]).toMatchObject({ seriesId: null, repeat: null, repeatUntil: null });
+      expect(valid(gone)).toBe(true);
+    });
+  });
+});
+
+describe("allowedScopes: end date", () => {
+  const limited = byDate(createSeries(plain({ id: "tpl", repeatUntil: "2026-03-10" }), "daily", TODAY, () => "L"), "2026-03-04");
+  const open = byDate(makeSeries("daily"), "2026-03-04");
+
+  test("a changed end date (set, moved or cleared) drops 'this'", () => {
+    expect(allowedScopes(open, { repeat: "daily", repeatUntil: "2026-03-20" })).toEqual(["following", "all"]);
+    expect(allowedScopes(limited, { repeat: "daily", repeatUntil: "2026-03-12" })).toEqual(["following", "all"]);
+    expect(allowedScopes(limited, { repeat: "daily", repeatUntil: null })).toEqual(["following", "all"]);
+  });
+
+  test("an unchanged end date, or none given, keeps every scope", () => {
+    expect(allowedScopes(limited, { repeat: "daily", repeatUntil: "2026-03-10" })).toEqual(["this", "following", "all"]);
+    expect(allowedScopes(limited, { repeat: "daily" })).toEqual(["this", "following", "all"]);
+    expect(allowedScopes(open, { repeat: "daily", repeatUntil: null })).toEqual(["this", "following", "all"]);
+  });
+
+  test("a stale end date is ignored when the rule is removed", () => {
+    expect(allowedScopes(open, { repeat: null, repeatUntil: "2026-03-20" })).toEqual(["following", "all"]);
+  });
+});
+
+describe("validateForm: end date", () => {
+  const ok = { title: "T", duration: "30", scheduled: true, date: "2026-03-10", time: "09:30", repeat: "weekly" as const };
+
+  test("accepts an end date on or after the task date", () => {
+    expect(validateForm({ ...ok, repeatUntil: "2026-03-10" })).toBeNull();
+    expect(validateForm({ ...ok, repeatUntil: "2027-01-01" })).toBeNull();
+    expect(validateForm({ ...ok, repeatUntil: null })).toBeNull();
+  });
+
+  test("rejects an end date before the task date", () => {
+    expect(validateForm({ ...ok, repeatUntil: "2026-03-09" })).toBe("The end date must be on or after the task date.");
+  });
+
+  test("rejects a malformed end date", () => {
+    expect(validateForm({ ...ok, repeatUntil: "2026-3-9" })).toBe("Use a valid date: YYYY-MM-DD.");
+    expect(validateForm({ ...ok, repeatUntil: "2026-02-30" })).toBe("Use a valid date: YYYY-MM-DD.");
+  });
+
+  test("ignores the end date without a repeat or for a backlog task", () => {
+    expect(validateForm({ ...ok, repeat: null, repeatUntil: "2020-01-01" })).toBeNull();
+    expect(validateForm({ ...ok, scheduled: false, repeatUntil: "2020-01-01" })).toBeNull();
+  });
+});

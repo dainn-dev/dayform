@@ -60,7 +60,7 @@ export function taskStats(tasks: readonly Task[]): TaskStats {
   return { todo, scheduled, done };
 }
 
-function matchesFilter(task: Task, filter: ExploreFilter): boolean {
+export function matchesFilter(task: Task, filter: ExploreFilter): boolean {
   if (filter === "all") return true;
   return filter === "done" ? task.status === "done" : task.status !== "done";
 }

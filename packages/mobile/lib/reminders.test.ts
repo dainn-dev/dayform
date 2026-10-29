@@ -251,3 +251,44 @@ describe("reconcileReminders", () => {
     expect(result.errors).toEqual(["plain string"]);
   });
 });
+
+describe("reconcileReminders snooze lifecycle", () => {
+  const live = new Set(["a"]);
+  test("cancels scheduled snoozes of tasks that are no longer live", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:snooze:a:100", "dayform:snooze:gone:200", "other:app:1"]);
+    const result = await reconcileReminders(scheduler, [], live);
+    expect([...ids].sort()).toEqual(["dayform:snooze:a:100", "other:app:1"]);
+    expect(result.cancelled).toBe(1);
+  });
+  test("keeps task ids that contain colons (series occurrences)", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:snooze:s1:2026-10-30:999", "dayform:snooze:s2:2026-10-30:999"]);
+    await reconcileReminders(scheduler, [], new Set(["s1:2026-10-30"]));
+    expect([...ids]).toEqual(["dayform:snooze:s1:2026-10-30:999"]);
+  });
+  test("leaves snoozes alone when liveTaskIds is omitted", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:snooze:gone:200"]);
+    await reconcileReminders(scheduler, []);
+    expect([...ids]).toEqual(["dayform:snooze:gone:200"]);
+  });
+  test("a malformed snooze id (no timestamp) is treated as stale", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:snooze:nonsense"]);
+    await reconcileReminders(scheduler, [], live);
+    expect([...ids]).toEqual([]);
+  });
+  test("cancel failures of snoozes are reported", async () => {
+    const { scheduler } = fakeScheduler(["dayform:snooze:gone:1"], { cancel: ["dayform:snooze:gone:1"] });
+    const result = await reconcileReminders(scheduler, [], live);
+    expect(result.errors).toHaveLength(1);
+  });
+});
+
+describe("planReminders strict time", () => {
+  test.each(["99:99", "24:00", "12:60", "7:30"])("rejects start %s", (start) => {
+    expect(planReminders([makeTask({ start })], NOW, {})).toEqual([]);
+  });
+  test.each(["00:00", "23:59"])("accepts start %s", (start) => {
+    const task = makeTask({ date: "2026-11-05", start });
+    expect(planReminders([task], NOW, {})).toHaveLength(1);
+  });
+});
+

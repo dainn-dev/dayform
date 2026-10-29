@@ -301,7 +301,7 @@ describe("taskSchema recurrence and reminder fields", () => {
 
   test("accepts null for remind, seriesId and repeat and every repeat value", () => {
     expect(accepts(task({ remind: null, seriesId: null, repeat: null }))).toBe(true);
-    for (const repeat of ["daily", "weekdays", "weekly"] as const) {
+    for (const repeat of ["daily", "weekdays", "weekly", "monthly"] as const) {
       expect(accepts(task({ seriesId: "s", repeat }))).toBe(true);
     }
   });
@@ -327,8 +327,49 @@ describe("taskSchema recurrence and reminder fields", () => {
   });
 
   test("rejects an unknown repeat value and an empty seriesId", () => {
-    expect(accepts({ ...task(), repeat: "monthly" })).toBe(false);
+    expect(accepts({ ...task(), seriesId: "s", repeat: "yearly" })).toBe(false);
     expect(accepts(task({ seriesId: "" }))).toBe(false);
+  });
+});
+
+describe("taskSchema repeatUntil", () => {
+  const accepts = (value: unknown) => taskSchema.safeParse(value).success;
+  const recurring = (overrides: Partial<Task> = {}) => task({ seriesId: "s", repeat: "weekly", ...overrides });
+
+  test("records without repeatUntil stay valid and round-trip unchanged", () => {
+    const legacy = recurring();
+    expect("repeatUntil" in legacy).toBe(false);
+    expect(accepts(legacy)).toBe(true);
+    const full = recurring({ repeatUntil: "2026-12-31" });
+    const parsed = taskSchema.safeParse(JSON.parse(JSON.stringify(full)));
+    expect(parsed.success && parsed.data).toEqual(full);
+  });
+
+  test("accepts null, and a date on or after the task date (inclusive boundary)", () => {
+    expect(accepts(recurring({ repeatUntil: null }))).toBe(true);
+    expect(accepts(recurring({ repeatUntil: task().date }))).toBe(true);
+    expect(accepts(recurring({ repeatUntil: "2099-01-01" }))).toBe(true);
+  });
+
+  test("rejects repeatUntil without repeat", () => {
+    expect(accepts(task({ repeatUntil: "2099-01-01" }))).toBe(false);
+    expect(accepts(task({ repeatUntil: "2099-01-01", repeat: null }))).toBe(false);
+  });
+
+  test("rejects repeatUntil on a backlog task", () => {
+    expect(accepts(task({ date: null, start: null, repeatUntil: "2099-01-01" }))).toBe(false);
+  });
+
+  test("rejects a repeatUntil before the task date", () => {
+    expect(task().date).toBe("2026-03-10");
+    expect(accepts(recurring({ repeatUntil: "2026-03-09" }))).toBe(false);
+  });
+
+  test("rejects a malformed, impossible or non-string repeatUntil", () => {
+    for (const bad of ["2099-1-1", "01/01/2099", "2099-02-30", "", "tomorrow"]) {
+      expect(accepts(recurring({ repeatUntil: bad }))).toBe(false);
+    }
+    expect(accepts({ ...recurring(), repeatUntil: 20991231 })).toBe(false);
   });
 });
 

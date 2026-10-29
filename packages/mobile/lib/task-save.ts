@@ -18,6 +18,8 @@ export type SaveForm = {
   notes: string;
   remind: number | null;
   repeat: Repeat | null;
+  /** Inclusive last day of the repeat ('YYYY-MM-DD'); null/omitted = never ends. Ignored without `repeat`. */
+  repeatUntil?: string | null;
 };
 
 export type SaveContext = {
@@ -53,16 +55,34 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MIN_DURATION = 1;
 const MAX_DURATION = 1440;
 
+export const END_BEFORE_DATE_MESSAGE = "The end date must be on or after the task date.";
+
+type FormText = {
+  title: string; duration: string; scheduled: boolean; date: string; time: string;
+  repeat?: Repeat | null; repeatUntil?: string | null;
+};
+
+function isDateKey(value: string): boolean {
+  return DATE_PATTERN.test(value) && dateKey(fromKey(value)) === value;
+}
+
+function validateEndDate(input: FormText): string | null {
+  const { repeat, repeatUntil } = input;
+  if (repeat == null || repeatUntil == null) return null;
+  if (!isDateKey(repeatUntil)) return "Use a valid date: YYYY-MM-DD.";
+  return repeatUntil < input.date ? END_BEFORE_DATE_MESSAGE : null;
+}
+
 /** Raw text fields of the form, as typed. Returns an English message (a translation key) or null. */
-export function validateForm(input: { title: string; duration: string; scheduled: boolean; date: string; time: string }): string | null {
+export function validateForm(input: FormText): string | null {
   if (!input.title.trim()) return "Give this task a title.";
   const n = Number(input.duration);
   if (!Number.isInteger(n) || n < MIN_DURATION || n > MAX_DURATION) return "Duration must be 1–1440 minutes.";
   if (!input.scheduled) return null;
-  if (!DATE_PATTERN.test(input.date) || dateKey(fromKey(input.date)) !== input.date) return "Use a valid date: YYYY-MM-DD.";
+  if (!isDateKey(input.date)) return "Use a valid date: YYYY-MM-DD.";
   if (!TIME_PATTERN.test(input.time)) return "Use a 24-hour time: HH:mm.";
   if (minutes(input.time) + n > MAX_DURATION) return "Scheduled tasks must end before midnight.";
-  return null;
+  return validateEndDate(input);
 }
 
 export function hasConflict(candidate: Task, tasks: readonly Task[]): boolean {
@@ -76,22 +96,31 @@ export function needsScopeChoice(existing: Task | null, form: SaveForm): boolean
 
 const ALL_SCOPES: readonly EditScope[] = ["this", "following", "all"];
 
-function ruleChanged(original: Task, repeat: Repeat | null): boolean {
-  return repeat !== (original.repeat ?? null);
+/** A rule change: another rule, or (for a repeating task) another end date. */
+function ruleChanged(original: Task, repeat: Repeat | null, until: string | null): boolean {
+  return repeat !== (original.repeat ?? null) || until !== (original.repeatUntil ?? null);
+}
+
+/** The end date a form really asks for: none without a rule or for a backlog task. */
+function effectiveUntil(form: { repeat: Repeat | null; repeatUntil?: string | null }, scheduled = true): string | null {
+  return scheduled && form.repeat !== null ? form.repeatUntil ?? null : null;
 }
 
 /**
  * Scopes an edit of `original` may use. A task outside a series only has "this"; when the repeat
- * rule changed, "this task only" is not allowed (the rule applies from this occurrence onwards).
+ * rule or its end date changed, "this task only" is not allowed (the change applies from this
+ * occurrence onwards). An omitted `repeatUntil` means the end date is unchanged.
  */
-export function allowedScopes(original: Task, form: { repeat: Repeat | null }): EditScope[] {
+export function allowedScopes(original: Task, form: { repeat: Repeat | null; repeatUntil?: string | null }): EditScope[] {
   if (original.seriesId == null) return ["this"];
-  return ALL_SCOPES.filter(scope => scope !== "this" || !ruleChanged(original, form.repeat));
+  const until = form.repeatUntil === undefined ? original.repeatUntil ?? null : effectiveUntil(form);
+  return ALL_SCOPES.filter(scope => scope !== "this" || !ruleChanged(original, form.repeat, until));
 }
 
 function buildCandidate(form: SaveForm, ctx: SaveContext): Task {
   const { existing } = ctx;
   const scheduled = form.scheduled;
+  const until = effectiveUntil(form, scheduled);
   return {
     id: existing?.id ?? ctx.newId(),
     title: form.title.trim(),
@@ -105,6 +134,7 @@ function buildCandidate(form: SaveForm, ctx: SaveContext): Task {
     remind: scheduled ? form.remind : null,
     seriesId: scheduled ? existing?.seriesId ?? null : null,
     repeat: scheduled ? existing?.repeat ?? null : null,
+    ...(until === null ? {} : { repeatUntil: until }),
   };
 }
 
@@ -124,19 +154,20 @@ function scopedEdit(tasks: Task[], stored: Task, patch: Partial<Task>, scope: Ed
 }
 
 function editSeriesMember(candidate: Task, repeat: Repeat | null, scope: EditScope, ctx: SaveContext, existing: Task): Update {
+  const until = candidate.repeatUntil ?? null;
   return tasks => {
     const stored = tasks.find(t => t.id === existing.id);
-    if (!stored) return upsert(tasks, { ...candidate, seriesId: null, repeat: null });
+    if (!stored) return upsert(tasks, { ...candidate, seriesId: null, repeat: null, repeatUntil: null });
     const edited = scopedEdit(tasks, stored, patchOf(candidate), scope);
-    const changes = candidate.date !== null && ruleChanged(stored, repeat);
-    return changes ? changeRule(edited, stored, repeat, ctx.today, ctx.newSeriesId) : edited;
+    const changes = candidate.date !== null && ruleChanged(stored, repeat, until);
+    return changes ? changeRule(edited, stored, repeat, ctx.today, ctx.newSeriesId, undefined, until) : edited;
   };
 }
 
 function editPlain(candidate: Task, repeat: Repeat | null, ctx: SaveContext): Update {
   return tasks => {
     const saved = upsert(tasks, candidate);
-    return repeat === null ? saved : changeRule(saved, candidate, repeat, ctx.today, ctx.newSeriesId);
+    return repeat === null ? saved : changeRule(saved, candidate, repeat, ctx.today, ctx.newSeriesId, undefined, candidate.repeatUntil ?? null);
   };
 }
 
@@ -162,7 +193,7 @@ export function planSave(form: SaveForm, ctx: SaveContext): SaveResult {
   if (!existing) return { ok: true, candidate, update: addNew(candidate, repeat, ctx) };
   if (existing.seriesId == null) return { ok: true, candidate, update: editPlain(candidate, repeat, ctx) };
   const scope = effectiveScope(candidate, existing, ctx.scope);
-  if (scope === "this" && candidate.date !== null && ruleChanged(existing, repeat)) return { ok: false, reason: "rule-change-needs-scope" };
+  if (scope === "this" && candidate.date !== null && ruleChanged(existing, repeat, candidate.repeatUntil ?? null)) return { ok: false, reason: "rule-change-needs-scope" };
   return { ok: true, candidate, update: editSeriesMember(candidate, repeat, scope, ctx, existing) };
 }
 

@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { afterEach, beforeEach, describe, test, expect, setSystemTime } from "bun:test";
 import {
   addDays,
   dateKey,
@@ -262,6 +262,11 @@ describe("durationLabel", () => {
 });
 
 describe("seedTasks", () => {
+  // Frozen at noon so seedTasks() and the expectation can never straddle midnight.
+  const FROZEN_NOW = new Date(2026, 2, 10, 12, 0);
+  beforeEach(() => setSystemTime(FROZEN_NOW));
+  afterEach(() => setSystemTime());
+
   test("returns 7 tasks", () => {
     expect(seedTasks()).toHaveLength(7);
   });
@@ -273,6 +278,7 @@ describe("seedTasks", () => {
 
   test("scheduled tasks have today's date and a non-null start", () => {
     const today = dateKey(new Date());
+    expect(today).toBe("2026-03-10");
     const scheduled = seedTasks().filter((t) => t.start !== null);
     expect(scheduled).toHaveLength(5);
     for (const t of scheduled) {

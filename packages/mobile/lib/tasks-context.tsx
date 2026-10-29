@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useSync
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Task } from "./planner";
 import { createTasksStore, type MutateOptions } from "./tasks-store";
+import type { UndoState } from "./undo";
 
 type TasksContextValue = {
   tasks: Task[];
@@ -9,11 +10,16 @@ type TasksContextValue = {
   error: string | null;
   /** True when writes are refused (locked or read-only); background jobs should then do nothing. */
   writesBlocked: boolean;
+  /** What the last undoable write changed; null when there is nothing to undo. */
+  undo: UndoState | null;
+  /** Derived from `undo` (a one-task delete); kept for older callers. */
   lastRemoved: Task | null;
   clearError: () => void;
   upsert: (task: Task) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   mutate: (update: (tasks: Task[]) => Task[], options?: MutateOptions) => Promise<boolean>;
+  undoLast: () => Promise<boolean>;
+  /** Alias of `undoLast`. */
   undoRemove: () => Promise<boolean>;
   clearUndo: () => void;
 };
@@ -35,6 +41,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       upsert: store.upsert,
       remove: store.remove,
       mutate: store.mutate,
+      undoLast: store.undoLast,
       undoRemove: store.undoRemove,
       clearUndo: store.clearUndo,
     }),

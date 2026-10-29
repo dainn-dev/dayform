@@ -5,6 +5,7 @@ import {
   changeRule,
   createSeries,
   extendSeries,
+  extendSeriesWithin,
   occurrenceDates,
   removeScope,
   scopeTargets,
@@ -76,7 +77,7 @@ describe("occurrenceDates", () => {
   });
 
   test("an unknown rule fails loudly instead of acting like daily", () => {
-    expect(() => occurrenceDates("monthly" as never, "2026-03-02", "2026-03-09")).toThrow(/monthly/);
+    expect(() => occurrenceDates("yearly" as never, "2026-03-02", "2026-03-09")).toThrow(/yearly/);
   });
 
   test("throws on malformed or impossible dates", () => {
@@ -581,5 +582,56 @@ describe("changeRule", () => {
     changeRule(base, target, null, TODAY, idGen("x"));
     changeRule(base, base[0], "weekdays", TODAY, idGen("x"));
     expect(base).toEqual(copy);
+  });
+});
+
+describe("extendSeries with many rows", () => {
+  test("a series of 2,000 past rows is topped up with the expected rows and the input is untouched", () => {
+    const rows = pastRows(2000);
+    const snapshot = [...rows];
+    const result = extendSeries(rows, TODAY);
+    expect(rows).toEqual(snapshot);
+    expect(result.slice(0, rows.length)).toEqual(rows);
+    const added = result.slice(rows.length);
+    expect(added).toHaveLength(57);
+    expect(added[0]!.date).toBe(TODAY);
+    expect(added.at(-1)!.date).toBe(addDays(TODAY, 56));
+    expect(new Set(result.map(t => t.id)).size).toBe(result.length);
+  });
+
+  test("rows of several series stay grouped per series", () => {
+    const rows = [...pastRows(1000), ...pastRows(1000).map(t => ({ ...t, id: `Q${t.id}`, seriesId: "Q" }))];
+    const added = extendSeries(rows, TODAY).slice(rows.length);
+    expect(added.filter(t => t.seriesId === "P")).toHaveLength(57);
+    expect(added.filter(t => t.seriesId === "Q")).toHaveLength(57);
+  });
+});
+
+describe("extendSeriesWithin", () => {
+  const twoSeries = (): Task[] => [
+    ...pastRows(3),
+    ...pastRows(3).map(t => ({ ...t, id: `Q${t.id}`, seriesId: "Q" })),
+  ];
+
+  test("equals extendSeries when everything fits", () => {
+    const rows = twoSeries();
+    expect(extendSeriesWithin(rows, TODAY, () => true)).toEqual(extendSeries(rows, TODAY));
+  });
+
+  test("extends series one at a time and stops at the first that does not fit", () => {
+    const rows = twoSeries();
+    const result = extendSeriesWithin(rows, TODAY, list => list.length <= rows.length + 57);
+    expect(result).toHaveLength(rows.length + 57);
+    expect(result.slice(rows.length).every(t => t.seriesId === "P")).toBe(true);
+  });
+
+  test("returns the same list when not even one series fits", () => {
+    const rows = twoSeries();
+    expect(extendSeriesWithin(rows, TODAY, list => list.length <= rows.length)).toBe(rows);
+  });
+
+  test("returns the same list when there is nothing to add", () => {
+    const rows = [task()];
+    expect(extendSeriesWithin(rows, TODAY, () => true)).toBe(rows);
   });
 });

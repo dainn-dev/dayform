@@ -23,11 +23,13 @@ export type PlanOptions = { limit?: number; language?: ReminderLanguage };
 
 /** Every notification id we create starts with this; anything else belongs to someone else. */
 export const REMINDER_ID_PREFIX = "dayform:task:";
+/** Snoozed notifications use this prefix, NOT REMINDER_ID_PREFIX, so the plain reconcile never cancels them. */
+export const SNOOZE_ID_PREFIX = "dayform:snooze:";
 /** iOS keeps at most 64 pending local notifications; stay below it. */
 export const DEFAULT_REMINDER_LIMIT = 50;
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const MS_PER_MINUTE = 60_000;
 
 function errorMessage(error: unknown): string {
@@ -111,9 +113,29 @@ async function cancelStale(scheduler: ReminderScheduler, ids: string[], errors: 
   return cancelled;
 }
 
+/** The task id inside `dayform:snooze:<taskId>:<ms>` (task ids may contain ":"), or null when malformed. */
+function snoozeTaskId(id: string): string | null {
+  const rest = id.slice(SNOOZE_ID_PREFIX.length);
+  const split = rest.lastIndexOf(":");
+  return split > 0 ? rest.slice(0, split) : null;
+}
+
+function staleSnoozes(existing: readonly string[], liveTaskIds: ReadonlySet<string>): string[] {
+  return existing.filter((id) => {
+    if (!id.startsWith(SNOOZE_ID_PREFIX)) return false;
+    const taskId = snoozeTaskId(id);
+    return taskId === null || !liveTaskIds.has(taskId);
+  });
+}
+
+/**
+ * Makes the scheduled notifications match `planned`. When `liveTaskIds` (tasks that exist and are not
+ * done) is given, snoozed notifications of any other task are cancelled too.
+ */
 export async function reconcileReminders(
   scheduler: ReminderScheduler,
   planned: readonly PlannedReminder[],
+  liveTaskIds?: ReadonlySet<string>,
 ): Promise<ReconcileResult> {
   const errors: string[] = [];
   let existing: string[];
@@ -125,7 +147,9 @@ export async function reconcileReminders(
   const ours = existing.filter((id) => id.startsWith(REMINDER_ID_PREFIX));
   const wanted = new Set(planned.map((r) => r.id));
   const present = new Set(ours);
-  const cancelled = await cancelStale(scheduler, ours.filter((id) => !wanted.has(id)), errors);
+  const stale = ours.filter((id) => !wanted.has(id));
+  if (liveTaskIds) stale.push(...staleSnoozes(existing, liveTaskIds));
+  const cancelled = await cancelStale(scheduler, stale, errors);
   let scheduled = 0;
   for (const reminder of planned) {
     if (present.has(reminder.id)) continue;

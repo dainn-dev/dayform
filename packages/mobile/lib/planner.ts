@@ -1,7 +1,7 @@
 export type Status = "todo" | "in_progress" | "done";
 export type Category = "Focus" | "Work" | "Personal" | "Wellness";
-export type Repeat = "daily" | "weekdays" | "weekly";
-export const repeats: Repeat[] = ["daily", "weekdays", "weekly"];
+export type Repeat = "daily" | "weekdays" | "weekly" | "monthly";
+export const repeats: Repeat[] = ["daily", "weekdays", "weekly", "monthly"];
 /** Minutes before `start` that a reminder can fire. */
 export const reminderOptions = [0, 5, 15, 30, 60] as const;
 export type Task = {
@@ -19,6 +19,8 @@ export type Task = {
   /** Links the generated occurrences of one recurring task. Scheduled tasks only. */
   seriesId?: string | null;
   repeat?: Repeat | null;
+  /** Last day (local YYYY-MM-DD, inclusive) a repeating task may occur; null/undefined = never ends. Needs `repeat`. */
+  repeatUntil?: string | null;
 };
 
 export const categories: Category[] = ["Focus", "Work", "Personal", "Wellness"];

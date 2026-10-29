@@ -215,7 +215,7 @@ describe("mergeBackup field comparison", () => {
   const variants: Record<string, unknown> = {
     id: "other", title: "Other", date: "2026-03-03", start: "10:00", duration: 45, status: "done",
     category: "Personal", notes: "changed", createdAt: "2026-03-02T08:00:00.000Z",
-    remind: 5, seriesId: "series", repeat: "daily",
+    remind: 5, seriesId: "series", repeat: "daily", repeatUntil: "2026-12-31",
   };
   const full = task("a", { remind: 15, seriesId: "s", repeat: "weekly" });
 
@@ -234,5 +234,21 @@ describe("mergeBackup field comparison", () => {
 
   test("identical tasks count as unchanged", () => {
     expect(mergeBackup([full], [{ ...full }], "merge").unchanged).toBe(1);
+  });
+});
+
+describe("serializeBackup compact", () => {
+  test("has no indentation, is smaller, and parses to the same tasks", () => {
+    const tasks = Array.from({ length: 20 }, (_, i) => task(`t${i}`));
+    const pretty = serializeBackup(tasks, NOW);
+    const compact = serializeBackup(tasks, NOW, { compact: true });
+    expect(compact).not.toContain("\n");
+    expect(compact.length).toBeLessThan(pretty.length * 0.8);
+    expect(parseBackup(compact)).toEqual({ ok: true, tasks, rejected: 0 });
+    expect(JSON.parse(compact).exportedAt).toBe(NOW.toISOString());
+  });
+
+  test("pretty stays the default when the option is omitted or false", () => {
+    expect(serializeBackup([task("a")], NOW, { compact: false })).toBe(serializeBackup([task("a")], NOW));
   });
 });

@@ -25,6 +25,8 @@ export const vi: Record<string, string> = {
   "Removed": "Đã xóa",
   "Importing these tasks would go over the task limit.": "Nhập các công việc này sẽ vượt quá giới hạn số công việc.",
   "Could not save the imported tasks. Please try again.": "Không thể lưu các công việc đã nhập. Vui lòng thử lại.",
+  "Could not save a safety copy of your current tasks, so nothing was replaced.": "Không thể lưu bản sao an toàn của các công việc hiện tại nên chưa thay thế gì cả.",
+  "Your tasks changed while restoring, so nothing was replaced. Please try again.": "Công việc của bạn đã thay đổi trong lúc khôi phục nên chưa thay thế gì cả. Vui lòng thử lại.",
   "How do you want to import them?": "Bạn muốn nhập chúng như thế nào?",
   "Replace all your current tasks?": "Thay thế toàn bộ công việc hiện tại?",
   "Yes, replace": "Đúng, thay thế",

@@ -1,3 +1,4 @@
+import { parseJson } from "./json";
 import { Task, dateKey } from "./planner";
 import { MAX_RECORDS, taskSchema } from "./task-storage";
 
@@ -17,25 +18,19 @@ export const MAX_BACKUP_BYTES = 2_000_000;
 /** Every stored field is compared, so a field added to the schema can never be silently ignored. */
 const COMPARED_KEYS = Object.keys(taskSchema.shape) as (keyof Task)[];
 
-/** Pretty JSON envelope. `exportedAt` is an ISO instant (informational only, never a task date). */
-export function serializeBackup(tasks: readonly Task[], now: Date): string {
-  return JSON.stringify(
-    { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), tasks },
-    null,
-    2,
-  );
+export type SerializeOptions = {
+  /** No indentation: about a third smaller, for copies that only the app itself reads back. */
+  compact?: boolean;
+};
+
+/** JSON envelope (pretty by default). `exportedAt` is an ISO instant (informational only, never a task date). */
+export function serializeBackup(tasks: readonly Task[], now: Date, options: SerializeOptions = {}): string {
+  const envelope = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), tasks };
+  return options.compact === true ? JSON.stringify(envelope) : JSON.stringify(envelope, null, 2);
 }
 
 export function backupFileName(now: Date): string {
   return `dayform-backup-${dateKey(now)}.json`;
-}
-
-function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: JSON.parse(text) };
-  } catch {
-    return { ok: false };
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

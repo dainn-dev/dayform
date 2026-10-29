@@ -1,6 +1,7 @@
-import { mergeBackup, type BackupFailure, type MergeMode } from "./backup";
+import { mergeBackup, serializeBackup, type BackupFailure, type MergeMode } from "./backup";
 import type { Task } from "./planner";
-import { MAX_RECORDS } from "./task-storage";
+import { utf8Length } from "./text-size";
+import { BACKUP_KEY_PREFIX, MAX_RECORDS, contentKey } from "./task-storage";
 
 /**
  * Largest serialized task list (UTF-8 bytes) an import may produce. AsyncStorage can write a single value
@@ -26,31 +27,17 @@ export type ImportPlan =
   | { ok: true; update: (tasks: Task[]) => Task[]; summary: ImportSummary }
   | { ok: false; reason: PlanFailure };
 export type ParsedTasks = { tasks: readonly Task[]; rejected: number };
-export type ImportOutcome =
-  | { ok: true; summary: ImportSummary }
-  | { ok: false; reason: PlanFailure | "save-failed" };
+export type ImportFailure = PlanFailure | "save-failed" | "safety-copy-failed" | "list-changed";
+export type ImportOutcome = { ok: true; summary: ImportSummary } | { ok: false; reason: ImportFailure };
+/** Where (and when) the safety copy taken before a replace is written. */
+export type SafetyCopyTarget = { storage: { setItem(key: string, value: string): Promise<void> }; now: Date };
+export type ImportMutate = (
+  update: (tasks: Task[]) => Task[],
+  options?: { undo?: "bulk"; silent?: boolean },
+) => Promise<boolean>;
 
 type ExportFailure = "sharing-unavailable" | "share-failed" | "write-failed" | "unsupported-platform";
 type PickFailure = "cancelled" | "read-failed" | "too-large" | "unsupported-platform";
-
-/** UTF-8 length of the string, as AsyncStorage will store it. A lone surrogate counts as 3 (U+FFFD). */
-function utf8Length(text: string): number {
-  let bytes = 0;
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (code < 0x80) bytes += 1;
-    else if (code < 0x800) bytes += 2;
-    else if (code >= 0xd800 && code <= 0xdbff && isLowSurrogate(text.charCodeAt(i + 1))) {
-      bytes += 4;
-      i++;
-    } else bytes += 3;
-  }
-  return bytes;
-}
-
-function isLowSurrogate(code: number): boolean {
-  return code >= 0xdc00 && code <= 0xdfff;
-}
 
 function summarize(current: readonly Task[], parsed: ParsedTasks, mode: MergeMode): ImportSummary & { list: Task[] } {
   const merged = mergeBackup(current, parsed.tasks, mode);
@@ -93,31 +80,80 @@ function applyPlan(committed: Task[], parsed: ParsedTasks, mode: MergeMode): Tas
   return added + updated + removed === 0 ? committed : list;
 }
 
-/** Commits an import through `mutate`, reporting why nothing was written when it could not be. */
-export async function runImport(
-  mutate: (update: (tasks: Task[]) => Task[]) => Promise<boolean>,
+/**
+ * Commits one import turn through `mutate`. The store may call `update` more than once or not at all, so
+ * only the last call counts and "never called" is a failed save. With `expected`, the update refuses to
+ * touch any list other than the one the safety copy was made from.
+ */
+async function commitImport(
+  mutate: ImportMutate,
   parsed: ParsedTasks,
   mode: MergeMode,
+  expected: readonly Task[] | null,
 ): Promise<ImportOutcome> {
-  let plan: ImportPlan | null = null;
+  const seen: { plan: ImportPlan | null; changed: boolean } = { plan: null, changed: false };
+  // An import (especially "replace") can change many tasks at once, so offer to undo it.
   const saved = await mutate(committed => {
-    plan = planImport(committed, parsed, mode);
-    return plan.ok ? plan.update(committed) : committed;
-  });
-  const result = plan as ImportPlan | null;
-  if (result !== null && !result.ok) return { ok: false, reason: result.reason };
-  if (!saved || result === null) return { ok: false, reason: "save-failed" };
-  return { ok: true, summary: result.summary };
+    seen.changed = expected !== null && committed !== expected;
+    seen.plan = seen.changed ? null : planImport(committed, parsed, mode);
+    return seen.plan !== null && seen.plan.ok ? seen.plan.update(committed) : committed;
+  }, { undo: "bulk" });
+  if (seen.changed) return { ok: false, reason: "list-changed" };
+  if (seen.plan !== null && !seen.plan.ok) return { ok: false, reason: seen.plan.reason };
+  if (!saved || seen.plan === null) return { ok: false, reason: "save-failed" };
+  return { ok: true, summary: seen.plan.summary };
+}
+
+/** Writes the list as a compact backup under a content-addressed recovery key (same scheme as loadTasks). */
+async function writeSafetyCopy(target: SafetyCopyTarget, tasks: readonly Task[]): Promise<boolean> {
+  const text = serializeBackup(tasks, target.now, { compact: true });
+  try {
+    await target.storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A replace discards every current task that is not in the file, so the committed list is first read (a
+ * silent no-op turn), saved as a recovery copy, and only then replaced, and only if the list is still the
+ * one that was copied. A refused plan writes no copy; a failed copy refuses the replace.
+ */
+async function runReplace(mutate: ImportMutate, parsed: ParsedTasks, safety: SafetyCopyTarget): Promise<ImportOutcome> {
+  const seen: { list: Task[] | null } = { list: null };
+  const read = await mutate(committed => {
+    seen.list = committed;
+    return committed;
+  }, { silent: true });
+  const current = seen.list;
+  if (!read || current === null) return { ok: false, reason: "save-failed" };
+  const plan = planImport(current, parsed, "replace");
+  if (!plan.ok) return { ok: false, reason: plan.reason };
+  if (current.length > 0 && !(await writeSafetyCopy(safety, current))) return { ok: false, reason: "safety-copy-failed" };
+  return commitImport(mutate, parsed, "replace", current);
+}
+
+/** Commits an import through `mutate`, reporting why nothing was written when it could not be. */
+export function runImport(
+  mutate: ImportMutate,
+  parsed: ParsedTasks,
+  mode: MergeMode,
+  safety: SafetyCopyTarget,
+): Promise<ImportOutcome> {
+  return mode === "replace" ? runReplace(mutate, parsed, safety) : commitImport(mutate, parsed, mode, null);
 }
 
 // The strings below are translation keys (lib/i18n/backup.ts); keep them in sync.
 
-export function importErrorMessage(reason: PlanFailure | "save-failed"): string {
+export function importErrorMessage(reason: ImportFailure): string {
   switch (reason) {
     case "too-many-tasks": return "Importing these tasks would go over the task limit.";
     case "too-large": return "This backup is too big to store on this device.";
     case "no-valid-tasks": return "No valid tasks were found in this file.";
     case "save-failed": return "Could not save the imported tasks. Please try again.";
+    case "safety-copy-failed": return "Could not save a safety copy of your current tasks, so nothing was replaced.";
+    case "list-changed": return "Your tasks changed while restoring, so nothing was replaced. Please try again.";
   }
 }
 
