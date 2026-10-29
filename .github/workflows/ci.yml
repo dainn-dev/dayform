@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Install dependencies
+        run: bun install --linker hoisted --filter "@template/mobile" --filter "@template/web"
+
+      - name: Unit tests
+        working-directory: packages/mobile
+        run: bun test
+
+      - name: Typecheck app
+        working-directory: packages/mobile
+        run: bunx tsc --noEmit
+
+      - name: Typecheck tests
+        working-directory: packages/mobile
+        run: bunx tsc --noEmit -p tsconfig.test.json

@@ -72,3 +72,8 @@ scripts/
 !packages/mobile/scripts/
 packages/mobile/scripts/*
 !packages/mobile/scripts/generate-ios-certs.py
+
+# Signing material must never be committed
+*.keystore
+*.jks.base64
+signing-info*
