@@ -5,7 +5,11 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
+import { currentUpdateLabel, describeCurrent, otaStatusLine } from "../../lib/ota";
+import { useOta } from "../../lib/ota-context";
+import { useSettings } from "../../lib/settings-context";
 import { useUpdates, type UpdatesValue } from "../../lib/update-context";
+import { SwitchRow } from "../personal/SwitchRow";
 
 /** Text of the status line for the current state (already translated), or null when there is nothing to say. */
 function statusLine(
@@ -31,6 +35,38 @@ function useAnnounceChanges(text: string | null): void {
     previous.current = text;
     if (text) AccessibilityInfo.announceForAccessibility(text);
   }, [text]);
+}
+
+/**
+ * "App content" block: over-the-air updates of the app's JavaScript. Quiet by design: no dialog, no reload. New content
+ * downloads in the background and applies the next time the app starts.
+ */
+function OtaBlock() {
+  const { status, errorKind, current, checkNow } = useOta();
+  const { settings, update } = useSettings();
+  const { t } = useLanguage();
+  const colors = useColors();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const line = otaStatusLine({ status, errorKind }, t);
+  useAnnounceChanges(line);
+  const unsupported = status === "unsupported";
+  const busy = status === "checking" || status === "downloading";
+  const blocked = busy || status === "ready" || unsupported;
+  const lineStyle = status === "error" ? s.error : status === "upToDate" || status === "ready" ? s.success : s.muted;
+
+  return <View style={s.otaBlock}>
+    <Text style={s.otaTitle} accessibilityRole="header">{t("App content")}</Text>
+    <Text style={s.version}>{currentUpdateLabel(describeCurrent(current), t)}</Text>
+    <SwitchRow label={t("Update app content automatically")}
+      hint={t("Checks the Dayform update server for new content. No task data is sent.")}
+      value={settings.updates.autoOta} onChange={next => { void update({ updates: { autoOta: next } }); }} />
+    <Pressable disabled={blocked} onPress={() => { void checkNow(); }} accessibilityRole="button"
+      accessibilityLabel={t("Check now")} accessibilityState={{ disabled: blocked, busy }} style={[s.button, blocked && s.disabled]}>
+      {busy ? <ActivityIndicator color={colors.primary} size="small" /> : <Ionicons name="cloud-download-outline" size={18} color={colors.primary} />}
+      <Text style={s.buttonText}>{t("Check now")}</Text>
+    </Pressable>
+    {line ? <Text style={lineStyle}>{line}</Text> : null}
+  </View>;
 }
 
 /** Settings block "Updates": installed version, automatic-check switch and a manual check with live status. */
@@ -61,6 +97,7 @@ export function UpdateSection() {
     {status === "available" && release && <Pressable onPress={openPrompt} accessibilityRole="button" style={s.availableRow}>
       <Text style={s.available}>{line}</Text>
     </Pressable>}
+    <OtaBlock />
   </View>;
 }
 
@@ -74,6 +111,8 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   muted: { color: c.mutedForeground, fontSize: 12, marginTop: 10 },
   success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 10 },
   error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 10 },
+  otaBlock: { marginTop: 18, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
+  otaTitle: { color: c.foreground, fontSize: 13, fontWeight: "800", marginBottom: 2 },
   availableRow: { minHeight: 44, justifyContent: "center", marginTop: 2 },
   available: { color: c.primary, fontSize: 12, fontWeight: "800" },
 });

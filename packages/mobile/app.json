@@ -3,7 +3,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 10,
+      "versionCode": 11,
       "allowBackup": false,
       "permissions": [
         "android.permission.USE_EXACT_ALARM"
@@ -42,7 +42,21 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.0.9",
+    "version": "1.1.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://dayform-updates.pages.dev/android/manifest.json",
+      "enabled": true,
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0,
+      "codeSigningCertificate": "./ota/certs/certificate.pem",
+      "codeSigningMetadata": {
+        "keyid": "main",
+        "alg": "rsa-v1_5-sha256"
+      }
+    },
     "scheme": "dayform",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",

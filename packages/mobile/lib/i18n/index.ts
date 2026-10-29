@@ -13,6 +13,7 @@ import { vi as habitsUi } from "./habits-ui";
 import { vi as newTask } from "./new-task";
 import { vi as notificationActions } from "./notification-actions";
 import { vi as notifications } from "./notifications";
+import { vi as ota } from "./ota";
 import { vi as personal } from "./personal";
 import { vi as pickers } from "./pickers";
 import { vi as recovery } from "./recovery";
@@ -47,6 +48,7 @@ export const extraTranslations: Record<string, string> = {
   ...newTask,
   ...notificationActions,
   ...notifications,
+  ...ota,
   ...personal,
   ...pickers,
   ...recovery,

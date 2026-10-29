@@ -54,6 +54,8 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 *.pem
+# The OTA code-signing CERTIFICATE is public and is embedded in the app; its private key is never in the repo
+!packages/mobile/ota/certs/certificate.pem
 
 # Metro
 .metro-health-check*
@@ -79,3 +81,6 @@ packages/mobile/scripts/*
 *.keystore
 *.jks.base64
 signing-info*
+
+# OTA publisher output (generated static Expo Updates site)
+ota-site

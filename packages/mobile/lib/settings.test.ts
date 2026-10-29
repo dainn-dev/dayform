@@ -44,6 +44,7 @@ describe("defaults", () => {
       calendar: { dayStart: 360, dayEnd: 1320, hourHeight: "normal", weekStart: "mon", timeFormat: "auto" },
       habits: { hints: true },
       widget: { showTitles: true },
+      updates: { autoOta: true },
     });
     expect(ACCENT_IDS).toEqual(["violet", "ocean", "lagoon", "forest", "sunset", "blossom"]);
   });
@@ -73,6 +74,7 @@ describe("resolveSettings", () => {
       calendar: { dayStart: 420, dayEnd: 1260, hourHeight: "roomy", weekStart: "sun", timeFormat: "24h" },
       habits: { hints: false },
       widget: { showTitles: false },
+      updates: { autoOta: false },
     };
     expect(resolveSettings(raw)).toEqual(raw as never);
   });
@@ -87,6 +89,7 @@ describe("resolveSettings", () => {
       calendar: { hourHeight: "tiny", weekStart: "fri", timeFormat: "36h" },
       habits: { hints: "no" },
       widget: { showTitles: 0 },
+      updates: { autoOta: "off" },
     });
     expect(result.accent).toBe("violet");
     expect(result.profile.name).toBe("");
@@ -96,6 +99,7 @@ describe("resolveSettings", () => {
     expect(result.calendar).toEqual(DEFAULT_SETTINGS.calendar);
     expect(result.habits.hints).toBe(true);
     expect(result.widget.showTitles).toBe(true);
+    expect(result.updates.autoOta).toBe(true);
   });
 
   test("a group that is not an object falls back as a whole", () => {
@@ -368,5 +372,21 @@ describe("saveSettings", () => {
 
   test("the key is versioned", () => {
     expect(SETTINGS_KEY).toBe("dayform.settings.v1");
+  });
+});
+
+describe("updates.autoOta", () => {
+  test("defaults to on and an older stored value without the group resolves to on", () => {
+    expect(DEFAULT_SETTINGS.updates.autoOta).toBe(true);
+    expect(resolveSettings({ accent: "forest" }).updates).toEqual({ autoOta: true });
+  });
+
+  test("can be switched off and the choice survives a save and load", async () => {
+    const next = mergeSettings(DEFAULT_SETTINGS, { updates: { autoOta: false } });
+    expect(next.updates.autoOta).toBe(false);
+    expect(DEFAULT_SETTINGS.updates.autoOta).toBe(true);
+    const { storage } = memoryStorage();
+    expect(await saveSettings(storage, next)).toEqual({ ok: true });
+    expect((await loadSettings(storage)).settings.updates.autoOta).toBe(false);
   });
 });

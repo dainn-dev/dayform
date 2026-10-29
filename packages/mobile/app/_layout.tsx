@@ -9,7 +9,9 @@ import { RemindersBridge } from "../components/RemindersBridge";
 import { SeriesExtender } from "../components/SeriesExtender";
 import { SnapshotScheduler } from "../components/SnapshotScheduler";
 import { UndoBar } from "../components/UndoBar";
+import { OtaAutoCheck } from "../components/OtaAutoCheck";
 import { UpdatePrompt } from "../components/update/UpdatePrompt";
+import { OtaProvider } from "../lib/ota-context";
 import { WidgetSync } from "../components/WidgetSync";
 import { CategoriesProvider, useCategories } from "../lib/categories-context";
 import { SettingsProvider, useSettings } from "../lib/settings-context";
@@ -53,7 +55,7 @@ function WidgetBridge() {
   return ready ? <WidgetSync showTitles={settings.widget.showTitles} /> : null;
 }
 
-// Provider chain: ErrorBoundary → SafeArea → Settings → Theme → Language → Tasks → Updates → Slot (+ UndoBar, helpers and the UpdatePrompt dialog).
+// Provider chain: ErrorBoundary → SafeArea → Settings → Theme → Language → Tasks → Updates → Ota → Slot (+ UndoBar, helpers, the UpdatePrompt dialog and the OTA auto-check).
 export default function RootLayout() {
   // Lives outside the providers so a provider that fails to mount can never leave the splash stuck.
   useEffect(() => {
@@ -70,16 +72,19 @@ export default function RootLayout() {
               <CategoriesProvider>
               <TasksProvider>
                 <UpdateProvider>
-                  <AppReadyGate />
-                  <NamePrompt />
-                  <Slot />
-                  <UndoBar />
-                  <RemindersBridge />
-                  <NotificationActions />
-                  <SeriesExtender />
-                  <SnapshotScheduler />
-                  <WidgetBridge />
-                  <UpdatePrompt />
+                  <OtaProvider>
+                    <AppReadyGate />
+                    <NamePrompt />
+                    <Slot />
+                    <UndoBar />
+                    <RemindersBridge />
+                    <NotificationActions />
+                    <SeriesExtender />
+                    <SnapshotScheduler />
+                    <WidgetBridge />
+                    <UpdatePrompt />
+                    <OtaAutoCheck />
+                  </OtaProvider>
                 </UpdateProvider>
               </TasksProvider>
               </CategoriesProvider>

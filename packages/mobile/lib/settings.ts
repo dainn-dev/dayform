@@ -130,6 +130,8 @@ const settingsSchema = z.object({
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
   widget: group(z.object({ showTitles: flag(true) })),
+  /** App content (over-the-air) updates; the APK update check keeps its own preference in update-state. */
+  updates: group(z.object({ autoOta: flag(true) })),
 });
 
 /** All fields required: what the app reads after resolution. */
