@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dayform_widget_label">Dayform — Hôm nay</string>
+    <string name="dayform_widget_description">Kế hoạch hôm nay của bạn trong một cái nhìn.</string>
+    <string name="dayform_widget_today">Hôm nay</string>
+    <string name="dayform_widget_empty">Hôm nay chưa có việc nào</string>
+    <string name="dayform_widget_preview_title">Hôm nay · Th 5, 29 thg 10</string>
+    <string name="dayform_widget_preview_count">3 công việc</string>
+    <string name="dayform_widget_preview_row_1">08:00  Lên kế hoạch tuần  · 45m</string>
+    <string name="dayform_widget_preview_row_2">09:30  Làm việc tập trung  · 1h30m</string>
+    <string name="dayform_widget_preview_row_3">13:00  Ăn trưa &amp; nghỉ ngơi  · 1h</string>
+</resources>

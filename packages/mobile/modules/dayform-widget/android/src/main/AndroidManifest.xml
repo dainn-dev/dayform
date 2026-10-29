@@ -1,0 +1,29 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+  <application>
+    <receiver
+      android:name="dev.dayform.widget.TodayWidgetProvider"
+      android:exported="true"
+      android:label="@string/dayform_widget_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/dayform_widget_info" />
+    </receiver>
+
+    <!-- Midnight alarm (explicit PendingIntent) and system time/boot broadcasts. Not reachable by other apps. -->
+    <receiver
+      android:name="dev.dayform.widget.WidgetRefreshReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.DATE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

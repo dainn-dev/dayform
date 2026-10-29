@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dayform_widget_bg">#FFFFFFFF</color>
+    <color name="dayform_widget_text_primary">#FF1F2230</color>
+    <color name="dayform_widget_text_secondary">#FF6B7080</color>
+    <color name="dayform_widget_accent">#FF6565E8</color>
+</resources>

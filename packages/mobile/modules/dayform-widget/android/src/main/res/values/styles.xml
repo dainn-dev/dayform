@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- One timeline row of the widget: "09:30  Title  · 45m". -->
+    <style name="DayformWidgetRow">
+        <item name="android:ellipsize">end</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/dayform_widget_text_primary</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+</resources>

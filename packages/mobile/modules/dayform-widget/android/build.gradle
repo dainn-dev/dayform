@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.dayform.widget'
+version = '1.0.0'
+
+expoModule {
+  // Local module: it is built from source with the app and never published to a Maven repository.
+  canBePublished false
+}
+
+android {
+  namespace "dev.dayform.widget"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}

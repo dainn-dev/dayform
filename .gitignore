@@ -68,6 +68,11 @@ yarn-error.*
 # generated native folders
 ios
 android
+# ...but the widget module's android/ folder is hand-written source (Kotlin, manifest, resources), not generated
+!/packages/mobile/modules/dayform-widget/android/
+/packages/mobile/modules/dayform-widget/android/build/
+/packages/mobile/modules/dayform-widget/android/.gradle/
+/packages/mobile/modules/dayform-widget/android/.cxx/
 
 # scripts (local-only provisioning); only the root release scripts are tracked
 /scripts/*
