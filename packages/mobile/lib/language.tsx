@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { durationLabel, timeLabel } from "./planner";
 import { extraTranslations } from "./i18n";
@@ -49,38 +49,58 @@ type LanguageContextValue = {
   time: (value: string) => string;
   summary: (completed: number, count: number, planned: number) => string;
   languageError: string | null;
+  /** True once the stored language has been read (or failed to), so the first paint uses the right language. */
+  ready: boolean;
 };
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const KEY = "dayform.language.v1";
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, updateLanguage] = useState<Language>("en");
-  const [languageError, setError] = useState<string | null>(null);
-  const touched = useRef(false);
-  const queue = useRef(Promise.resolve());
-  useEffect(() => {
-    AsyncStorage.getItem(KEY).then(value => {
-      if (!touched.current && (value === "en" || value === "vi")) updateLanguage(value);
-    }).catch(() => setError("load"));
-  }, []);
-  const setLanguage = (value: Language) => {
-    touched.current = true;
-    updateLanguage(value);
-    setError(null);
-    queue.current = queue.current.then(() => AsyncStorage.setItem(KEY, value)).catch(() => setError("save"));
-  };
-  const t = (text: string) => language === "vi" ? translations[text] ?? text : text;
+
+function makeFormatters(language: Language) {
   const duration = (value: number) => {
     if (language === "en") return durationLabel(value);
     const h = Math.floor(value / 60), m = value % 60;
     return h ? `${h} giờ${m ? ` ${m} phút` : ""}` : `${m} phút`;
   };
-  const time = (value: string) => language === "vi" ? value : timeLabel(value);
-  const summary = (completed: number, count: number, planned: number) => language === "vi"
-    ? `${completed}/${count} việc đã xong · ${duration(planned)} đã lên lịch`
-    : `${completed} of ${count} tasks complete · ${duration(planned)} planned`;
-  return <LanguageContext.Provider value={{ language, setLanguage, locale: language === "vi" ? "vi-VN" : "en-US", t, duration, time, summary,
-    languageError: languageError ? (language === "vi" ? "Không thể lưu hoặc tải ngôn ngữ trên thiết bị." : "Could not save or load your device language preference.") : null,
-  }}>{children}</LanguageContext.Provider>;
+  return {
+    duration,
+    t: (text: string) => language === "vi" ? translations[text] ?? text : text,
+    time: (value: string) => language === "vi" ? value : timeLabel(value),
+    summary: (completed: number, count: number, planned: number) => language === "vi"
+      ? `${completed}/${count} việc đã xong · ${duration(planned)} đã lên lịch`
+      : `${completed} of ${count} tasks complete · ${duration(planned)} planned`,
+  };
+}
+
+function errorMessage(language: Language): string {
+  return language === "vi" ? "Không thể lưu hoặc tải ngôn ngữ trên thiết bị." : "Could not save or load your device language preference.";
+}
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, updateLanguage] = useState<Language>("en");
+  const [languageError, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const touched = useRef(false);
+  const queue = useRef(Promise.resolve());
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(KEY).then(value => {
+      if (active && !touched.current && (value === "en" || value === "vi")) updateLanguage(value);
+    }).catch(() => { if (active) setError("load"); }).finally(() => { if (active) setReady(true); });
+    return () => { active = false; };
+  }, []);
+  const setLanguage = useCallback((value: Language) => {
+    touched.current = true;
+    updateLanguage(value);
+    setError(null);
+    queue.current = queue.current.then(() => AsyncStorage.setItem(KEY, value)).catch(() => setError("save"));
+  }, []);
+  const value = useMemo<LanguageContextValue>(() => ({
+    language, setLanguage, ready,
+    locale: language === "vi" ? "vi-VN" : "en-US",
+    ...makeFormatters(language),
+    languageError: languageError ? errorMessage(language) : null,
+  }), [language, setLanguage, ready, languageError]);
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 export function useLanguage() {
   const context = useContext(LanguageContext);

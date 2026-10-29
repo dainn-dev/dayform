@@ -31,7 +31,18 @@ export type SaveContext = {
   nowIso: string;
 };
 
-export type SavePlan = { candidate: Task; update: (tasks: Task[]) => Task[] };
+export type SavePlan = { ok: true; candidate: Task; update: (tasks: Task[]) => Task[] };
+
+/**
+ * A save the editor must not perform. "rule-change-needs-scope": changing the repeat rule of a
+ * series occurrence only for itself would start a second series while the old one keeps extending.
+ */
+export type SaveRefusal = { ok: false; reason: "rule-change-needs-scope" };
+
+export type SaveResult = SavePlan | SaveRefusal;
+
+/** Shown (translated) when a save is refused for `rule-change-needs-scope`. */
+export const RULE_CHANGE_MESSAGE = "To change the repeat rule, keep the task on its original date.";
 
 export type DeletePlan = { kind: "remove"; id: string } | { kind: "mutate"; update: (tasks: Task[]) => Task[] };
 
@@ -61,6 +72,21 @@ export function hasConflict(candidate: Task, tasks: readonly Task[]): boolean {
 /** True when the user must choose a scope: a series occurrence whose date is unchanged and stays scheduled. */
 export function needsScopeChoice(existing: Task | null, form: SaveForm): boolean {
   return existing?.seriesId != null && form.scheduled && form.date === existing.date;
+}
+
+const ALL_SCOPES: readonly EditScope[] = ["this", "following", "all"];
+
+function ruleChanged(original: Task, repeat: Repeat | null): boolean {
+  return repeat !== (original.repeat ?? null);
+}
+
+/**
+ * Scopes an edit of `original` may use. A task outside a series only has "this"; when the repeat
+ * rule changed, "this task only" is not allowed (the rule applies from this occurrence onwards).
+ */
+export function allowedScopes(original: Task, form: { repeat: Repeat | null }): EditScope[] {
+  if (original.seriesId == null) return ["this"];
+  return ALL_SCOPES.filter(scope => scope !== "this" || !ruleChanged(original, form.repeat));
 }
 
 function buildCandidate(form: SaveForm, ctx: SaveContext): Task {
@@ -97,19 +123,13 @@ function scopedEdit(tasks: Task[], stored: Task, patch: Partial<Task>, scope: Ed
   return scope === "this" ? edited : applyEdit(edited, stored, { status: patch.status }, "this");
 }
 
-function editSeriesMember(candidate: Task, repeat: Repeat | null, ctx: SaveContext, existing: Task): Update {
+function editSeriesMember(candidate: Task, repeat: Repeat | null, scope: EditScope, ctx: SaveContext, existing: Task): Update {
   return tasks => {
     const stored = tasks.find(t => t.id === existing.id);
     if (!stored) return upsert(tasks, { ...candidate, seriesId: null, repeat: null });
-    const patch = patchOf(candidate);
-    const scope: EditScope = candidate.date === null || candidate.date !== stored.date ? "this" : ctx.scope;
-    const ruleChanged = candidate.date !== null && repeat !== (stored.repeat ?? null);
-    if (!ruleChanged) return scopedEdit(tasks, stored, patch, scope);
-    if (scope === "this") {
-      const detached = tasks.map(t => (t.id === stored.id ? { ...t, ...patch, id: t.id, seriesId: null, repeat: null } : t));
-      return repeat === null ? detached : changeRule(detached, stored, repeat, ctx.today, ctx.newSeriesId);
-    }
-    return changeRule(scopedEdit(tasks, stored, patch, scope), stored, repeat, ctx.today, ctx.newSeriesId);
+    const edited = scopedEdit(tasks, stored, patchOf(candidate), scope);
+    const changes = candidate.date !== null && ruleChanged(stored, repeat);
+    return changes ? changeRule(edited, stored, repeat, ctx.today, ctx.newSeriesId) : edited;
   };
 }
 
@@ -126,40 +146,36 @@ function addNew(candidate: Task, repeat: Repeat | null, ctx: SaveContext): Updat
     : [...tasks, ...createSeries(candidate, repeat, ctx.today, ctx.newSeriesId)];
 }
 
+/** The scope an edit really uses: moving the occurrence to another date (or off the calendar) is always "this". */
+function effectiveScope(candidate: Task, existing: Task, requested: EditScope): EditScope {
+  return candidate.date === null || candidate.date !== existing.date ? "this" : requested;
+}
+
 /**
- * Plans a save from the editor form. A backlog task can neither remind nor repeat, so those
- * form values are dropped when `scheduled` is false (schema invariants).
+ * Plans a save from the editor form, or refuses it (see `SaveRefusal`). A backlog task can
+ * neither remind nor repeat, so those form values are dropped when `scheduled` is false.
  */
-export function planSave(form: SaveForm, ctx: SaveContext): SavePlan {
+export function planSave(form: SaveForm, ctx: SaveContext): SaveResult {
   const candidate = buildCandidate(form, ctx);
   const repeat = form.scheduled ? form.repeat : null;
   const { existing } = ctx;
-  if (!existing) return { candidate, update: addNew(candidate, repeat, ctx) };
-  if (existing.seriesId != null) return { candidate, update: editSeriesMember(candidate, repeat, ctx, existing) };
-  return { candidate, update: editPlain(candidate, repeat, ctx) };
-}
-
-function isLastOccurrence(tasks: readonly Task[], stored: Task): boolean {
-  const { date } = stored;
-  if (date === null) return true;
-  return !tasks.some(t => t.seriesId === stored.seriesId && t.date !== null && t.date > date);
+  if (!existing) return { ok: true, candidate, update: addNew(candidate, repeat, ctx) };
+  if (existing.seriesId == null) return { ok: true, candidate, update: editPlain(candidate, repeat, ctx) };
+  const scope = effectiveScope(candidate, existing, ctx.scope);
+  if (scope === "this" && candidate.date !== null && ruleChanged(existing, repeat)) return { ok: false, reason: "rule-change-needs-scope" };
+  return { ok: true, candidate, update: editSeriesMember(candidate, repeat, scope, ctx, existing) };
 }
 
 /**
  * Plans a deletion. A plain task goes through `store.remove` (so the undo bar can restore it).
- * A series member goes through `mutate`; deleting the LAST occurrence of a series ends it
- * (everything left is detached), otherwise `extendSeries` would regenerate it.
+ * A series member goes through `mutate`. Deleting just "this" occurrence removes only it, even
+ * the last one (a known quirk: `extendSeries` may regenerate a deleted LAST occurrence);
+ * "following" ends the series (earlier occurrences are detached).
  */
-export function planDelete(existing: Task, scope: EditScope, today: string, newSeriesId: () => string): DeletePlan {
+export function planDelete(existing: Task, scope: EditScope): DeletePlan {
   if (existing.seriesId == null) return { kind: "remove", id: existing.id };
   return {
     kind: "mutate",
-    update: tasks => {
-      const stored = tasks.find(t => t.id === existing.id) ?? existing;
-      if (scope === "this" && isLastOccurrence(tasks, stored)) {
-        return changeRule(tasks, stored, null, today, newSeriesId).filter(t => t.id !== stored.id);
-      }
-      return removeScope(tasks, stored, scope);
-    },
+    update: tasks => removeScope(tasks, tasks.find(t => t.id === existing.id) ?? existing, scope),
   };
 }

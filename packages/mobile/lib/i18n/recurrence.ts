@@ -10,5 +10,6 @@ export const vi: Record<string, string> = {
   "All tasks in the series": "Tất cả công việc trong chuỗi",
   "Delete repeating task": "Xóa công việc lặp lại",
   "Edit repeating task": "Sửa công việc lặp lại",
+  "To change the repeat rule, keep the task on its original date.": "Để đổi quy tắc lặp lại, hãy giữ công việc ở ngày ban đầu.",
   "Which tasks should this change apply to?": "Thay đổi này áp dụng cho những công việc nào?",
 };

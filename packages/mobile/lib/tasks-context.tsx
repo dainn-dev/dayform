@@ -1,17 +1,19 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Task } from "./planner";
-import { createTasksStore } from "./tasks-store";
+import { createTasksStore, type MutateOptions } from "./tasks-store";
 
 type TasksContextValue = {
   tasks: Task[];
   loading: boolean;
   error: string | null;
+  /** True when writes are refused (locked or read-only); background jobs should then do nothing. */
+  writesBlocked: boolean;
   lastRemoved: Task | null;
   clearError: () => void;
   upsert: (task: Task) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
-  mutate: (update: (tasks: Task[]) => Task[]) => Promise<boolean>;
+  mutate: (update: (tasks: Task[]) => Task[], options?: MutateOptions) => Promise<boolean>;
   undoRemove: () => Promise<boolean>;
   clearUndo: () => void;
 };
@@ -25,7 +27,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     return () => store.dispose();
   }, [store]);
 
-  const state = useSyncExternalStore(store.subscribe, store.getState);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
   const value = useMemo<TasksContextValue>(
     () => ({
       ...state,

@@ -2,12 +2,13 @@ import { describe, test, expect } from "bun:test";
 import {
   BACKUP_FORMAT,
   BACKUP_VERSION,
+  MAX_BACKUP_BYTES,
   backupFileName,
   mergeBackup,
   parseBackup,
   serializeBackup,
 } from "./backup";
-import { MAX_RECORDS } from "./task-storage";
+import { MAX_RECORDS, taskSchema } from "./task-storage";
 import type { Task } from "./planner";
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
@@ -105,6 +106,13 @@ describe("parseBackup", () => {
     expect(atLimit).toEqual({ ok: true, tasks: [], rejected: MAX_RECORDS });
   });
 
+  test("refuses text over MAX_BACKUP_BYTES before parsing, accepts exactly the limit", () => {
+    const padded = (length: number) => "[]" + " ".repeat(length - 2);
+    expect(parseBackup(padded(MAX_BACKUP_BYTES + 1))).toEqual({ ok: false, reason: "too-large" });
+    expect(parseBackup("x".repeat(MAX_BACKUP_BYTES + 1))).toEqual({ ok: false, reason: "too-large" });
+    expect(parseBackup(padded(MAX_BACKUP_BYTES))).toEqual({ ok: true, tasks: [], rejected: 0 });
+  });
+
   test("counts invalid records as rejected and keeps valid ones", () => {
     const text = serializeBackup([task("a")], NOW).replace(
       '"tasks": [',
@@ -200,5 +208,31 @@ describe("backupFileName", () => {
   test("uses the local date parts, zero padded", () => {
     expect(backupFileName(new Date(2026, 0, 5, 0, 5))).toBe("dayform-backup-2026-01-05.json");
     expect(backupFileName(new Date(2026, 11, 31, 23, 59, 59))).toBe("dayform-backup-2026-12-31.json");
+  });
+});
+
+describe("mergeBackup field comparison", () => {
+  const variants: Record<string, unknown> = {
+    id: "other", title: "Other", date: "2026-03-03", start: "10:00", duration: 45, status: "done",
+    category: "Personal", notes: "changed", createdAt: "2026-03-02T08:00:00.000Z",
+    remind: 5, seriesId: "series", repeat: "daily",
+  };
+  const full = task("a", { remind: 15, seriesId: "s", repeat: "weekly" });
+
+  test("has a variant for every schema field, so none escapes the comparison", () => {
+    expect(Object.keys(variants).sort()).toEqual(Object.keys(taskSchema.shape).sort());
+  });
+
+  for (const key of Object.keys(taskSchema.shape)) {
+    if (key === "id") continue;
+    test(`a changed ${key} counts as an update`, () => {
+      const changed = { ...full, [key]: variants[key] } as Task;
+      const result = mergeBackup([full], [changed], "merge");
+      expect({ updated: result.updated, unchanged: result.unchanged }).toEqual({ updated: 1, unchanged: 0 });
+    });
+  }
+
+  test("identical tasks count as unchanged", () => {
+    expect(mergeBackup([full], [{ ...full }], "merge").unchanged).toBe(1);
   });
 });

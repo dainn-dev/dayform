@@ -5,7 +5,9 @@ import type { PlannedReminder, ReminderLanguage, ReminderScheduler } from "./rem
 export type ReminderPermission = "granted" | "denied" | "undetermined";
 
 /** Android notification channel id used by every reminder. */
-export const REMINDER_CHANNEL_ID = "reminders";
+export const REMINDER_CHANNEL_ID = "reminders-v2";
+/** Earlier channel id: its lock-screen visibility cannot be changed once created, so it is replaced. */
+export const LEGACY_REMINDER_CHANNEL_ID = "reminders";
 
 const CHANNEL_NAMES: Record<ReminderLanguage, string> = { en: "Reminders", vi: "Nhắc nhở" };
 
@@ -30,7 +32,8 @@ export function installReminderHandler(): void {
 }
 
 /**
- * Creates (or updates) the Android channel. Call it before requesting permission:
+ * Creates (or updates) the Android channel (lock-screen visibility PRIVATE, so task titles are hidden
+ * there) and deletes the legacy public one. Call it before requesting permission:
  * on Android 13+ the permission prompt only appears once a channel exists.
  * Rejects with the native error if the channel cannot be created.
  */
@@ -39,7 +42,9 @@ export async function ensureReminderChannel(language: ReminderLanguage): Promise
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: CHANNEL_NAMES[language],
     importance: Notifications.AndroidImportance.HIGH,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
   });
+  await Notifications.deleteNotificationChannelAsync(LEGACY_REMINDER_CHANNEL_ID);
 }
 
 export async function getReminderPermission(): Promise<ReminderPermission> {

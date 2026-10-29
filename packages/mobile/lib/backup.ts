@@ -11,10 +11,11 @@ export type ParseResult =
 export type MergeMode = "merge" | "replace";
 export type MergeResult = { tasks: Task[]; added: number; updated: number; unchanged: number };
 
-const COMPARED_KEYS = [
-  "id", "title", "date", "start", "duration", "status", "category", "notes", "createdAt",
-  "remind", "seriesId", "repeat",
-] as const;
+/** Largest backup file (bytes, and later characters) that is read and parsed at all. */
+export const MAX_BACKUP_BYTES = 2_000_000;
+
+/** Every stored field is compared, so a field added to the schema can never be silently ignored. */
+const COMPARED_KEYS = Object.keys(taskSchema.shape) as (keyof Task)[];
 
 /** Pretty JSON envelope. `exportedAt` is an ISO instant (informational only, never a task date). */
 export function serializeBackup(tasks: readonly Task[], now: Date): string {
@@ -69,6 +70,7 @@ function validateRecords(records: readonly unknown[]): { tasks: Task[]; rejected
 
 /** Accepts the backup envelope or a bare task array. Never throws. */
 export function parseBackup(text: string): ParseResult {
+  if (text.length > MAX_BACKUP_BYTES) return { ok: false, reason: "too-large" };
   const json = parseJson(text);
   if (!json.ok) return { ok: false, reason: "invalid-json" };
   const extracted = extractRecords(json.value);

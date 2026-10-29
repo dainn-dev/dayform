@@ -66,14 +66,35 @@ function bounds({ windowStart = DEFAULT_WINDOW_START, windowEnd = DEFAULT_WINDOW
   return { lo: windowStart, hi: Math.min(windowEnd, DAY_MINUTES) };
 }
 
+/**
+ * Move a block by the snapped drag distance. The distance is snapped, not the resulting
+ * time, so a zero-distance drag never changes an off-grid start. A block that overhangs the
+ * window end (it starts inside but ends after) is never pulled back just because of that:
+ * it can only move earlier.
+ */
 export function moveBlock(
   args: Block & WindowBounds & { readonly deltaPx: number; readonly scale: number },
 ): Block {
   const { lo, hi } = bounds(args);
-  const raw = snapMinutes(args.start + pxToMinutes(args.deltaPx, args.scale));
-  // A task longer than the window gets hi - duration < lo: pin to the window start.
-  const start = clamp(raw, lo, Math.max(lo, hi - args.duration));
+  const delta = snapMinutes(pxToMinutes(args.deltaPx, args.scale));
+  const upper = Math.max(hi - args.duration, args.start);
+  const start = clamp(args.start + delta, Math.min(lo, args.start), upper);
   return { start, duration: args.duration };
+}
+
+function resizeBottom(block: Block, delta: number, hi: number): Block {
+  const end = block.start + block.duration;
+  // The window end wins over the minimum duration, and a block that already ends past the
+  // window (or is already shorter than the minimum) keeps its current end as the limit.
+  const nextEnd = clamp(end + delta, Math.min(block.start + MIN_DURATION_MINUTES, end), Math.max(hi, end));
+  return { start: block.start, duration: nextEnd - block.start };
+}
+
+function resizeTop(block: Block, delta: number, lo: number): Block {
+  const end = block.start + block.duration;
+  const maxStart = Math.max(block.start, end - MIN_DURATION_MINUTES);
+  const start = clamp(block.start + delta, Math.min(lo, block.start), maxStart);
+  return { start, duration: end - start };
 }
 
 export function resizeBlock(
@@ -81,28 +102,21 @@ export function resizeBlock(
     WindowBounds & { readonly deltaPx: number; readonly scale: number; readonly edge: "top" | "bottom" },
 ): Block {
   const { lo, hi } = bounds(args);
-  const delta = pxToMinutes(args.deltaPx, args.scale);
-  const end = args.start + args.duration;
+  const block = { start: args.start, duration: args.duration };
   // A block entirely outside the window has nothing to resize against.
-  if (args.start >= hi || end <= lo) return { start: args.start, duration: args.duration };
-  if (args.edge === "bottom") {
-    // The window end wins over the minimum duration: a block that starts closer
-    // than MIN_DURATION_MINUTES to the end may stay shorter than the minimum.
-    const minEnd = Math.min(args.start + MIN_DURATION_MINUTES, hi);
-    const nextEnd = clamp(snapMinutes(end + delta), minEnd, hi);
-    return { start: args.start, duration: nextEnd - args.start };
-  }
-  // Same rule at the window start: the start never leaves the window.
-  const maxStart = Math.max(lo, end - MIN_DURATION_MINUTES);
-  const start = clamp(snapMinutes(args.start + delta), lo, maxStart);
-  return { start, duration: end - start };
+  if (args.start >= hi || args.start + args.duration <= lo) return block;
+  const delta = snapMinutes(pxToMinutes(args.deltaPx, args.scale));
+  return args.edge === "bottom" ? resizeBottom(block, delta, hi) : resizeTop(block, delta, lo);
 }
 
 export function toTaskPatch(block: Block): { start: string; duration: number } {
   return { start: formatMinutes(block.start), duration: block.duration };
 }
 
-/** Accessibility "move N minutes earlier/later": shifted and clamped, as HH:mm. */
+/**
+ * Accessibility "move N minutes earlier/later": shifted and clamped, as HH:mm. Like a drag,
+ * it never moves a block merely because it overhangs the window.
+ */
 export function shiftStart(
   startTime: string,
   duration: number,
@@ -110,9 +124,25 @@ export function shiftStart(
   windowStart: number = DEFAULT_WINDOW_START,
   windowEnd: number = DEFAULT_WINDOW_END,
 ): string {
-  const hi = Math.min(windowEnd, DAY_MINUTES) - duration;
-  const upper = Math.min(Math.max(windowStart, hi), DAY_MINUTES - 1);
-  return formatMinutes(clamp(minutes(startTime) + deltaMinutes, windowStart, upper));
+  const start = minutes(startTime);
+  const upper = Math.min(Math.max(Math.min(windowEnd, DAY_MINUTES) - duration, start), DAY_MINUTES - 1);
+  return formatMinutes(clamp(start + deltaMinutes, Math.min(windowStart, start), upper));
+}
+
+/**
+ * Top of an edge handle's touch area: the block edge sits `outsidePx` from the area's top
+ * (top handle) or `hitPx - outsidePx` (bottom handle), and the area never leaves the
+ * container, since Android does not deliver touches outside a parent's bounds.
+ */
+export function handleHitTop(
+  edge: "top" | "bottom",
+  edgeY: number,
+  hitPx: number,
+  outsidePx: number,
+  containerHeight: number,
+): number {
+  const edgeInHit = edge === "top" ? outsidePx : hitPx - outsidePx;
+  return clamp(edgeY - edgeInHit, 0, Math.max(0, containerHeight - hitPx));
 }
 
 /** Snapped block to render live for the current drag state. */

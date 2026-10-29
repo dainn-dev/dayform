@@ -3,6 +3,7 @@ import {
   BACKUP_KEY_PREFIX,
   CORRUPT_KEY_PREFIX,
   MAX_RECORDS,
+  MAX_REMIND_MINUTES,
   TASKS_STORAGE_KEY as KEY,
   contentKey,
   loadTasks,
@@ -328,5 +329,69 @@ describe("taskSchema recurrence and reminder fields", () => {
   test("rejects an unknown repeat value and an empty seriesId", () => {
     expect(accepts({ ...task(), repeat: "monthly" })).toBe(false);
     expect(accepts(task({ seriesId: "" }))).toBe(false);
+  });
+});
+
+describe("taskSchema length caps", () => {
+  const accepts = (value: unknown) => taskSchema.safeParse(value).success;
+  const text = (length: number) => "x".repeat(length);
+
+  test("id is capped at 100 characters", () => {
+    expect(accepts(task({ id: text(100) }))).toBe(true);
+    expect(accepts(task({ id: text(101) }))).toBe(false);
+  });
+
+  test("seriesId is capped at 100 characters", () => {
+    expect(accepts(task({ seriesId: text(100), repeat: "daily" }))).toBe(true);
+    expect(accepts(task({ seriesId: text(101), repeat: "daily" }))).toBe(false);
+  });
+
+  test("title is capped at 300 characters", () => {
+    expect(accepts(task({ title: text(300) }))).toBe(true);
+    expect(accepts(task({ title: text(301) }))).toBe(false);
+  });
+
+  test("notes are capped at 10000 characters", () => {
+    expect(accepts(task({ notes: text(10_000) }))).toBe(true);
+    expect(accepts(task({ notes: text(10_001) }))).toBe(false);
+  });
+
+  test("createdAt is capped at 40 characters", () => {
+    expect(accepts(task({ createdAt: text(40) }))).toBe(true);
+    expect(accepts(task({ createdAt: text(41) }))).toBe(false);
+  });
+
+  test("an over-long record is quarantined on load, not kept", async () => {
+    const fake = fakeStorage({ initial: stored([task({ id: "a" }), task({ id: "b", title: text(301) })]) });
+    const result = await load(fake);
+    expect(result).toEqual({ kind: "ok", tasks: [task({ id: "a" })], quarantined: 1 });
+  });
+});
+
+describe("taskSchema seriesId and repeat pairing", () => {
+  const accepts = (value: unknown) => taskSchema.safeParse(value).success;
+
+  test("accepts both set, both null and both absent", () => {
+    expect(accepts(task({ seriesId: "s", repeat: "weekly" }))).toBe(true);
+    expect(accepts(task({ seriesId: null, repeat: null }))).toBe(true);
+    expect(accepts(task())).toBe(true);
+  });
+
+  test("accepts a mix of null and absent for the unset pair", () => {
+    expect(accepts(task({ seriesId: null }))).toBe(true);
+    expect(accepts(task({ repeat: null }))).toBe(true);
+  });
+
+  test("rejects seriesId without repeat and repeat without seriesId", () => {
+    expect(accepts(task({ seriesId: "s" }))).toBe(false);
+    expect(accepts(task({ seriesId: "s", repeat: null }))).toBe(false);
+    expect(accepts(task({ repeat: "daily" }))).toBe(false);
+    expect(accepts(task({ seriesId: null, repeat: "daily" }))).toBe(false);
+  });
+});
+
+describe("MAX_REMIND_MINUTES", () => {
+  test("is 1440 and is its own constant", () => {
+    expect(MAX_REMIND_MINUTES).toBe(1440);
   });
 });

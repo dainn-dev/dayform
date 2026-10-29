@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Appearance, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -20,6 +20,8 @@ type ThemeContextValue = {
   preference: ThemePreference;
   setPreference: (preference: ThemePreference) => void;
   scheme: ResolvedScheme;
+  /** True once the stored preference has been read (or failed to), so the first paint uses the right scheme. */
+  ready: boolean;
   /** Set when the last attempt to persist the choice failed; the choice still applies this session. */
   saveError: string | null;
 };
@@ -30,29 +32,42 @@ function nativeSchemeFor(preference: ThemePreference): "light" | "dark" | "unspe
   return preference === "system" ? "unspecified" : preference;
 }
 
+/** Forces (or releases) the native appearance so dialogs, pickers and the system UI follow the choice. No-op on web. */
+function applyNativeScheme(preference: ThemePreference): void {
+  if (Platform.OS === "web") return;
+  Appearance.setColorScheme(nativeSchemeFor(preference));
+}
+
+/**
+ * The device scheme. Right after `setColorScheme("unspecified")` the `useColorScheme` value can still be the
+ * previously forced scheme for one render, whereas `Appearance.getColorScheme()` already reports the real one.
+ */
+function deviceScheme(hookValue: unknown): unknown {
+  if (Platform.OS === "web") return hookValue;
+  return Appearance.getColorScheme() ?? hookValue;
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>("system");
-  const [loaded, setLoaded] = useState(false);
+  const [ready, setReady] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const touched = useRef(false);
   const queue = useRef<Promise<void>>(Promise.resolve());
-  const systemScheme = useColorScheme();
-  const scheme = resolveScheme(preference, systemScheme);
+  const hookScheme = useColorScheme();
+  const scheme = resolveScheme(preference, preference === "system" ? deviceScheme(hookScheme) : hookScheme);
 
   useEffect(() => {
     let active = true;
     void loadThemePreference(AsyncStorage).then(stored => {
-      if (active && !touched.current) setPreferenceState(stored);
-      if (active) setLoaded(true);
+      if (!active) return;
+      if (!touched.current) {
+        applyNativeScheme(stored);
+        setPreferenceState(stored);
+      }
+      setReady(true);
     });
     return () => { active = false; };
   }, []);
-
-  useEffect(() => {
-    // Web has no native override; there `scheme` above already honors the preference.
-    if (!loaded || Platform.OS === "web") return;
-    Appearance.setColorScheme(nativeSchemeFor(preference));
-  }, [loaded, preference]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -61,19 +76,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }, [scheme]);
 
-  const value = useMemo<ThemeContextValue>(() => ({
-    preference,
-    scheme,
-    saveError,
-    setPreference: next => {
-      touched.current = true;
-      setPreferenceState(next);
-      queue.current = queue.current.then(async () => {
-        const result = await saveThemePreference(AsyncStorage, next);
-        setSaveError(result.ok ? null : THEME_SAVE_ERROR);
-      });
-    },
-  }), [preference, scheme, saveError]);
+  const setPreference = useCallback((next: ThemePreference) => {
+    touched.current = true;
+    applyNativeScheme(next);
+    setPreferenceState(next);
+    queue.current = queue.current.then(async () => {
+      const result = await saveThemePreference(AsyncStorage, next);
+      setSaveError(result.ok ? null : THEME_SAVE_ERROR);
+    });
+  }, []);
+
+  const value = useMemo<ThemeContextValue>(
+    () => ({ preference, scheme, ready, saveError, setPreference }),
+    [preference, scheme, ready, saveError, setPreference],
+  );
 
   return (
     <ThemeContext.Provider value={value}>

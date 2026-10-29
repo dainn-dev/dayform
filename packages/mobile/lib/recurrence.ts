@@ -7,6 +7,10 @@ import { addDays, dateKey, fromKey, type Repeat, type Task } from "./planner";
  * All functions are pure; inputs are never mutated.
  */
 
+/**
+ * Per-series cap on FUTURE occurrences, i.e. rows dated today or later. Past rows are never
+ * counted (they are history and are not pruned), so a long-running series keeps being extended.
+ */
 export const MAX_OCCURRENCES_PER_SERIES = 120;
 export const DEFAULT_HORIZON_WEEKS = 8;
 
@@ -18,15 +22,42 @@ const SUNDAY = 0;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CONTENT_FIELDS = ["title", "start", "duration", "category", "notes", "remind"] as const;
 
+type SeriesMember = Task & { seriesId: string; repeat: Repeat; date: string };
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled repeat rule: ${String(value)}`);
+}
+
 function assertDateKey(value: string): void {
   if (!DATE_PATTERN.test(value) || dateKey(fromKey(value)) !== value) {
     throw new Error(`Invalid date: ${value}`);
   }
 }
 
+function weekdayOf(key: string): number {
+  return fromKey(key).getDay();
+}
+
 function isWeekend(key: string): boolean {
-  const day = fromKey(key).getDay();
+  const day = weekdayOf(key);
   return day === SATURDAY || day === SUNDAY;
+}
+
+/** How a rule walks the calendar: the step in days, and whether weekends are skipped. */
+function ruleSpec(rule: Repeat): { step: number; weekdaysOnly: boolean } {
+  switch (rule) {
+    case "daily": return { step: 1, weekdaysOnly: false };
+    case "weekdays": return { step: 1, weekdaysOnly: true };
+    case "weekly": return { step: DAYS_PER_WEEK, weekdaysOnly: false };
+    default: return assertNever(rule);
+  }
+}
+
+/** Whether `rule`, anchored on `anchor`, fires on `day` (a day not before the anchor). */
+function firesOn(rule: Repeat, anchor: string, day: string): boolean {
+  const { step, weekdaysOnly } = ruleSpec(rule);
+  if (weekdaysOnly && isWeekend(day)) return false;
+  return step === 1 || weekdayOf(day) === weekdayOf(anchor);
 }
 
 /**
@@ -37,19 +68,13 @@ function isWeekend(key: string): boolean {
 export function occurrenceDates(rule: Repeat, startDate: string, toDate: string, limit = Infinity): string[] {
   assertDateKey(startDate);
   assertDateKey(toDate);
-  const step = rule === "weekly" ? DAYS_PER_WEEK : 1;
+  const { step, weekdaysOnly } = ruleSpec(rule);
   const result: string[] = [];
   for (let day = startDate; day <= toDate && result.length < limit; day = addDays(day, step)) {
-    if (rule === "weekdays" && isWeekend(day)) continue;
+    if (weekdaysOnly && isWeekend(day)) continue;
     result.push(day);
   }
   return result;
-}
-
-/** Rule dates strictly after `after`, up to `end`, at most `limit` of them. */
-function datesAfter(rule: Repeat, after: string, end: string, limit: number): string[] {
-  if (limit <= 0) return [];
-  return occurrenceDates(rule, after, end, limit + 1).filter(day => day > after).slice(0, limit);
 }
 
 function horizonEnd(today: string, horizonWeeks: number): string {
@@ -60,18 +85,21 @@ function occurrence(template: Task, seriesId: string, rule: Repeat, date: string
   return { ...template, id: `${seriesId}:${date}`, date, status: "todo", seriesId, repeat: rule };
 }
 
-function occurrencesAfter(template: Task, seriesId: string, rule: Repeat, end: string, room: number, taken: ReadonlySet<string>): Task[] {
-  return datesAfter(rule, template.date as string, end, room)
-    .map(date => occurrence(template, seriesId, rule, date))
-    .filter(next => !taken.has(next.id));
+function isSeriesMember(task: Task): task is SeriesMember {
+  return Boolean(task.seriesId) && Boolean(task.repeat) && task.date !== null;
+}
+
+function countFuture(rows: readonly Task[], today: string): number {
+  return rows.filter(row => row.date !== null && row.date >= today).length;
 }
 
 /**
  * Builds a series from `template`. The first occurrence is ALWAYS on `template.date` and keeps
  * the template status, even when the rule would not fire that day (e.g. "weekdays" on a Saturday);
- * later ones follow the rule. Generates up to today + `horizonWeeks` weeks (never before the
- * template date), capped at MAX_OCCURRENCES_PER_SERIES (a template far in the past is therefore
- * capped from its own date and may not reach the horizon).
+ * later ones follow the rule up to today + `horizonWeeks` weeks (never before the template date).
+ * At most MAX_OCCURRENCES_PER_SERIES occurrences are dated today or later. A template far in the
+ * past is backfilled with only the most recent MAX_OCCURRENCES_PER_SERIES - 1 rule dates before
+ * today (older ones are skipped), so a series never starts with a runaway amount of history.
  */
 export function createSeries(
   template: Task,
@@ -81,40 +109,73 @@ export function createSeries(
   horizonWeeks = DEFAULT_HORIZON_WEEKS,
 ): Task[] {
   if (template.date === null) throw new Error("createSeries needs a scheduled template: its date is null");
+  const start = template.date;
   const seriesId = newSeriesId();
-  const end = horizonEnd(today, horizonWeeks);
-  const first: Task = { ...template, id: `${seriesId}:${template.date}`, seriesId, repeat: rule };
-  const rest = occurrencesAfter(template, seriesId, rule, end, MAX_OCCURRENCES_PER_SERIES - 1, new Set());
-  return [first, ...rest];
+  const first: Task = { ...template, id: `${seriesId}:${start}`, seriesId, repeat: rule };
+  const later = occurrenceDates(rule, start, horizonEnd(today, horizonWeeks)).filter(day => day > start);
+  const futureRoom = MAX_OCCURRENCES_PER_SERIES - countFuture([first], today);
+  const past = later.filter(day => day < today).slice(-(MAX_OCCURRENCES_PER_SERIES - 1));
+  const future = later.filter(day => day >= today).slice(0, futureRoom);
+  return [first, ...[...past, ...future].map(day => occurrence(template, seriesId, rule, day))];
 }
 
-function isSeriesMember(task: Task): task is Task & { seriesId: string; repeat: Repeat; date: string } {
-  return Boolean(task.seriesId) && Boolean(task.repeat) && task.date !== null;
+function latestOf(rows: readonly SeriesMember[]): SeriesMember {
+  return rows.reduce((best, row) => (row.date >= best.date ? row : best));
+}
+
+/** The weekday most of `rows` fall on (ties go to the weekday that occurs first by date). */
+function dominantWeekday(rows: readonly SeriesMember[]): number {
+  const counts = new Map<number, number>();
+  for (const row of [...rows].sort((a, b) => a.date.localeCompare(b.date))) {
+    const day = weekdayOf(row.date);
+    counts.set(day, (counts.get(day) ?? 0) + 1);
+  }
+  return [...counts].reduce((best, entry) => (entry[1] > best[1] ? entry : best))[0];
+}
+
+/** First day on or after `from` that falls on `weekday`. */
+function alignToWeekday(from: string, weekday: number): string {
+  return addDays(from, (weekday - weekdayOf(from) + DAYS_PER_WEEK) % DAYS_PER_WEEK);
 }
 
 /**
- * Tops every series up to the horizon, using its latest occurrence as the template.
- * Only dates strictly after the latest occurrence are generated, so a gap the user deleted stays
- * deleted and the call is idempotent. Known limitation: deleting the LAST occurrence of a series
- * lets it be regenerated by the next call. A date whose id is already taken (e.g. by an
- * occurrence moved to another date) is skipped.
+ * Extends one series. Its rule is the one of its latest occurrence. The template is the most
+ * recent occurrence of that rule whose date matches it (the latest one if none does); for weekly,
+ * the weekday is the one most occurrences share, so a dragged occurrence cannot re-anchor the
+ * series. New dates are strictly after the latest occurrence and never before `today`.
+ */
+function extensionFor(members: readonly SeriesMember[], today: string, end: string, taken: ReadonlySet<string>): Task[] {
+  const latest = latestOf(members);
+  const rule = latest.repeat;
+  const sameRule = members.filter(member => member.repeat === rule);
+  const weekday = dominantWeekday(sameRule);
+  const matching = sameRule.filter(member => firesOn(rule, alignToWeekday(member.date, weekday), member.date));
+  const template = matching.length > 0 ? latestOf(matching) : latest;
+  const dayAfter = addDays(latest.date, 1);
+  const earliest = dayAfter > today ? dayAfter : today;
+  const from = rule === "weekly" ? alignToWeekday(earliest, weekday) : earliest;
+  const room = Math.max(0, MAX_OCCURRENCES_PER_SERIES - countFuture(members, today));
+  return occurrenceDates(rule, from, end, room)
+    .map(day => occurrence(template, latest.seriesId, rule, day))
+    .filter(next => !taken.has(next.id));
+}
+
+/**
+ * Tops every series up to the horizon. Only dates strictly after the series' latest occurrence
+ * and never before `today` are generated, so a gap the user deleted stays deleted, a long absence
+ * does not backfill past days, and the call is idempotent. At most MAX_OCCURRENCES_PER_SERIES
+ * occurrences dated today or later exist per series (past rows are not counted). Known
+ * limitation: deleting the LAST occurrence of a series lets it be regenerated by the next call.
+ * A date whose id is already taken (e.g. by an occurrence moved to another date) is skipped.
  */
 export function extendSeries(tasks: Task[], today: string, horizonWeeks = DEFAULT_HORIZON_WEEKS): Task[] {
   const end = horizonEnd(today, horizonWeeks);
-  const latest = new Map<string, Task & { seriesId: string; repeat: Repeat; date: string }>();
-  const counts = new Map<string, number>();
+  const bySeries = new Map<string, SeriesMember[]>();
   for (const task of tasks) {
-    if (!isSeriesMember(task)) continue;
-    counts.set(task.seriesId, (counts.get(task.seriesId) ?? 0) + 1);
-    const current = latest.get(task.seriesId);
-    if (!current || task.date >= current.date) latest.set(task.seriesId, task);
+    if (isSeriesMember(task)) bySeries.set(task.seriesId, [...(bySeries.get(task.seriesId) ?? []), task]);
   }
   const taken = new Set(tasks.map(task => task.id));
-  const added: Task[] = [];
-  for (const [seriesId, template] of latest) {
-    const room = MAX_OCCURRENCES_PER_SERIES - (counts.get(seriesId) ?? 0);
-    added.push(...occurrencesAfter(template, seriesId, template.repeat, end, room, taken));
-  }
+  const added = [...bySeries.values()].flatMap(members => extensionFor(members, today, end, taken));
   return [...tasks, ...added];
 }
 
@@ -181,11 +242,13 @@ function endSeries(tasks: Task[], current: Task): Task[] {
 }
 
 /**
- * Changes the repeat rule from `task` onwards. Occurrences after `task` are removed. With a rule,
- * `task` keeps its id/status/content and the series is regenerated after it under the same
- * seriesId (a new one for a plain task); earlier occurrences keep their old rule. With `null`,
- * the series ends: `task` and the earlier occurrences become plain tasks (otherwise extendSeries
- * would regenerate the removed ones).
+ * Changes the repeat rule from `task` onwards. With a rule, `task` keeps its id/status/content and
+ * the series continues under the same seriesId (a new one for a plain task); earlier occurrences
+ * keep their old rule. Later occurrences whose dates still fall on the new rule are kept as they
+ * are (status and edits included; only `repeat` is updated), the ones it no longer fires on are
+ * deleted, and only the missing dates from today on are added as `todo` (never more than
+ * MAX_OCCURRENCES_PER_SERIES dated today or later). With `null`, later occurrences are removed and
+ * `task` and the earlier ones become plain tasks (otherwise extendSeries would regenerate them).
  */
 export function changeRule(
   tasks: Task[],
@@ -199,12 +262,23 @@ export function changeRule(
   if (!current) return [...tasks];
   if (newRule === null) return endSeries(tasks, current);
   if (current.date === null) throw new Error("Only a scheduled task can repeat: its date is null");
+  const anchor = current.date;
   const seriesId = current.seriesId ?? newSeriesId();
-  const isLater = (t: Task) => t.seriesId === seriesId && t.date !== null && t.date > (current.date as string);
-  const kept = tasks.filter(t => !isLater(t)).map(t => (t.id === current.id ? { ...t, seriesId, repeat: newRule } : t));
-  const earlier = kept.filter(t => t.seriesId === seriesId).length;
+  const kept = tasks.flatMap((t): Task[] => {
+    if (t.id === current.id) return [{ ...t, seriesId, repeat: newRule }];
+    if (t.seriesId !== seriesId || t.date === null || t.date <= anchor) return [t];
+    if (!firesOn(newRule, anchor, t.date)) return [];
+    return [t.repeat === newRule ? t : { ...t, repeat: newRule }];
+  });
   const head = kept.find(t => t.id === current.id) as Task;
-  const taken = new Set(kept.map(t => t.id));
-  const generated = occurrencesAfter(head, seriesId, newRule, horizonEnd(today, horizonWeeks), MAX_OCCURRENCES_PER_SERIES - earlier, taken);
+  const members = kept.filter(t => t.seriesId === seriesId);
+  const presentDates = new Set(members.map(t => t.date));
+  const takenIds = new Set(kept.map(t => t.id));
+  const room = Math.max(0, MAX_OCCURRENCES_PER_SERIES - countFuture(members, today));
+  const generated = occurrenceDates(newRule, anchor, horizonEnd(today, horizonWeeks))
+    .filter(day => day > anchor && day >= today && !presentDates.has(day))
+    .map(day => occurrence(head, seriesId, newRule, day))
+    .filter(next => !takenIds.has(next.id))
+    .slice(0, room);
   return [...kept, ...generated];
 }

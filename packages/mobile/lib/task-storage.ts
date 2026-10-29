@@ -6,6 +6,11 @@ export const CORRUPT_KEY_PREFIX = "dayform.tasks.corrupt.";
 export const BACKUP_KEY_PREFIX = "dayform.tasks.backup.";
 const MIN_DURATION = 1;
 const MAX_DURATION = 1440;
+export const MAX_REMIND_MINUTES = 1440;
+const MAX_ID_LENGTH = 100;
+const MAX_TITLE_LENGTH = 300;
+const MAX_NOTES_LENGTH = 10_000;
+const MAX_CREATED_AT_LENGTH = 40;
 export const MAX_RECORDS = 10_000;
 const FNV_OFFSET_BASIS = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
@@ -26,22 +31,27 @@ const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => dateK
 const timeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 export const taskSchema = z.object({
-  id: z.string().min(1),
-  title: z.string(),
+  id: z.string().min(1).max(MAX_ID_LENGTH),
+  title: z.string().max(MAX_TITLE_LENGTH),
   date: dateString.nullable(),
   start: timeString.nullable(),
   duration: z.number().int().min(MIN_DURATION).max(MAX_DURATION),
   status: z.enum(["todo", "in_progress", "done"]),
   category: z.enum(categories),
-  notes: z.string(),
-  createdAt: z.string(),
-  remind: z.number().int().min(0).max(MAX_DURATION).nullable().optional(),
-  seriesId: z.string().min(1).nullable().optional(),
+  notes: z.string().max(MAX_NOTES_LENGTH),
+  createdAt: z.string().max(MAX_CREATED_AT_LENGTH),
+  remind: z.number().int().min(0).max(MAX_REMIND_MINUTES).nullable().optional(),
+  seriesId: z.string().min(1).max(MAX_ID_LENGTH).nullable().optional(),
   repeat: z.enum(repeats).nullable().optional(),
 })
   .refine(task => (task.date === null) === (task.start === null))
   .refine(task => task.remind == null || task.start !== null)
-  .refine(task => (task.seriesId == null && task.repeat == null) || task.date !== null);
+  .refine(task => (task.seriesId == null && task.repeat == null) || task.date !== null)
+  .refine(task => (task.seriesId == null) === (task.repeat == null));
+
+type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+/** Compile-time guard: fails to typecheck when the schema and the Task model drift apart. */
+export const schemaMatchesTask: Equals<z.infer<typeof taskSchema>, Task> = true;
 
 type Split = { valid: Task[]; rejected: unknown[] };
 

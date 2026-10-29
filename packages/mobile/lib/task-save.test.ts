@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { hasConflict, needsScopeChoice, planDelete, planSave, validateForm, type SaveContext, type SaveForm } from "./task-save";
+import { allowedScopes, hasConflict, needsScopeChoice, planDelete, planSave, validateForm, type SaveContext, type SaveForm } from "./task-save";
 import { createSeries, extendSeries } from "./recurrence";
 import type { Task } from "./planner";
 import { taskSchema } from "./task-storage";
@@ -33,12 +33,19 @@ function plain(overrides: Partial<Task> = {}): Task {
 const makeSeries = (rule: "daily" | "weekdays" | "weekly" = "daily", id = "S") =>
   createSeries(plain({ id: "tpl", title: "Stretch", start: "09:30", duration: 30 }), rule, TODAY, () => id);
 const byDate = (tasks: Task[], date: string) => tasks.find(t => t.date === date) as Task;
-const valid = (tasks: Task[]) => tasks.every(t => taskSchema.safeParse(t).success);
+const valid = (tasks: Task[]) => tasks.length > 0 && tasks.every(t => taskSchema.safeParse(t).success);
+
+/** Plans a save that must be accepted. */
+function plan(f: SaveForm, c: SaveContext) {
+  const result = planSave(f, c);
+  if (!result.ok) throw new Error(`save refused: ${result.reason}`);
+  return result;
+}
 
 describe("planSave: new tasks", () => {
   test("appends a trimmed plain task without touching the others", () => {
     const others = [plain()];
-    const { candidate, update } = planSave(form(), ctx());
+    const { candidate, update } = plan(form(), ctx());
     const result = update(others);
     expect(result).toHaveLength(2);
     expect(result[0]).toBe(others[0]);
@@ -51,29 +58,29 @@ describe("planSave: new tasks", () => {
   });
 
   test("keeps the reminder on a scheduled task", () => {
-    const { update } = planSave(form({ remind: 15 }), ctx());
+    const { update } = plan(form({ remind: 15 }), ctx());
     expect(update([])[0].remind).toBe(15);
   });
 
   test("a backlog task has no date, start, reminder or repeat", () => {
-    const { candidate, update } = planSave(form({ scheduled: false, remind: 5, repeat: "daily" }), ctx());
+    const { candidate, update } = plan(form({ scheduled: false, remind: 5, repeat: "daily" }), ctx());
     expect(candidate).toMatchObject({ date: null, start: null, remind: null, seriesId: null, repeat: null });
     expect(update([])).toEqual([candidate]);
   });
 
   test("a repeating task creates a whole series", () => {
-    const { update } = planSave(form({ repeat: "daily", remind: 5 }), ctx());
+    const { update } = plan(form({ repeat: "daily", remind: 5 }), ctx());
     const result = update([plain()]);
     const created = result.slice(1);
     expect(created.length).toBeGreaterThan(30);
-    expect(created.every(t => t.seriesId === "S1" && t.repeat === "daily" && t.remind === 5)).toBe(true);
+    expect(created.filter(t => t.seriesId === "S1" && t.repeat === "daily" && t.remind === 5)).toHaveLength(created.length);
     expect(created[0].date).toBe(TODAY);
     expect(created[0].title).toBe("Stretch");
     expect(valid(result)).toBe(true);
   });
 
   test("weekly repeat fires on the same weekday", () => {
-    const created = planSave(form({ repeat: "weekly" }), ctx()).update([]);
+    const created = plan(form({ repeat: "weekly" }), ctx()).update([]);
     expect(created.slice(0, 3).map(t => t.date)).toEqual([TODAY, "2026-03-09", "2026-03-16"]);
   });
 });
@@ -82,7 +89,7 @@ describe("planSave: editing a plain task", () => {
   test("replaces it in place", () => {
     const existing = plain();
     const tasks = [plain({ id: "a" }), existing, plain({ id: "b" })];
-    const { update } = planSave(form({ title: "Renamed", time: "11:00" }), ctx({ existing }));
+    const { update } = plan(form({ title: "Renamed", time: "11:00" }), ctx({ existing }));
     const result = update(tasks);
     expect(result.map(t => t.id)).toEqual(["a", "p1", "b"]);
     expect(result[1]).toMatchObject({ title: "Renamed", start: "11:00", createdAt: existing.createdAt });
@@ -92,18 +99,20 @@ describe("planSave: editing a plain task", () => {
 
   test("turning scheduling off clears date, start, reminder and repeat", () => {
     const existing = plain({ remind: 10 });
-    const result = planSave(form({ scheduled: false, remind: 10 }), ctx({ existing })).update([existing]);
+    const result = plan(form({ scheduled: false, remind: 10 }), ctx({ existing })).update([existing]);
     expect(result[0]).toMatchObject({ date: null, start: null, remind: null, seriesId: null, repeat: null });
     expect(valid(result)).toBe(true);
   });
 
   test("adding a repeat turns it into a series that keeps the task id", () => {
     const existing = plain();
-    const result = planSave(form({ title: "Plain", time: "10:00", repeat: "daily" }), ctx({ existing })).update([existing]);
+    const result = plan(form({ title: "Plain", time: "10:00", repeat: "daily" }), ctx({ existing })).update([existing]);
     const head = result.find(t => t.id === "p1") as Task;
     expect(head).toMatchObject({ seriesId: "S1", repeat: "daily", date: TODAY });
     expect(result.length).toBeGreaterThan(30);
-    expect(result.filter(t => t.seriesId === "S1").every(t => t.repeat === "daily")).toBe(true);
+    const members = result.filter(t => t.seriesId === "S1");
+    expect(members.length).toBeGreaterThan(30);
+    expect(members.filter(t => t.repeat === "daily")).toHaveLength(members.length);
     expect(valid(result)).toBe(true);
   });
 });
@@ -112,7 +121,7 @@ describe("planSave: editing a series occurrence", () => {
   const tasks = makeSeries();
   const target = byDate(tasks, "2026-03-04");
   const edit = (f: Partial<SaveForm>, scope: SaveContext["scope"]) =>
-    planSave(form({ title: "New title", date: "2026-03-04", time: "09:30", repeat: "daily", ...f }), ctx({ existing: target, scope })).update(tasks);
+    plan(form({ title: "New title", date: "2026-03-04", time: "09:30", repeat: "daily", ...f }), ctx({ existing: target, scope })).update(tasks);
 
   test("this: changes only that occurrence", () => {
     const result = edit({ time: "13:00" }, "this");
@@ -125,20 +134,25 @@ describe("planSave: editing a series occurrence", () => {
   test("following: changes this and later, not earlier", () => {
     const result = edit({}, "following");
     const changed = result.filter(t => t.title === "New title");
-    expect(changed.every(t => (t.date as string) >= "2026-03-04")).toBe(true);
-    expect(changed).toHaveLength(tasks.filter(t => (t.date as string) >= "2026-03-04").length);
+    const expectedDates = tasks.filter(t => (t.date as string) >= "2026-03-04").map(t => t.date);
+    expect(expectedDates.length).toBeGreaterThan(30);
+    expect(changed.map(t => t.date)).toEqual(expectedDates);
+    expect(result.filter(t => (t.date as string) < "2026-03-04").map(t => t.title)).toEqual(["Stretch", "Stretch"]);
     expect(byDate(result, "2026-03-03").title).toBe("Stretch");
   });
 
   test("all: changes the whole series", () => {
     const result = edit({}, "all");
-    expect(result.every(t => t.title === "New title")).toBe(true);
+    expect(result).toHaveLength(tasks.length);
+    expect(result.filter(t => t.title === "New title")).toHaveLength(tasks.length);
   });
 
-  test("following keeps other occurrences' status but applies this one's", () => {
-    const result = edit({ status: "done" }, "following");
-    expect(byDate(result, "2026-03-04").status).toBe("done");
-    expect(byDate(result, "2026-03-05").status).toBe("todo");
+  test("following and all keep other occurrences' status but apply this one's", () => {
+    for (const scope of ["following", "all"] as const) {
+      const result = edit({ status: "done" }, scope);
+      expect(byDate(result, "2026-03-04").status).toBe("done");
+      expect(result.filter(t => t.status === "done")).toHaveLength(1);
+    }
   });
 
   test("changing the date always edits just that occurrence", () => {
@@ -169,50 +183,71 @@ describe("planSave: changing the repeat rule", () => {
   const tasks = makeSeries("daily");
   const target = byDate(tasks, "2026-03-04");
   const run = (repeat: SaveForm["repeat"], scope: SaveContext["scope"], f: Partial<SaveForm> = {}) =>
-    planSave(form({ title: "Stretch", date: "2026-03-04", repeat, ...f }), ctx({ existing: target, scope })).update(tasks);
+    plan(form({ title: "Stretch", date: "2026-03-04", repeat, ...f }), ctx({ existing: target, scope })).update(tasks);
 
   test("daily -> weekly from this occurrence on", () => {
     const result = run("weekly", "following");
-    const series = result.filter(t => t.seriesId === "S");
-    expect(series.filter(t => (t.date as string) > "2026-03-04").every(t => t.repeat === "weekly")).toBe(true);
-    expect(series.filter(t => (t.date as string) > "2026-03-04").slice(0, 2).map(t => t.date)).toEqual(["2026-03-11", "2026-03-18"]);
+    const later = result.filter(t => t.seriesId === "S" && (t.date as string) > "2026-03-04");
+    expect(later.length).toBeGreaterThan(5);
+    expect(later.filter(t => t.repeat === "weekly")).toHaveLength(later.length);
+    expect(later.slice(0, 2).map(t => t.date)).toEqual(["2026-03-11", "2026-03-18"]);
     expect(byDate(result, "2026-03-03").repeat).toBe("daily");
     expect(valid(result)).toBe(true);
   });
 
-  test("scope this + new rule splits the occurrence off into its own series", () => {
-    const result = run("weekly", "this", { time: "12:00" });
-    const head = result.find(t => t.id === target.id) as Task;
-    expect(head.seriesId).toBe("S1");
-    expect(head.start).toBe("12:00");
-    expect(result.filter(t => t.seriesId === "S").length).toBe(tasks.length - 1);
-    expect(byDate(result, "2026-03-05")).toMatchObject({ seriesId: "S", repeat: "daily" });
+  test("scope this + new rule is refused (it would start a parallel series)", () => {
+    const refused = planSave(form({ title: "Stretch", date: "2026-03-04", repeat: "weekly" }), ctx({ existing: target, scope: "this" }));
+    expect(refused).toEqual({ ok: false, reason: "rule-change-needs-scope" });
+  });
+
+  test("moving the occurrence to another date while changing the rule is refused too", () => {
+    const refused = planSave(form({ title: "Stretch", date: "2026-03-10", repeat: "weekly" }), ctx({ existing: target, scope: "all" }));
+    expect(refused.ok).toBe(false);
+  });
+
+  test("all + new rule regenerates from this occurrence on, in the same series", () => {
+    const result = run("weekly", "all", { time: "12:00" });
+    expect(result.filter(t => t.seriesId === "S1")).toHaveLength(0);
+    expect(byDate(result, "2026-03-04")).toMatchObject({ seriesId: "S", repeat: "weekly", start: "12:00" });
     expect(valid(result)).toBe(true);
   });
 
-  test("scope this + no repeat makes it a plain task and leaves the series", () => {
-    const result = run(null, "this");
-    expect(result.find(t => t.id === target.id)).toMatchObject({ seriesId: null, repeat: null });
-    expect(result).toHaveLength(tasks.length);
+  test("scope this + no repeat is refused too (ending a series needs 'following' or 'all')", () => {
+    expect(planSave(form({ title: "Stretch", date: "2026-03-04", repeat: null }), ctx({ existing: target, scope: "this" })).ok).toBe(false);
   });
 
   test("recurring -> none ends the series: later occurrences go, the rest become plain", () => {
     const result = run(null, "following");
-    expect(result.some(t => (t.date as string) > "2026-03-04")).toBe(false);
-    expect(result.every(t => t.seriesId == null && t.repeat == null)).toBe(true);
+    expect(result.map(t => t.date)).toEqual(["2026-03-02", "2026-03-03", "2026-03-04"]);
+    expect(result.filter(t => t.seriesId == null && t.repeat == null)).toHaveLength(result.length);
     expect(extendSeries(result, TODAY)).toHaveLength(result.length);
+  });
+});
+
+describe("allowedScopes", () => {
+  const series = byDate(makeSeries("daily"), "2026-03-04");
+  test("a non-series task only has 'this'", () => {
+    expect(allowedScopes(plain(), { repeat: null })).toEqual(["this"]);
+    expect(allowedScopes(plain(), { repeat: "daily" })).toEqual(["this"]);
+  });
+  test("an unchanged rule allows every scope", () => {
+    expect(allowedScopes(series, { repeat: "daily" })).toEqual(["this", "following", "all"]);
+  });
+  test("a changed rule (including none) drops 'this'", () => {
+    expect(allowedScopes(series, { repeat: "weekly" })).toEqual(["following", "all"]);
+    expect(allowedScopes(series, { repeat: null })).toEqual(["following", "all"]);
   });
 });
 
 describe("planDelete", () => {
   test("a plain task is removed through store.remove", () => {
-    expect(planDelete(plain(), "this", TODAY, idGen())).toEqual({ kind: "remove", id: "p1" });
+    expect(planDelete(plain(), "this")).toEqual({ kind: "remove", id: "p1" });
   });
 
   const tasks = makeSeries("daily");
   const mid = byDate(tasks, "2026-03-04");
   const run = (target: Task, scope: SaveContext["scope"]) => {
-    const plan = planDelete(target, scope, TODAY, idGen());
+    const plan = planDelete(target, scope);
     if (plan.kind !== "mutate") throw new Error("expected mutate");
     return plan.update(tasks);
   };
@@ -227,24 +262,24 @@ describe("planDelete", () => {
   test("following: removes this and later, detaches the earlier ones", () => {
     const result = run(mid, "following");
     expect(result.map(t => t.date)).toEqual(["2026-03-02", "2026-03-03"]);
-    expect(result.every(t => t.seriesId == null && t.repeat == null)).toBe(true);
+    expect(result.filter(t => t.seriesId == null && t.repeat == null)).toHaveLength(2);
   });
 
   test("all: removes the whole series", () => {
     expect(run(mid, "all")).toEqual([]);
   });
 
-  test("deleting the last occurrence ends the series so extendSeries cannot bring it back", () => {
+  test("this on the last occurrence only removes it; the rest of the series stays intact", () => {
     const last = tasks[tasks.length - 1];
     const result = run(last, "this");
+    expect(result).toHaveLength(tasks.length - 1);
     expect(result.some(t => t.id === last.id)).toBe(false);
-    expect(result.every(t => t.seriesId == null && t.repeat == null)).toBe(true);
-    expect(extendSeries(result, TODAY)).toEqual(result);
+    expect(result.filter(t => t.seriesId === "S" && t.repeat === "daily")).toHaveLength(tasks.length - 1);
     expect(valid(result)).toBe(true);
   });
 
   test("deleting an occurrence from a stale list that lacks it is harmless", () => {
-    const plan = planDelete(mid, "this", TODAY, idGen());
+    const plan = planDelete(mid, "this");
     if (plan.kind !== "mutate") throw new Error("expected mutate");
     const without = tasks.filter(t => t.id !== mid.id);
     expect(plan.update(without)).toHaveLength(without.length);

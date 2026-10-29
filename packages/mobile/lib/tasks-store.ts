@@ -1,5 +1,5 @@
 import type { Task } from "./planner";
-import { TASKS_STORAGE_KEY, loadTasks, type KeyValueStorage, type LoadResult } from "./task-storage";
+import { MAX_RECORDS, TASKS_STORAGE_KEY, loadTasks, type KeyValueStorage, type LoadResult } from "./task-storage";
 
 // These strings are also translation keys in language.tsx; keep them in sync.
 export const LOAD_ERROR = "Could not load your saved tasks. Try reopening the app.";
@@ -8,7 +8,21 @@ export const QUARANTINED_NOTICE = "Some saved tasks were damaged and were set as
 export const RECOVERED_NOTICE = "Your saved tasks could not be read, so a backup copy was kept and you are starting fresh.";
 export const READ_ONLY_NOTICE = "Some saved tasks could not be backed up, so editing is paused to protect your data. Try reopening the app.";
 
-export type TasksState = { tasks: Task[]; loading: boolean; error: string | null; lastRemoved: Task | null };
+export const TOO_MANY_TASKS_ERROR = "You have reached the maximum number of tasks.";
+
+export type TasksState = {
+  tasks: Task[];
+  loading: boolean;
+  error: string | null;
+  lastRemoved: Task | null;
+  /** True once a load left writes refused (read failed, or some records could not be set aside). */
+  writesBlocked: boolean;
+};
+
+export type MutateOptions = {
+  /** Background write: refusals and failures return false without setting `error`, and a success keeps the current `error`. */
+  silent?: boolean;
+};
 
 export type TasksStore = {
   getState(): TasksState;
@@ -17,7 +31,7 @@ export type TasksStore = {
   upsert(task: Task): Promise<boolean>;
   remove(id: string): Promise<boolean>;
   /** Generic write: `update` gets the committed list and returns the new one (returning the same array is a no-op). */
-  mutate(update: (tasks: Task[]) => Task[]): Promise<boolean>;
+  mutate(update: (tasks: Task[]) => Task[], options?: MutateOptions): Promise<boolean>;
   /** Re-adds the most recently removed task; false if there is none or the write failed. */
   undoRemove(): Promise<boolean>;
   clearUndo(): void;
@@ -54,6 +68,15 @@ function outcomeOf(result: LoadResult): LoadOutcome {
   }
 }
 
+/** `update` may throw (recurrence helpers do); null means it did. */
+function computeNext(update: Update, before: Task[]): Task[] | null {
+  try {
+    return update(before);
+  } catch {
+    return null;
+  }
+}
+
 function upsertTask(tasks: Task[], task: Task): Task[] {
   return tasks.some(t => t.id === task.id)
     ? tasks.map(t => (t.id === task.id ? task : t))
@@ -61,7 +84,7 @@ function upsertTask(tasks: Task[], task: Task): Task[] {
 }
 
 export function createTasksStore(storage: KeyValueStorage): TasksStore {
-  let state: TasksState = { tasks: [], loading: true, error: null, lastRemoved: null };
+  let state: TasksState = { tasks: [], loading: true, error: null, lastRemoved: null, writesBlocked: false };
   let writeBlock: string | null = LOAD_ERROR;
   let token = 0;
   let queue: Promise<unknown> = Promise.resolve();
@@ -73,7 +96,8 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
     const next = { ...state, ...patch };
     if (
       next.tasks === state.tasks && next.loading === state.loading &&
-      next.error === state.error && next.lastRemoved === state.lastRemoved
+      next.error === state.error && next.lastRemoved === state.lastRemoved &&
+      next.writesBlocked === state.writesBlocked
     ) return;
     state = next;
     for (const listener of [...listeners]) listener();
@@ -99,25 +123,25 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
    * Must run inside a queue turn. `onCommit` derives extra state from the list the write was
    * computed from; it is applied in the same setState as the new list, and only on success.
    */
-  async function applyWrite(update: Update, onCommit?: OnCommit): Promise<boolean> {
-    if (writeBlock !== null) {
-      setState({ error: writeBlock });
+  async function applyWrite(update: Update, onCommit?: OnCommit, silent = false): Promise<boolean> {
+    const fail = (message: string): false => {
+      if (!silent) setState({ error: message });
       return false;
-    }
+    };
+    if (writeBlock !== null) return fail(writeBlock);
     const before = state.tasks;
-    const next = update(before);
+    const next = computeNext(update, before);
+    if (next === null) return fail(SAVE_ERROR);
     if (next === before) return true;
-    if (!(await persist(next))) {
-      setState({ error: SAVE_ERROR });
-      return false;
-    }
-    setState({ ...onCommit?.(before), tasks: next, error: null });
+    if (next.length > MAX_RECORDS) return fail(TOO_MANY_TASKS_ERROR);
+    if (!(await persist(next))) return fail(SAVE_ERROR);
+    setState({ ...onCommit?.(before), tasks: next, ...(silent ? {} : { error: null }) });
     return true;
   }
 
-  async function write(update: Update, onCommit?: OnCommit): Promise<boolean> {
+  async function write(update: Update, onCommit?: OnCommit, silent = false): Promise<boolean> {
     await ready.promise;
-    return enqueue(() => applyWrite(update, onCommit));
+    return enqueue(() => applyWrite(update, onCommit, silent));
   }
 
   async function undoRemove(): Promise<boolean> {
@@ -164,7 +188,13 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
 
     const outcome = outcomeOf(result);
     writeBlock = outcome.writeBlock;
-    setState({ tasks: outcome.tasks, error: outcome.error, loading: false, lastRemoved: null });
+    setState({
+      tasks: outcome.tasks,
+      error: outcome.error,
+      loading: false,
+      lastRemoved: null,
+      writesBlocked: outcome.writeBlock !== null,
+    });
     const seedWrite = result.kind === "seed" ? persistSeed(result.tasks) : Promise.resolve();
     readySettled = true;
     ready.resolve();
@@ -180,7 +210,7 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
     load,
     upsert: task => write(tasks => upsertTask(tasks, task)),
     remove,
-    mutate: update => write(update),
+    mutate: (update, options) => write(update, undefined, options?.silent === true),
     undoRemove,
     clearUndo: () => setState({ lastRemoved: null }),
     clearError: () => setState({ error: null }),

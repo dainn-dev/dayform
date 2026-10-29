@@ -5,6 +5,7 @@ import {
   SNAP_MINUTES,
   dragReducer,
   formatMinutes,
+  handleHitTop,
   moveBlock,
   previewBlock,
   pxToMinutes,
@@ -97,10 +98,33 @@ describe("moveBlock", () => {
   test("clamps so the block ends at window end", () => {
     expect(moveBlock({ ...base, deltaPx: 10_000 })).toEqual({ start: WIN_END - 60, duration: 60 });
   });
-  test("pins a task longer than the window to window start", () => {
-    const r = moveBlock({ start: 400, duration: 1200, deltaPx: 300, scale: SCALE });
-    expect(r).toEqual({ start: WIN_START, duration: 1200 });
+  test("a task longer than the window cannot move later but can move earlier down to the window start", () => {
+    expect(moveBlock({ start: 400, duration: 1200, deltaPx: 300, scale: SCALE })).toEqual({ start: 400, duration: 1200 });
     expect(moveBlock({ start: 400, duration: 1200, deltaPx: -300, scale: SCALE }).start).toBe(WIN_START);
+  });
+  describe("a block that overhangs the window end", () => {
+    const overhang = { start: 1260, duration: 120, scale: SCALE }; // 21:00-23:00
+    test("a zero-distance move changes nothing", () => {
+      expect(moveBlock({ ...overhang, deltaPx: 0 })).toEqual({ start: 1260, duration: 120 });
+    });
+    test("cannot be pushed later, however far the drag", () => {
+      expect(moveBlock({ ...overhang, deltaPx: STEP_PX * 4 })).toEqual({ start: 1260, duration: 120 });
+      expect(moveBlock({ ...overhang, deltaPx: 10_000 }).start).toBe(1260);
+    });
+    test("can still move earlier", () => {
+      expect(moveBlock({ ...overhang, deltaPx: -STEP_PX }).start).toBe(1245);
+    });
+  });
+  test("a sub-step drag keeps an off-grid start untouched", () => {
+    expect(moveBlock({ start: 547, duration: 60, deltaPx: 0, scale: SCALE }).start).toBe(547);
+    expect(moveBlock({ start: 547, duration: 60, deltaPx: 6 * SCALE, scale: SCALE }).start).toBe(547);
+  });
+  test("an off-grid start moves by the snapped distance", () => {
+    expect(moveBlock({ start: 547, duration: 60, deltaPx: STEP_PX, scale: SCALE }).start).toBe(562);
+  });
+  test("a block that starts before the window is not pulled into it by a zero move", () => {
+    expect(moveBlock({ start: 300, duration: 60, deltaPx: 0, scale: SCALE }).start).toBe(300);
+    expect(moveBlock({ start: 300, duration: 60, deltaPx: -STEP_PX, scale: SCALE }).start).toBe(300);
   });
   test("a task exactly as long as the window is pinned", () => {
     expect(moveBlock({ start: 360, duration: 960, deltaPx: 50, scale: SCALE }).start).toBe(360);
@@ -165,19 +189,47 @@ describe("resizeBlock", () => {
     const shrunk = resizeBlock({ start: 1300, duration: 20, deltaPx: -10_000, scale: SCALE, edge: "bottom" });
     expect(shrunk).toEqual({ start: 1300, duration: MIN_DURATION_MINUTES });
   });
-  test("the window start wins over the minimum duration for a block ending at the window start", () => {
+  test("a block that starts before the window is left alone by a top-edge drag", () => {
     const r = resizeBlock({ start: 355, duration: 10, deltaPx: 10_000, scale: SCALE, edge: "top" });
-    expect(r.start).toBe(WIN_START);
-    expect(r.start + r.duration).toBe(365);
+    expect(r).toEqual({ start: 355, duration: 10 });
   });
   test("a block outside the window is returned unchanged", () => {
     expect(resizeBlock({ start: 1320, duration: 30, deltaPx: 50, scale: SCALE, edge: "bottom" })).toEqual({ start: 1320, duration: 30 });
     expect(resizeBlock({ start: 300, duration: 30, deltaPx: 50, scale: SCALE, edge: "top" })).toEqual({ start: 300, duration: 30 });
   });
-  test("a short block keeps the minimum duration on the top edge", () => {
-    const r = resizeBlock({ start: 600, duration: 10, deltaPx: 0, scale: SCALE, edge: "top" });
-    expect(r.duration).toBeGreaterThanOrEqual(MIN_DURATION_MINUTES);
-    expect(r.start + r.duration).toBe(610);
+  describe("a block shorter than the minimum duration", () => {
+    const short = { start: 600, duration: 10, scale: SCALE };
+    test("a zero-distance drag does not grow it", () => {
+      expect(resizeBlock({ ...short, deltaPx: 0, edge: "top" })).toEqual({ start: 600, duration: 10 });
+      expect(resizeBlock({ ...short, deltaPx: 0, edge: "bottom" })).toEqual({ start: 600, duration: 10 });
+    });
+    test("dragging an edge inwards does not grow it either", () => {
+      expect(resizeBlock({ ...short, deltaPx: STEP_PX, edge: "top" })).toEqual({ start: 600, duration: 10 });
+      expect(resizeBlock({ ...short, deltaPx: -STEP_PX, edge: "bottom" })).toEqual({ start: 600, duration: 10 });
+    });
+    test("dragging an edge outwards still grows it", () => {
+      expect(resizeBlock({ ...short, deltaPx: -STEP_PX, edge: "top" })).toEqual({ start: 585, duration: 25 });
+      expect(resizeBlock({ ...short, deltaPx: STEP_PX, edge: "bottom" })).toEqual({ start: 600, duration: 25 });
+    });
+  });
+  describe("a block that overhangs the window end", () => {
+    const overhang = { start: 1260, duration: 120, scale: SCALE, edge: "bottom" as const }; // 21:00-23:00
+    test("a zero-distance bottom drag changes nothing", () => {
+      expect(resizeBlock({ ...overhang, deltaPx: 0 })).toEqual({ start: 1260, duration: 120 });
+    });
+    test("the bottom edge cannot be pulled past where it already is", () => {
+      expect(resizeBlock({ ...overhang, deltaPx: 10_000 })).toEqual({ start: 1260, duration: 120 });
+    });
+    test("the bottom edge can still be shortened", () => {
+      expect(resizeBlock({ ...overhang, deltaPx: -STEP_PX * 4 })).toEqual({ start: 1260, duration: 60 });
+    });
+    test("the top edge works as for any other block", () => {
+      expect(resizeBlock({ ...overhang, deltaPx: -STEP_PX, edge: "top" })).toEqual({ start: 1245, duration: 135 });
+    });
+  });
+  test("an off-grid block resizes by the snapped distance", () => {
+    expect(resizeBlock({ start: 547, duration: 63, deltaPx: STEP_PX, scale: SCALE, edge: "bottom" })).toEqual({ start: 547, duration: 78 });
+    expect(resizeBlock({ start: 547, duration: 63, deltaPx: 3, scale: SCALE, edge: "bottom" })).toEqual({ start: 547, duration: 63 });
   });
   test("does not mutate its input", () => {
     const input = Object.freeze({ ...base, deltaPx: 40, edge: "top" as const });
@@ -207,8 +259,21 @@ describe("shiftStart", () => {
     expect(shiftStart("21:00", 60, 15, WIN_START, WIN_END)).toBe("21:00");
     expect(shiftStart("20:50", 60, 30, WIN_START, WIN_END)).toBe("21:00");
   });
-  test("pins a task longer than the window to the window start", () => {
-    expect(shiftStart("07:00", 1200, 15, WIN_START, WIN_END)).toBe("06:00");
+  test("a task longer than the window cannot move later but can move earlier", () => {
+    expect(shiftStart("07:00", 1200, 15, WIN_START, WIN_END)).toBe("07:00");
+    expect(shiftStart("07:00", 1200, -15, WIN_START, WIN_END)).toBe("06:45");
+    expect(shiftStart("07:00", 1200, -100, WIN_START, WIN_END)).toBe("06:00");
+  });
+  test("a task that overhangs the window end is never moved earlier by 'later'", () => {
+    expect(shiftStart("21:00", 120, 15, WIN_START, WIN_END)).toBe("21:00");
+    expect(shiftStart("20:50", 120, 15, WIN_START, WIN_END)).toBe("20:50");
+    expect(shiftStart("21:00", 120, -15, WIN_START, WIN_END)).toBe("20:45");
+    expect(shiftStart("19:30", 120, 15, WIN_START, WIN_END)).toBe("19:45");
+    expect(shiftStart("20:00", 120, 15, WIN_START, WIN_END)).toBe("20:00");
+  });
+  test("a task that starts before the window is not pulled into it by 'later'", () => {
+    expect(shiftStart("05:00", 60, 15, WIN_START, WIN_END)).toBe("05:15");
+    expect(shiftStart("05:00", 60, -15, WIN_START, WIN_END)).toBe("05:00");
   });
   test("never produces a time at or past midnight", () => {
     expect(shiftStart("23:00", 0, 120, 0, 1440)).toBe("23:59");
@@ -313,5 +378,25 @@ describe("dragReducer", () => {
     dragReducer(state, event, frozenBlock, SCALE);
     expect(state).toEqual(dragging(20));
     expect(frozenBlock).toEqual(block);
+  });
+});
+
+describe("handleHitTop", () => {
+  const HIT = 28;
+  const OUT = 10;
+  const HEIGHT = 1043;
+  test("puts the block edge 10px into the area of a top handle and 18px into a bottom one", () => {
+    expect(handleHitTop("top", 200, HIT, OUT, HEIGHT)).toBe(190);
+    expect(handleHitTop("bottom", 200, HIT, OUT, HEIGHT)).toBe(182);
+  });
+  test("a top handle on the first row stays inside the container", () => {
+    expect(handleHitTop("top", 0, HIT, OUT, HEIGHT)).toBe(0);
+  });
+  test("a bottom handle at the end of the window stays inside the container", () => {
+    expect(handleHitTop("bottom", 1040, HIT, OUT, HEIGHT)).toBe(HEIGHT - HIT);
+    expect(handleHitTop("bottom", 1064, HIT, OUT, HEIGHT)).toBe(HEIGHT - HIT);
+  });
+  test("a container smaller than the area pins it to the top", () => {
+    expect(handleHitTop("bottom", 10, HIT, OUT, 20)).toBe(0);
   });
 });

@@ -5,11 +5,13 @@ import {
   READ_ONLY_NOTICE,
   RECOVERED_NOTICE,
   SAVE_ERROR,
+  TOO_MANY_TASKS_ERROR,
   createTasksStore,
 } from "./tasks-store";
 import {
   BACKUP_KEY_PREFIX,
   CORRUPT_KEY_PREFIX,
+  MAX_RECORDS,
   TASKS_STORAGE_KEY as KEY,
   contentKey,
   type KeyValueStorage,
@@ -82,7 +84,7 @@ async function loadedStore(tasks: Task[] = [A, B], hooks: Hooks = {}) {
 describe("initial state", () => {
   test("starts loading with no tasks and no error", () => {
     const store = createTasksStore(fakeStorage().storage);
-    expect(store.getState()).toEqual({ tasks: [], loading: true, error: null, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [], loading: true, error: null, lastRemoved: null, writesBlocked: false });
   });
 
   test("getState returns the same object while nothing changes", () => {
@@ -133,7 +135,7 @@ describe("locked (read failed)", () => {
 
   test("shows LOAD_ERROR, no tasks and finishes loading", async () => {
     const { store } = await lockedStore();
-    expect(store.getState()).toEqual({ tasks: [], loading: false, error: LOAD_ERROR, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [], loading: false, error: LOAD_ERROR, lastRemoved: null, writesBlocked: true });
   });
 
   test("upsert and remove return false and never touch storage", async () => {
@@ -149,7 +151,7 @@ describe("locked (read failed)", () => {
     const fake = fakeStorage({}, { onGet: () => poisoned as unknown as string });
     const store = createTasksStore(fake.storage);
     await store.load();
-    expect(store.getState()).toEqual({ tasks: [], loading: false, error: LOAD_ERROR, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [], loading: false, error: LOAD_ERROR, lastRemoved: null, writesBlocked: true });
     expect(await store.upsert(NEW)).toBe(false);
     expect(fake.setCalls).toEqual([]);
   });
@@ -172,7 +174,7 @@ describe("recovered", () => {
     const fake = fakeStorage({ [KEY]: "{bad" });
     const store = createTasksStore(fake.storage);
     await store.load();
-    expect(store.getState()).toEqual({ tasks: [], loading: false, error: RECOVERED_NOTICE, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [], loading: false, error: RECOVERED_NOTICE, lastRemoved: null, writesBlocked: false });
 
     expect(await store.upsert(NEW)).toBe(true);
     expect(fake.data.get(KEY)).toBe(JSON.stringify([NEW]));
@@ -187,7 +189,7 @@ describe("ok with quarantined records", () => {
     const fake = fakeStorage(storedList([A, bad, B]));
     const store = createTasksStore(fake.storage);
     await store.load();
-    expect(store.getState()).toEqual({ tasks: [A, B], loading: false, error: QUARANTINED_NOTICE, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [A, B], loading: false, error: QUARANTINED_NOTICE, lastRemoved: null, writesBlocked: false });
 
     const corruptText = JSON.stringify([bad]);
     expect(fake.data.get(contentKey(CORRUPT_KEY_PREFIX, corruptText))).toBe(corruptText);
@@ -199,7 +201,7 @@ describe("ok with quarantined records", () => {
 
   test("shows no notice when nothing was quarantined", async () => {
     const { store } = await loadedStore();
-    expect(store.getState()).toEqual({ tasks: [A, B], loading: false, error: null, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [A, B], loading: false, error: null, lastRemoved: null, writesBlocked: false });
   });
 });
 
@@ -215,7 +217,7 @@ describe("read-only", () => {
 
   test("shows the valid tasks with READ_ONLY_NOTICE", async () => {
     const { store } = await readOnlyStore();
-    expect(store.getState()).toEqual({ tasks: [A], loading: false, error: READ_ONLY_NOTICE, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [A], loading: false, error: READ_ONLY_NOTICE, lastRemoved: null, writesBlocked: true });
   });
 
   test("refuses writes with READ_ONLY_NOTICE and never writes the main key", async () => {
@@ -356,7 +358,7 @@ describe("dispose and token handling", () => {
     gate.resolve(JSON.stringify([A, B]));
     await loading;
     await flush();
-    expect(store.getState()).toEqual({ tasks: [], loading: true, error: null, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [], loading: true, error: null, lastRemoved: null, writesBlocked: false });
     expect(settled).toBe(false);
     expect(fake.setCalls).toEqual([]);
   });
@@ -374,7 +376,7 @@ describe("dispose and token handling", () => {
     stale.resolve(JSON.stringify([task("stale")]));
     await first;
 
-    expect(store.getState()).toEqual({ tasks: [A, B], loading: false, error: null, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [A, B], loading: false, error: null, lastRemoved: null, writesBlocked: false });
     expect(await store.upsert(NEW)).toBe(true);
     expect(fake.mainWrites()).toEqual([[A, B, NEW]]);
   });
@@ -404,7 +406,7 @@ describe("dispose and token handling", () => {
     await store.load();
     expect(store.getState().error).toBeNull();
     await store.load();
-    expect(store.getState()).toEqual({ tasks: [], loading: false, error: LOAD_ERROR, lastRemoved: null });
+    expect(store.getState()).toEqual({ tasks: [], loading: false, error: LOAD_ERROR, lastRemoved: null, writesBlocked: true });
     expect(await store.upsert(NEW)).toBe(false);
     expect(fake.mainWrites()).toEqual([]);
   });
@@ -530,11 +532,184 @@ describe("mutate", () => {
     expect(store.getState()).toBe(before);
   });
 
-  test("an update that throws rejects and does not poison later writes", async () => {
+  test("an update that throws resolves false with SAVE_ERROR, never writes and does not poison later writes", async () => {
     const { fake, store } = await loadedStore([A]);
-    await expect(store.mutate(() => { throw new Error("bad update"); })).rejects.toThrow("bad update");
+    const before = store.getState().tasks;
+    expect(await store.mutate(() => { throw new Error("bad update"); })).toBe(false);
+    expect(fake.mainWrites()).toEqual([]);
+    expect(store.getState().tasks).toBe(before);
+    expect(store.getState().error).toBe(SAVE_ERROR);
     expect(await store.upsert(B)).toBe(true);
     expect(fake.mainWrites()).toEqual([[A, B]]);
+    expect(store.getState().error).toBeNull();
+  });
+});
+
+describe("queue health", () => {
+  test("a turn that rejects (throwing subscriber) does not stall later writes", async () => {
+    const { fake, store } = await loadedStore([A]);
+    const unsubscribe = store.subscribe(() => { throw new Error("listener boom"); });
+    await expect(store.upsert(B)).rejects.toThrow("listener boom");
+    unsubscribe();
+    expect(await store.upsert(NEW)).toBe(true);
+    expect(fake.mainWrites()).toEqual([[A, B], [A, B, NEW]]);
+  });
+});
+
+describe("MAX_RECORDS limit", () => {
+  const many = (count: number) => Array.from({ length: count }, (_, i) => task(`m${i}`));
+
+  test("refuses a list longer than MAX_RECORDS: false, TOO_MANY_TASKS_ERROR, no setItem, tasks untouched", async () => {
+    const { fake, store } = await loadedStore([A]);
+    const before = store.getState().tasks;
+    expect(await store.mutate(() => many(MAX_RECORDS + 1))).toBe(false);
+    expect(fake.mainWrites()).toEqual([]);
+    expect(store.getState().tasks).toBe(before);
+    expect(store.getState().error).toBe(TOO_MANY_TASKS_ERROR);
+    expect(TOO_MANY_TASKS_ERROR).toBe("You have reached the maximum number of tasks.");
+  });
+
+  test("accepts exactly MAX_RECORDS tasks", async () => {
+    const { fake, store } = await loadedStore([A]);
+    expect(await store.mutate(() => many(MAX_RECORDS))).toBe(true);
+    expect(fake.mainWrites()).toHaveLength(1);
+    expect(store.getState().tasks).toHaveLength(MAX_RECORDS);
+  });
+
+  test("upsert of a new task onto a full list is refused; editing an existing one still works", async () => {
+    const { fake, store } = await loadedStore(many(MAX_RECORDS));
+    expect(await store.upsert(NEW)).toBe(false);
+    expect(store.getState().error).toBe(TOO_MANY_TASKS_ERROR);
+    expect(fake.mainWrites()).toEqual([]);
+    expect(await store.upsert({ ...task("m0"), title: "edited" })).toBe(true);
+    expect(store.getState().error).toBeNull();
+  });
+
+  test("a silent write over the limit is refused without an error", async () => {
+    const { fake, store } = await loadedStore([A]);
+    expect(await store.mutate(() => many(MAX_RECORDS + 1), { silent: true })).toBe(false);
+    expect(fake.mainWrites()).toEqual([]);
+    expect(store.getState().error).toBeNull();
+  });
+});
+
+describe("silent mutate", () => {
+  test("success persists and keeps an existing error notice", async () => {
+    const fake = fakeStorage(storedList([A, { id: "bad" }]));
+    const store = createTasksStore(fake.storage);
+    await store.load();
+    expect(store.getState().error).toBe(QUARANTINED_NOTICE);
+    expect(await store.mutate(tasks => [...tasks, B], { silent: true })).toBe(true);
+    expect(fake.mainWrites()).toEqual([[A, B]]);
+    expect(store.getState().tasks).toEqual([A, B]);
+    expect(store.getState().error).toBe(QUARANTINED_NOTICE);
+  });
+
+  test("a non-silent success still clears the error", async () => {
+    const fake = fakeStorage(storedList([A, { id: "bad" }]));
+    const store = createTasksStore(fake.storage);
+    await store.load();
+    expect(await store.mutate(tasks => [...tasks, B], { silent: false })).toBe(true);
+    expect(store.getState().error).toBeNull();
+  });
+
+  test("returns false without an error when writes are blocked (locked), without calling update", async () => {
+    const fake = fakeStorage({}, { onGet: () => { throw new Error("read boom"); } });
+    const store = createTasksStore(fake.storage);
+    await store.load();
+    store.clearError();
+    let called = false;
+    expect(await store.mutate(tasks => { called = true; return tasks; }, { silent: true })).toBe(false);
+    expect(called).toBe(false);
+    expect(store.getState().error).toBeNull();
+    expect(fake.setCalls).toEqual([]);
+  });
+
+  test("returns false without an error when read-only", async () => {
+    const fake = fakeStorage(storedList([A, { id: "bad" }]), {
+      onSet: key => { if (key.startsWith(CORRUPT_KEY_PREFIX)) throw new Error("full"); },
+    });
+    const store = createTasksStore(fake.storage);
+    await store.load();
+    store.clearError();
+    expect(await store.mutate(tasks => [...tasks, B], { silent: true })).toBe(false);
+    expect(store.getState().error).toBeNull();
+    expect(fake.mainWrites()).toEqual([]);
+  });
+
+  test("a failed persist returns false without an error and leaves tasks unchanged", async () => {
+    const { store } = await loadedStore([A], { onSet: () => { throw new Error("full"); } });
+    const before = store.getState().tasks;
+    expect(await store.mutate(tasks => [...tasks, B], { silent: true })).toBe(false);
+    expect(store.getState().tasks).toBe(before);
+    expect(store.getState().error).toBeNull();
+  });
+
+  test("a throwing update returns false without an error and keeps the queue healthy", async () => {
+    const { store } = await loadedStore([A]);
+    expect(await store.mutate(() => { throw new Error("bad"); }, { silent: true })).toBe(false);
+    expect(store.getState().error).toBeNull();
+    expect(await store.upsert(B)).toBe(true);
+  });
+
+  test("an existing SAVE_ERROR is kept by a later silent success", async () => {
+    const { store } = await loadedStore([A], {
+      onSet: (key, _v, call) => { if (key === KEY && call === 1) throw new Error("full"); },
+    });
+    expect(await store.upsert(B)).toBe(false);
+    expect(store.getState().error).toBe(SAVE_ERROR);
+    expect(await store.mutate(tasks => [...tasks, NEW], { silent: true })).toBe(true);
+    expect(store.getState().error).toBe(SAVE_ERROR);
+  });
+});
+
+describe("writesBlocked", () => {
+  test("is false while loading and after a normal load", async () => {
+    const store = createTasksStore(fakeStorage().storage);
+    expect(store.getState().writesBlocked).toBe(false);
+    await store.load();
+    expect(store.getState().writesBlocked).toBe(false);
+  });
+
+  test("is true when the read failed (locked) and when the backup copy failed", async () => {
+    const locked = createTasksStore(fakeStorage({}, { onGet: () => { throw new Error("boom"); } }).storage);
+    await locked.load();
+    expect(locked.getState().writesBlocked).toBe(true);
+
+    const backupFails = createTasksStore(fakeStorage(
+      { [KEY]: "{" },
+      { onSet: key => { if (key.startsWith(BACKUP_KEY_PREFIX)) throw new Error("full"); } },
+    ).storage);
+    await backupFails.load();
+    expect(backupFails.getState().writesBlocked).toBe(true);
+  });
+
+  test("is true when read-only", async () => {
+    const fake = fakeStorage(storedList([A, { id: "bad" }]), {
+      onSet: key => { if (key.startsWith(CORRUPT_KEY_PREFIX)) throw new Error("full"); },
+    });
+    const store = createTasksStore(fake.storage);
+    await store.load();
+    expect(store.getState().writesBlocked).toBe(true);
+  });
+
+  test("is false after a recovered load and after quarantine succeeded", async () => {
+    const recovered = createTasksStore(fakeStorage({ [KEY]: "{" }).storage);
+    await recovered.load();
+    expect(recovered.getState().writesBlocked).toBe(false);
+    const { store } = await loadedStore([A]);
+    expect(store.getState().writesBlocked).toBe(false);
+  });
+
+  test("clears again when a reload succeeds after a failed read", async () => {
+    const fake = fakeStorage(storedList([A]), {
+      onGet: call => { if (call === 1) throw new Error("read boom"); return undefined; },
+    });
+    const store = createTasksStore(fake.storage);
+    await store.load();
+    expect(store.getState().writesBlocked).toBe(true);
+    await store.load();
+    expect(store.getState().writesBlocked).toBe(false);
   });
 });
 
