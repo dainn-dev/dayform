@@ -34,7 +34,7 @@ export interface DragResult {
   readonly commit: Block | null;
 }
 
-interface WindowBounds {
+export interface WindowBounds {
   readonly windowStart?: number;
   readonly windowEnd?: number;
 }
@@ -146,19 +146,19 @@ export function handleHitTop(
 }
 
 /** Snapped block to render live for the current drag state. */
-export function previewBlock(state: DragState, block: Block, scale: number): Block {
+export function previewBlock(state: DragState, block: Block, scale: number, window: WindowBounds = {}): Block {
   if (state.phase !== "dragging") return { start: block.start, duration: block.duration };
   const { deltaPx } = state;
-  if (state.mode === "move") return moveBlock({ ...block, deltaPx, scale });
+  if (state.mode === "move") return moveBlock({ ...block, ...window, deltaPx, scale });
   const edge = state.mode === "resize-top" ? "top" : "bottom";
-  return resizeBlock({ ...block, deltaPx, scale, edge });
+  return resizeBlock({ ...block, ...window, deltaPx, scale, edge });
 }
 
 const IDLE: DragState = { phase: "idle" };
 
-function release(state: DragState, block: Block, scale: number): DragResult {
+function release(state: DragState, block: Block, scale: number, window: WindowBounds): DragResult {
   if (state.phase !== "dragging") return { state: IDLE, commit: null };
-  const next = previewBlock(state, block, scale);
+  const next = previewBlock(state, block, scale, window);
   const changed = next.start !== block.start || next.duration !== block.duration;
   return { state: IDLE, commit: changed ? next : null };
 }
@@ -173,6 +173,7 @@ export function dragReducer(
   event: DragEvent,
   block: Block,
   scale: number,
+  window: WindowBounds = {},
 ): DragResult {
   switch (event.type) {
     case "LONG_PRESS":
@@ -189,7 +190,7 @@ export function dragReducer(
       }
       return { state, commit: null };
     case "RELEASE":
-      return release(state, block, scale);
+      return release(state, block, scale, window);
     case "CANCEL":
       return { state: IDLE, commit: null };
   }

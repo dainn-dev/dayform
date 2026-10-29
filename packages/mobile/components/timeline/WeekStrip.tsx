@@ -4,11 +4,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
-import { addDays, fromKey, type Task } from "../../lib/planner";
+import { fromKey, weekDays, type Task } from "../../lib/planner";
+import { weekdayShort } from "../../lib/weekdays";
 import { SectionEyebrow } from "../ui/SectionEyebrow";
-import { DAYS, DAYS_VI } from "./constants";
 
 type Props = {
+  /** First day of the shown week (per the week-start setting). */
   week: string;
   selected: string;
   today: string;
@@ -31,13 +32,13 @@ export function WeekStrip({ week, selected, today, tasks, onSelect, onShiftWeek 
         <Pressable onPress={() => onShiftWeek(7)} style={s.navButton} accessibilityRole="button" accessibilityLabel={tr("Next week")}><Ionicons name="chevron-forward" size={19} color={colors.foreground} /></Pressable>
       </View>
     </View>
-    <View style={s.weekStrip}>{DAYS.map((day, i) => {
-      const key = addDays(week, i), active = key === selected, isToday = key === today;
+    <View style={s.weekStrip}>{weekDays(week).map(key => {
+      const active = key === selected, isToday = key === today;
       const hasTasks = tasks.some(t => t.date === key && t.start);
       const dotColor = active ? colors.onPrimary : colors.primary;
       const dayLabel = fromKey(key).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
       return <Pressable key={key} onPress={() => onSelect(key)} accessibilityRole="button" accessibilityLabel={`${dayLabel}${isToday ? `, ${tr("Today")}` : ""}`} accessibilityState={{ selected: active }} style={[s.dayCell, active && s.dayActive]}>
-        <Text style={[s.dayName, active && s.dayTextActive]}>{language === "vi" ? DAYS_VI[i] : day}</Text>
+        <Text style={[s.dayName, active && s.dayTextActive]}>{weekdayShort(key, language)}</Text>
         <Text style={[s.dayNumber, active && s.dayTextActive]}>{fromKey(key).getDate()}</Text>
         <View style={[s.dayDot, hasTasks && { backgroundColor: dotColor }, isToday && !hasTasks && { borderWidth: 1.5, borderColor: dotColor }]} />
       </Pressable>;

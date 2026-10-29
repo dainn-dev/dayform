@@ -8,7 +8,7 @@ import { TaskCard } from "../TaskCard";
 
 type Props = { outside: Task[]; scheduled: Task[]; onEdit: (task: Task) => void; onToggle: (task: Task) => void };
 
-/** Tasks scheduled before 06:00 or after 22:00, listed under the timeline. */
+/** Tasks starting outside the visible day window (see Calendar settings), listed under the timeline. */
 export function OutsideHours({ outside, scheduled, onEdit, onToggle }: Props) {
   const { t: tr } = useLanguage();
   const colors = useColors();

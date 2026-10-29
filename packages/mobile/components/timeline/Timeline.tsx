@@ -7,8 +7,9 @@ import { useLanguage } from "../../lib/language";
 import { overlaps, type Task } from "../../lib/planner";
 import { layoutLanes } from "../../lib/timeline-layout";
 import { EventBlock } from "./EventBlock";
-import { FIRST_HOUR, GUTTER, HOURS, MIN_VISUAL_MINUTES, SCALE, SLOT_HOURS, TIMELINE_HEIGHT } from "./constants";
-import { hourLabel, nowOffset } from "./layout";
+import { useTimelineConfig } from "../../hooks/use-timeline-config";
+import { hourLabel, nowOffset, slotTime, type TimelineConfig } from "../../lib/timeline-config";
+import { GUTTER } from "./constants";
 import type { TaskPatch } from "./drag-controller";
 
 type Props = {
@@ -28,16 +29,18 @@ type Props = {
 
 /** Hour grid, tappable hour slots, now line, event layer and empty state for one day. */
 export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove, onLockChange }: Props) {
-  const { t: tr } = useLanguage();
+  const { t: tr, timeFormat } = useLanguage();
   const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  const lanes = layoutLanes(visible, MIN_VISUAL_MINUTES);
-  const nowY = now ? nowOffset(now) : null;
+  const config = useTimelineConfig();
+  const s = useMemo(() => makeStyles(colors, config), [colors, config]);
+  const lanes = layoutLanes(visible, config.minVisualMinutes);
+  const nowY = now ? nowOffset(config, now) : null;
+  const hourTop = (hour: number) => (hour - config.firstHour) * 60 * config.scale;
 
   return <View style={s.timeline}>
-    {HOURS.map(hour => <View key={hour} style={[s.hour, { top: (hour - FIRST_HOUR) * 60 * SCALE }]}><Text style={s.hourLabel}>{hourLabel(hour)}</Text><View style={s.hourLine} /></View>)}
+    {config.hours.map(hour => <View key={hour} style={[s.hour, { top: hourTop(hour) }]}><Text style={s.hourLabel}>{hourLabel(hour, timeFormat)}</Text><View style={s.hourLine} /></View>)}
     {/* Touch-only: 16 empty TalkBack stops are noise; screen readers use the Add buttons. */}
-    {SLOT_HOURS.map(hour => <Pressable key={hour} onPress={() => onAddAt(hourLabel(hour))} accessible={false} importantForAccessibility="no" style={[s.hourHit, { top: (hour - FIRST_HOUR) * 60 * SCALE }]} />)}
+    {config.slotHours.map(hour => <Pressable key={hour} onPress={() => onAddAt(slotTime(hour))} accessible={false} importantForAccessibility="no" style={[s.hourHit, { top: hourTop(hour) }]} />)}
     {nowY !== null && <View pointerEvents="none" style={[s.nowLine, { top: nowY }]}><View style={s.nowCircle} /><View style={s.nowRule} /></View>}
     <View pointerEvents="box-none" style={s.eventLayer}>{visible.map(task => {
       const { lane, lanes: laneCount } = lanes[task.id];
@@ -48,17 +51,17 @@ export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  timeline: { height: TIMELINE_HEIGHT, marginLeft: 2, marginRight: 3, position: "relative" },
+const makeStyles = (c: ThemeColors, config: TimelineConfig) => StyleSheet.create({
+  timeline: { height: config.height, marginLeft: 2, marginRight: 3, position: "relative" },
   hour: { position: "absolute", width: "100%", flexDirection: "row", alignItems: "center", height: 15, zIndex: 0 },
   hourLabel: { width: 46, fontSize: 10, fontWeight: "700", color: c.hourLabel },
   hourLine: { flex: 1, borderTopWidth: 1, borderTopColor: c.hairline },
-  hourHit: { position: "absolute", left: GUTTER, right: 0, height: 59 * SCALE, zIndex: 1 },
+  hourHit: { position: "absolute", left: GUTTER, right: 0, height: config.slotHeight, zIndex: 1 },
   eventLayer: { position: "absolute", left: GUTTER, right: 0, top: 0, bottom: 0, zIndex: 3 },
   nowLine: { position: "absolute", zIndex: 4, left: 43, right: 0, flexDirection: "row", alignItems: "center" },
   nowCircle: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.nowLine },
   nowRule: { flex: 1, height: 1, backgroundColor: c.nowLine },
-  emptyTimeline: { position: "absolute", top: 65, left: 56, right: 5, alignItems: "center", padding: 25, backgroundColor: c.emptyBg, borderRadius: 17 },
+  emptyTimeline: { position: "absolute", top: config.emptyTop, left: 56, right: 5, alignItems: "center", padding: 25, backgroundColor: c.emptyBg, borderRadius: 17 },
   emptyTitle: { color: c.foreground, fontSize: 14, fontWeight: "800", marginTop: 8 },
   emptyText: { color: c.mutedForeground, fontSize: 11, marginTop: 4 },
 });

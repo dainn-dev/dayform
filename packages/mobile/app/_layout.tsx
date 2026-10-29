@@ -3,12 +3,15 @@ import { Slot } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { NamePrompt } from "../components/onboarding/NamePrompt";
 import { NotificationActions } from "../components/NotificationActions";
 import { RemindersBridge } from "../components/RemindersBridge";
 import { SeriesExtender } from "../components/SeriesExtender";
 import { SnapshotScheduler } from "../components/SnapshotScheduler";
 import { UndoBar } from "../components/UndoBar";
 import { UpdatePrompt } from "../components/update/UpdatePrompt";
+import { WidgetSync } from "../components/WidgetSync";
+import { SettingsProvider, useSettings } from "../lib/settings-context";
 import { TasksProvider } from "../lib/tasks-context";
 import { UpdateProvider } from "../lib/update-context";
 import { LanguageProvider, useLanguage } from "../lib/language";
@@ -31,17 +34,24 @@ function hideSplashOnce() {
   });
 }
 
-/** Hides the splash as soon as both providers have loaded their stored value. Must sit inside both. */
+/** Hides the splash as soon as the theme, language and settings have loaded their stored value. Must sit inside all three. */
 function AppReadyGate() {
   const themeReady = useThemePreference().ready;
   const languageReady = useLanguage().ready;
+  const settingsReady = useSettings().ready;
   useEffect(() => {
-    if (themeReady && languageReady) hideSplashOnce();
-  }, [themeReady, languageReady]);
+    if (themeReady && languageReady && settingsReady) hideSplashOnce();
+  }, [themeReady, languageReady, settingsReady]);
   return null;
 }
 
-// Provider chain: ErrorBoundary → SafeArea → Theme → Language → Tasks → Updates → Slot (+ UndoBar, helpers and the UpdatePrompt dialog).
+/** Feeds the home-screen widget once the settings are loaded, so a hidden-titles choice is never briefly ignored. */
+function WidgetBridge() {
+  const { settings, ready } = useSettings();
+  return ready ? <WidgetSync showTitles={settings.widget.showTitles} /> : null;
+}
+
+// Provider chain: ErrorBoundary → SafeArea → Settings → Theme → Language → Tasks → Updates → Slot (+ UndoBar, helpers and the UpdatePrompt dialog).
 export default function RootLayout() {
   // Lives outside the providers so a provider that fails to mount can never leave the splash stuck.
   useEffect(() => {
@@ -52,22 +62,26 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <LanguageProvider>
-            <TasksProvider>
-              <UpdateProvider>
-                <AppReadyGate />
-                <Slot />
-                <UndoBar />
-                <RemindersBridge />
-                <NotificationActions />
-                <SeriesExtender />
-                <SnapshotScheduler />
-                <UpdatePrompt />
-              </UpdateProvider>
-            </TasksProvider>
-          </LanguageProvider>
-        </ThemeProvider>
+        <SettingsProvider>
+          <ThemeProvider>
+            <LanguageProvider>
+              <TasksProvider>
+                <UpdateProvider>
+                  <AppReadyGate />
+                  <NamePrompt />
+                  <Slot />
+                  <UndoBar />
+                  <RemindersBridge />
+                  <NotificationActions />
+                  <SeriesExtender />
+                  <SnapshotScheduler />
+                  <WidgetBridge />
+                  <UpdatePrompt />
+                </UpdateProvider>
+              </TasksProvider>
+            </LanguageProvider>
+          </ThemeProvider>
+        </SettingsProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

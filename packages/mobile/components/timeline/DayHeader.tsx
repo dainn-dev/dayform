@@ -2,11 +2,34 @@ import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
+import { useTimelineConfig } from "../../hooks/use-timeline-config";
 import type { ThemeColors } from "../../constants/theme";
-import { greetingFor, sloganFor } from "../../lib/greeting";
+import { greetingText, sloganText } from "../../lib/greeting";
 import { useLanguage } from "../../lib/language";
 import { fromKey, type Task } from "../../lib/planner";
+import { useSettings } from "../../lib/settings-context";
+import { windowLabel } from "../../lib/timeline-config";
 import { LanguageSwitch } from "../LanguageSwitch";
+
+const GREETING_MIN_FONT_SCALE = 0.6;
+
+/**
+ * Greeting (with the name when it is shown) and the slogan under it. The greeting stays on one line and shrinks to
+ * fit; with the slogan off there is no subtitle. Also used by the live preview in Settings so both look the same.
+ */
+export function GreetingLines({ now }: { now: Date }) {
+  const { t: tr } = useLanguage();
+  const { settings } = useSettings();
+  const colors = useColors();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { profile, greeting } = settings;
+  const title = greetingText(now, profile.name, greeting.showName, tr);
+  const slogan = sloganText(now, { style: greeting.sloganStyle, custom: greeting.customSlogan }, tr);
+  return <View style={s.greetingText}>
+    <Text accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={GREETING_MIN_FONT_SCALE} style={s.greeting}>{title}<Text style={{ color: colors.sun }}> ☀</Text></Text>
+    {slogan === null ? null : <Text style={s.subtitle}>{slogan}</Text>}
+  </View>;
+}
 
 /** Page header: DAYFORM kicker, language switch, greeting and the jump-to-today shortcut. */
 export function GreetingHeader({ onToday, now }: { onToday: () => void; now: Date }) {
@@ -16,7 +39,7 @@ export function GreetingHeader({ onToday, now }: { onToday: () => void; now: Dat
   return <>
     <View style={s.kickerRow}><Text style={s.kicker}>DAYFORM ✦</Text><LanguageSwitch /></View>
     <View style={s.header}>
-      <View><Text accessibilityRole="header" style={s.greeting}>{tr(greetingFor(now))}<Text style={{ color: colors.sun }}> ☀</Text></Text><Text style={s.subtitle}>{tr(sloganFor(now))}</Text></View>
+      <GreetingLines now={now} />
       <Pressable onPress={onToday} style={s.todayShortcut} accessibilityRole="button" accessibilityLabel={tr("Jump to today")}><Ionicons name="calendar-outline" size={21} color={colors.foreground} /></Pressable>
     </View>
   </>;
@@ -26,7 +49,8 @@ type DayHeaderProps = { selected: string; today: string; scheduled: Task[]; onAd
 
 /** Day panel header: date, title, add button, summary, progress bar and the DAILY TIMELINE heading. */
 export function DayHeader({ selected, today, scheduled, onAdd }: DayHeaderProps) {
-  const { t: tr, locale, summary } = useLanguage();
+  const { t: tr, locale, summary, timeFormat } = useLanguage();
+  const config = useTimelineConfig();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const selectedDate = fromKey(selected);
@@ -41,7 +65,7 @@ export function DayHeader({ selected, today, scheduled, onAdd }: DayHeaderProps)
     </View>
     <Text style={s.summary}>{summary(completed, scheduled.length, total)}</Text>
     <View style={s.progressTrack}><View style={[s.progressFill, { width: `${progress}%` }]} /></View>
-    <View style={s.timelineHeading}><View style={s.liveDot} /><Text accessibilityRole="header" style={s.timelineHeadingText}>{tr("DAILY TIMELINE")}</Text><Text style={s.timelineHint}>{tr("6 AM – 10 PM")}</Text></View>
+    <View style={s.timelineHeading}><View style={s.liveDot} /><Text accessibilityRole="header" style={s.timelineHeadingText}>{tr("DAILY TIMELINE")}</Text><Text style={s.timelineHint}>{windowLabel(config, timeFormat)}</Text></View>
   </>;
 }
 
@@ -49,6 +73,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   kickerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 36 },
   kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2.4, marginBottom: 9 },
+  greetingText: { flex: 1, minWidth: 0, marginRight: 12 },
   greeting: { color: c.foreground, fontSize: 27, fontWeight: "800", letterSpacing: -1.1 },
   subtitle: { color: c.mutedForeground, fontSize: 13, marginTop: 6 },
   todayShortcut: { width: 44, height: 44, backgroundColor: c.card, borderRadius: 16, alignItems: "center", justifyContent: "center", shadowColor: c.shadowSoft, shadowOpacity: 0.08, shadowRadius: 14, elevation: 2 },

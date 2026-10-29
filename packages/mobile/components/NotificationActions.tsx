@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { router, useRootNavigationState } from "expo-router";
 import { useLanguage } from "../lib/language";
 import { useTasks } from "../lib/tasks-context";
+import { useSettings } from "../lib/settings-context";
 import {
   createActionQueue,
   dedupeKey,
@@ -22,6 +23,8 @@ type TasksMutate = ReturnType<typeof useTasks>["mutate"];
 type Context = {
   tasks: Task[];
   language: ReminderLanguage;
+  snoozeMinutes: number;
+  hideTitles: boolean;
   mutate: TasksMutate;
   ready: boolean;
   writesBlocked: boolean;
@@ -44,6 +47,8 @@ function handleResponse(response: Response, read: () => Context): Promise<Action
   return runAction(action, {
     tasks: context.tasks,
     language: context.language,
+    snoozeMinutes: context.snoozeMinutes,
+    hideTitles: context.hideTitles,
     writesBlocked: () => read().writesBlocked,
     mutate: context.mutate,
     schedule: (reminder) => createExpoScheduler().schedule(reminder),
@@ -71,19 +76,21 @@ function createResponseQueue(read: () => Context): ActionQueue<Response> {
 export function NotificationActions(): null {
   const { tasks, loading, mutate, writesBlocked } = useTasks();
   const { language } = useLanguage();
+  const { snoozeMinutes, hideTitles } = useSettings().settings.notifications;
   const navigationReady = Boolean(useRootNavigationState()?.key);
   const ready = !loading && navigationReady;
-  const latest = useRef<Context>({ tasks, language, mutate, ready, writesBlocked });
+  const latest = useRef<Context>({ tasks, language, snoozeMinutes, hideTitles, mutate, ready, writesBlocked });
   const queue = useRef<ActionQueue<Response> | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, language, mutate, ready, writesBlocked };
-  }, [tasks, language, mutate, ready, writesBlocked]);
+    latest.current = { tasks, language, snoozeMinutes, hideTitles, mutate, ready, writesBlocked };
+  }, [tasks, language, snoozeMinutes, hideTitles, mutate, ready, writesBlocked]);
 
   useEffect(() => {
     if (isWeb) return;
-    registerReminderCategory(language).catch((error: unknown) => warnInDev("Reminder category failed", error));
-  }, [language]);
+    registerReminderCategory(language, snoozeMinutes)
+      .catch((error: unknown) => warnInDev("Reminder category failed", error));
+  }, [language, snoozeMinutes]);
 
   // Mount-only: the subscription and the cold-start response are read once.
   useEffect(() => {

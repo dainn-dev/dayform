@@ -1,4 +1,8 @@
 import type { Task } from "./planner";
+import { localize } from "./i18n/notifications";
+import { postponeOutOfQuiet, type QuietWindow } from "./reminders-quiet";
+
+export type { QuietWindow };
 
 /** Local copy of the app language union: lib/language.tsx imports React, so it cannot be used here. */
 export type ReminderLanguage = "en" | "vi";
@@ -9,6 +13,8 @@ export type PlannedReminder = {
   fireAt: Date;
   title: string;
   body: string;
+  /** "summary" notifications are daily digests: no task data, no action buttons. Missing means "task". */
+  kind?: "task" | "summary";
 };
 
 export type ReminderScheduler = {
@@ -19,12 +25,21 @@ export type ReminderScheduler = {
 
 export type ReconcileResult = { scheduled: number; cancelled: number; errors: string[] };
 
-export type PlanOptions = { limit?: number; language?: ReminderLanguage };
+export type PlanOptions = {
+  limit?: number;
+  language?: ReminderLanguage;
+  /** Notification text shows a generic title instead of the task title. */
+  hideTitles?: boolean;
+  /** Reminders firing inside this window are postponed to its end (dropped when that is after the task ends). */
+  quiet?: QuietWindow | null;
+};
 
 /** Every notification id we create starts with this; anything else belongs to someone else. */
 export const REMINDER_ID_PREFIX = "dayform:task:";
 /** Snoozed notifications use this prefix, NOT REMINDER_ID_PREFIX, so the plain reconcile never cancels them. */
 export const SNOOZE_ID_PREFIX = "dayform:snooze:";
+/** Morning-summary notifications (`dayform:summary:<YYYY-MM-DD>:<hash>`) are reconciled like task reminders. */
+export const SUMMARY_ID_PREFIX = "dayform:summary:";
 /** iOS keeps at most 64 pending local notifications; stay below it. */
 export const DEFAULT_REMINDER_LIMIT = 50;
 
@@ -36,8 +51,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** 32-bit FNV-1a over UTF-16 code units, base 16. */
-function fnv1a(text: string): string {
+/** 32-bit FNV-1a over UTF-16 code units, base 16. Content-addresses notification ids. */
+export function contentHash(text: string): string {
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
@@ -55,39 +70,56 @@ function leadTime(remind: number, language: ReminderLanguage): string {
   return parts.filter(Boolean).join(" ");
 }
 
-export function reminderMessage(task: Task, language: ReminderLanguage): { title: string; body: string } {
+export function reminderMessage(
+  task: Task,
+  language: ReminderLanguage,
+  hideTitle = false,
+): { title: string; body: string } {
   const remind = task.remind ?? 0;
   const time = task.start ?? "";
   const prefix = language === "vi" ? "Bắt đầu" : "Starts";
   const when = remind <= 0
     ? (language === "vi" ? "ngay" : "now")
     : `${language === "vi" ? "sau" : "in"} ${leadTime(remind, language)}`;
-  return { title: task.title, body: `${prefix} ${when} · ${time}` };
+  const title = hideTitle ? localize(language, "Upcoming task") : task.title;
+  return { title, body: `${prefix} ${when} · ${time}` };
 }
 
-/** The instant a reminder should fire, or null when the task data is not a valid schedule. */
-function fireTime(task: Task): Date | null {
+type Schedule = { startsAt: Date; fireAt: Date };
+
+/** When the task starts and when its reminder should fire, or null when the task data is not a valid schedule. */
+function scheduleOf(task: Task): Schedule | null {
   const date = task.date ? DATE_PATTERN.exec(task.date) : null;
   const time = task.start ? TIME_PATTERN.exec(task.start) : null;
   if (!date || !time || task.remind == null || !Number.isFinite(task.remind) || task.remind < 0) return null;
   const startsAt = new Date(Number(date[1]), Number(date[2]) - 1, Number(date[3]), Number(time[1]), Number(time[2]));
   if (Number.isNaN(startsAt.getTime())) return null;
-  return new Date(startsAt.getTime() - task.remind * MS_PER_MINUTE);
+  return { startsAt, fireAt: new Date(startsAt.getTime() - task.remind * MS_PER_MINUTE) };
 }
 
-function toPlanned(task: Task, fireAt: Date, language: ReminderLanguage): PlannedReminder {
-  const { title, body } = reminderMessage(task, language);
-  const hash = fnv1a(`${fireAt.getTime()}\u0000${title}\u0000${body}`);
+/** The fire time after quiet hours, or null when the postponed reminder would come at or after the task ends. */
+function quietFireAt({ startsAt, fireAt }: Schedule, task: Task, quiet: QuietWindow | null | undefined): Date | null {
+  const adjusted = postponeOutOfQuiet(fireAt, quiet);
+  if (adjusted === fireAt) return fireAt;
+  const endsAt = startsAt.getTime() + task.duration * MS_PER_MINUTE;
+  return adjusted.getTime() >= endsAt ? null : adjusted;
+}
+
+function toPlanned(task: Task, fireAt: Date, language: ReminderLanguage, hideTitles: boolean): PlannedReminder {
+  const { title, body } = reminderMessage(task, language, hideTitles);
+  const hash = contentHash(`${fireAt.getTime()}\u0000${title}\u0000${body}`);
   return { id: `${REMINDER_ID_PREFIX}${task.id}:${hash}`, taskId: task.id, fireAt, title, body };
 }
 
 export function planReminders(tasks: readonly Task[], now: Date, options: PlanOptions = {}): PlannedReminder[] {
-  const { limit = DEFAULT_REMINDER_LIMIT, language = "en" } = options;
+  const { limit = DEFAULT_REMINDER_LIMIT, language = "en", hideTitles = false, quiet = null } = options;
   const upcoming: PlannedReminder[] = [];
   for (const task of tasks) {
     if (task.status === "done") continue;
-    const fireAt = fireTime(task);
-    if (fireAt && fireAt.getTime() > now.getTime()) upcoming.push(toPlanned(task, fireAt, language));
+    const schedule = scheduleOf(task);
+    if (!schedule || schedule.fireAt.getTime() <= now.getTime()) continue;
+    const fireAt = quietFireAt(schedule, task, quiet);
+    if (fireAt) upcoming.push(toPlanned(task, fireAt, language, hideTitles));
   }
   upcoming.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime() || (a.taskId < b.taskId ? -1 : a.taskId > b.taskId ? 1 : 0));
   return upcoming.slice(0, Math.max(0, limit));
@@ -144,7 +176,7 @@ export async function reconcileReminders(
   } catch (error) {
     return { scheduled: 0, cancelled: 0, errors: [errorMessage(error)] };
   }
-  const ours = existing.filter((id) => id.startsWith(REMINDER_ID_PREFIX));
+  const ours = existing.filter((id) => id.startsWith(REMINDER_ID_PREFIX) || id.startsWith(SUMMARY_ID_PREFIX));
   const wanted = new Set(planned.map((r) => r.id));
   const present = new Set(ours);
   const stale = ours.filter((id) => !wanted.has(id));

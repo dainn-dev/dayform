@@ -4,9 +4,9 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { fromKey } from "../../lib/planner";
+import { weekdayShort } from "../../lib/weekdays";
 import { barLayout, maxPlannedMinutes, showMonthTick } from "../../lib/stats-chart";
 import type { DayStats, RangeKind } from "../../lib/stats";
-import { DAYS, DAYS_VI } from "../timeline/constants";
 
 const CHART_HEIGHT = 120;
 const PLANNED_OPACITY = 0.22;
@@ -19,7 +19,6 @@ export function DayBars({ perDay, kind }: Props) {
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const max = maxPlannedMinutes(perDay);
-  const weekdays = language === "vi" ? DAYS_VI : DAYS;
   const wide = kind === "week";
 
   const spokenDay = (day: DayStats) => {
@@ -30,8 +29,8 @@ export function DayBars({ perDay, kind }: Props) {
     if (day.scheduledCount === 0) return `${name}: ${t("no tasks")}`;
     return `${name}: ${day.doneCount} ${t("of")} ${day.scheduledCount} ${t("tasks done")}, ${duration(day.plannedMinutes)} ${t("planned")}`;
   };
-  const tickOf = (day: DayStats, index: number) => {
-    if (wide) return weekdays[index];
+  const tickOf = (day: DayStats) => {
+    if (wide) return weekdayShort(day.date, language);
     const dayOfMonth = fromKey(day.date).getDate();
     return showMonthTick(dayOfMonth) ? String(dayOfMonth) : "";
   };
@@ -42,7 +41,7 @@ export function DayBars({ perDay, kind }: Props) {
       <View style={s.legendItem}><View style={[s.swatch, s.swatchPlanned]} /><Text style={s.legendText}>{t("Planned")}</Text></View>
       <View style={s.legendItem}><View style={[s.swatch, { backgroundColor: colors.primary }]} /><Text style={s.legendText}>{t("Done")}</Text></View>
     </View>
-    <View style={s.chart}>{perDay.map((day, index) => {
+    <View style={s.chart}>{perDay.map(day => {
       const { plannedPx, donePx } = barLayout(day.plannedMinutes, day.doneMinutes, max, CHART_HEIGHT);
       return <View key={day.date} accessible accessibilityLabel={spokenDay(day)} style={s.column}>
         <View style={s.barArea}>
@@ -53,7 +52,7 @@ export function DayBars({ perDay, kind }: Props) {
               </View>
             : <View style={[s.stub, wide ? s.barWide : s.barThin]} />}
         </View>
-        <Text style={s.tick} numberOfLines={1}>{tickOf(day, index)}</Text>
+        <Text style={s.tick} numberOfLines={1}>{tickOf(day)}</Text>
       </View>;
     })}</View>
   </View>;

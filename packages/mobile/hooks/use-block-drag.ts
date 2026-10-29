@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { GestureResponderHandlers } from "react-native";
 import { createDragController, type DragHost, type ShiftResult, type TaskPatch } from "../components/timeline/drag-controller";
-import { SCALE } from "../components/timeline/constants";
+import { useTimelineConfig } from "./use-timeline-config";
 import { minutes, type Task } from "../lib/planner";
+import type { TimelineConfig } from "../lib/timeline-config";
 import { formatMinutes, LONG_PRESS_MS, previewBlock, type Block, type DragState } from "../lib/timeline-gestures";
 
 export interface UseBlockDragArgs {
@@ -31,8 +32,11 @@ export interface BlockDrag {
 
 const IDLE: DragState = { phase: "idle" };
 
-function latestOf({ task, onCommit, onPress, onLockChange }: UseBlockDragArgs): ReturnType<DragHost["latest"]> {
-  return { task, block: { start: minutes(task.start!), duration: task.duration }, onCommit, onPress, onLockChange };
+function latestOf({ task, onCommit, onPress, onLockChange }: UseBlockDragArgs, config: TimelineConfig): ReturnType<DragHost["latest"]> {
+  return {
+    task, block: { start: minutes(task.start!), duration: task.duration }, onCommit, onPress, onLockChange,
+    scale: config.scale, limits: { windowStart: config.startMin, windowEnd: config.endMin },
+  };
 }
 
 function drawn(task: Task, block: Block): Task {
@@ -48,17 +52,19 @@ function drawn(task: Task, block: Block): Task {
 export function useBlockDrag(args: UseBlockDragArgs): BlockDrag {
   const [drag, setDrag] = useState<DragState>(IDLE);
   const [pending, setPending] = useState<Block | null>(null);
-  const latest = useRef(latestOf(args));
+  const config = useTimelineConfig();
+  const latest = useRef(latestOf(args, config));
   // Layout effect: responder callbacks must see the new props before the next touch event, not after paint.
   useLayoutEffect(() => {
-    latest.current = latestOf(args);
+    latest.current = latestOf(args, config);
   });
   const [controller] = useState(() => createDragController({ latest: () => latest.current, setDrag, setPending }));
   useEffect(() => () => controller.dispose(), [controller]);
 
-  const stored = latestOf(args).block;
+  const current = latestOf(args, config);
+  const stored = current.block;
   // While a save is in flight keep showing the committed position instead of snapping back.
-  const block = drag.phase === "dragging" ? previewBlock(drag, stored, SCALE) : (pending ?? stored);
+  const block = drag.phase === "dragging" ? previewBlock(drag, stored, current.scale, current.limits) : (pending ?? stored);
 
   return {
     phase: drag.phase,

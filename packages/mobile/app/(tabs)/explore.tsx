@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../../lib/language";
 import { LanguageSwitch } from "../../components/LanguageSwitch";
-import { SettingsSection } from "../../components/settings/SettingsSection";
 import { TaskEditor } from "../../components/TaskEditor";
 import { TaskCard } from "../../components/TaskCard";
 import { useTasks } from "../../lib/tasks-context";
@@ -110,7 +109,7 @@ export default function TasksScreen() {
     <SectionList<Task, ExploreSection>
       sections={sections} keyExtractor={item => item.id} stickySectionHeadersEnabled={false}
       renderItem={renderItem} renderSectionHeader={renderSectionHeader} renderSectionFooter={renderSectionFooter}
-      ListHeaderComponent={header} ListEmptyComponent={searching && !loading ? noMatches : null} ListFooterComponent={<SettingsSection />}
+      ListHeaderComponent={header} ListEmptyComponent={searching && !loading ? noMatches : null}
       contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
       initialNumToRender={12} windowSize={7} maxToRenderPerBatch={10}
     />

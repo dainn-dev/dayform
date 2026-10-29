@@ -74,6 +74,16 @@ describe("runAction", () => {
     expect(await runAction({ kind: "snooze", taskId: "a" }, context)).toBe("handled");
     expect(calls.schedule).toEqual(["a"]);
   });
+  test("snooze uses the configured minutes and hides the title when asked", async () => {
+    const scheduled: { fireAt: Date; title: string }[] = [];
+    const { context } = makeContext({
+      snoozeMinutes: 15,
+      hideTitles: true,
+      schedule: async (reminder) => { scheduled.push({ fireAt: reminder.fireAt, title: reminder.title }); },
+    });
+    await runAction({ kind: "snooze", taskId: "a" }, context);
+    expect(scheduled).toEqual([{ fireAt: new Date(2026, 9, 30, 9, 15), title: "Upcoming task" }]);
+  });
   test("snooze of a missing or done task does nothing", async () => {
     const { context, calls } = makeContext({ tasks: [makeTask({ id: "a", status: "done" })] });
     expect(await runAction({ kind: "snooze", taskId: "a" }, context)).toBe("handled");

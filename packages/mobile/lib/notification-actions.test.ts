@@ -166,6 +166,28 @@ describe("findEditTarget", () => {
   });
 });
 
+describe("snooze settings", () => {
+  const now = new Date(2026, 9, 30, 8, 0);
+  test("buildSnoozeReminder honours the snooze minutes", () => {
+    const reminder = buildSnoozeReminder(makeTask(), now, "en", { minutes: 15 });
+    expect(reminder.fireAt.getTime()).toBe(now.getTime() + 15 * 60_000);
+  });
+  test("snoozeMessage hides the title when asked and keeps the body", () => {
+    expect(snoozeMessage(makeTask(), "en", true)).toEqual({ title: "Upcoming task", body: "Reminder · 09:30" });
+    expect(snoozeMessage(makeTask(), "vi", true)).toEqual({ title: "Việc sắp tới", body: "Nhắc lại · 09:30" });
+    expect(snoozeMessage(makeTask(), "en", false).title).toBe("Deep work");
+  });
+  test("buildSnoozeReminder hides the title when asked", () => {
+    const reminder = buildSnoozeReminder(makeTask(), now, "en", { hideTitles: true });
+    expect(reminder.title).toBe("Upcoming task");
+    expect(reminder.fireAt.getTime()).toBe(now.getTime() + 10 * 60_000);
+  });
+  test.each([5, 10, 15] as const)("actionLabels reflects %i minutes", (minutes) => {
+    expect(actionLabels("en", minutes).snooze).toBe(`Snooze ${minutes} min`);
+    expect(actionLabels("vi", minutes).snooze).toBe(`Báo lại ${minutes} phút`);
+  });
+});
+
 describe("actionLabels", () => {
   test("english and vietnamese button titles", () => {
     expect(actionLabels("en")).toEqual({ done: "Done", snooze: "Snooze 10 min" });

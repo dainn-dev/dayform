@@ -1,3 +1,6 @@
+import { isValidName, normalizeName, normalizeSlogan } from "./settings";
+import { fillPlaceholders } from "./text-template";
+
 /** Part of the day the header greeting and slogan are written for. */
 export type DayPeriod = "morning" | "afternoon" | "evening";
 
@@ -36,6 +39,17 @@ const GREETINGS: Record<DayPeriod, string> = {
   evening: "Good evening",
 };
 
+/** Same greetings with a "{name}" placeholder; translated in lib/i18n/greeting.ts. */
+const NAMED_GREETINGS: Record<DayPeriod, string> = {
+  morning: "Good morning, {name}",
+  afternoon: "Good afternoon, {name}",
+  evening: "Good evening, {name}",
+};
+
+export type SloganStyle = "rotate" | "custom" | "off";
+export type SloganOptions = { style: SloganStyle; custom: string };
+type Translate = (text: string) => string;
+
 export function dayPeriod(now: Date): DayPeriod {
   const hour = now.getHours();
   if (hour < AFTERNOON_STARTS_AT) return "morning";
@@ -55,4 +69,35 @@ function dayNumber(now: Date): number {
 export function sloganFor(now: Date): string {
   const list = SLOGANS[dayPeriod(now)];
   return list[dayNumber(now) % list.length];
+}
+
+/** The English key to translate: the named greeting when a name is shown and usable, else the plain greeting. */
+export function greetingLine(now: Date, name: string, showName: boolean): string {
+  const period = dayPeriod(now);
+  return showName && isValidName(name) ? NAMED_GREETINGS[period] : GREETINGS[period];
+}
+
+/** Ready-to-render greeting: the translated key with the sanitised name filled in (never parsed as a template). */
+export function greetingText(now: Date, name: string, showName: boolean, translate: Translate): string {
+  return fillPlaceholders(translate(greetingLine(now, name, showName)), { name: normalizeName(name) });
+}
+
+type ResolvedSlogan = { text: string; translatable: boolean };
+
+function resolveSlogan(now: Date, { style, custom }: SloganOptions): ResolvedSlogan | null {
+  if (style === "off") return null;
+  const own = style === "custom" ? normalizeSlogan(custom) : "";
+  return own === "" ? { text: sloganFor(now), translatable: true } : { text: own, translatable: false };
+}
+
+/** Slogan under the greeting as stored (English key for the rotation, raw text for a custom one); null when off. */
+export function sloganLine(now: Date, options: SloganOptions): string | null {
+  return resolveSlogan(now, options)?.text ?? null;
+}
+
+/** Ready-to-render slogan: the rotation is translated, the user's own text never is; null when off. */
+export function sloganText(now: Date, options: SloganOptions, translate: Translate): string | null {
+  const slogan = resolveSlogan(now, options);
+  if (slogan === null) return null;
+  return slogan.translatable ? translate(slogan.text) : slogan.text;
 }

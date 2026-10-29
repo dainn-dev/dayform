@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Colors, type ThemeColors } from "../constants/palettes";
+import { ACCENT_IDS, ACCENT_KEYS, ACCENT_SETS, applyAccent } from "../constants/accents";
 import { categories } from "./planner";
 
 const BODY_TEXT_RATIO = 4.5;
@@ -109,6 +110,44 @@ describe("light palette contrast", () => {
   test("every known gap names a real check", () => {
     const names = new Set(checks.map(check => check.name));
     for (const gap of KNOWN_LIGHT_GAPS) expect(names.has(gap)).toBe(true);
+  });
+});
+
+type AccentCheck = { name: string; fg: keyof ThemeColors; bg: keyof ThemeColors; min: number };
+
+const ACCENT_CHECKS: AccentCheck[] = [
+  { name: "onPrimary on primary", fg: "onPrimary", bg: "primary", min: BODY_TEXT_RATIO },
+  { name: "primaryForeground on primary", fg: "primaryForeground", bg: "primary", min: BODY_TEXT_RATIO },
+  { name: "primary on background", fg: "primary", bg: "background", min: ACCENT_RATIO },
+  { name: "primary on card", fg: "primary", bg: "card", min: ACCENT_RATIO },
+  { name: "accentForeground on accent", fg: "accentForeground", bg: "accent", min: BODY_TEXT_RATIO },
+  { name: "accentForeground on card", fg: "accentForeground", bg: "card", min: BODY_TEXT_RATIO },
+  { name: "countText on background", fg: "countText", bg: "background", min: ACCENT_RATIO },
+  { name: "segmentText on segmentBg", fg: "segmentText", bg: "segmentBg", min: BODY_TEXT_RATIO },
+];
+
+describe("accent contrast (every accent, both schemes)", () => {
+  for (const accent of ACCENT_IDS) {
+    for (const scheme of ["light", "dark"] as const) {
+      const palette = applyAccent(Colors[scheme], accent);
+      for (const { name, fg, bg, min } of ACCENT_CHECKS) {
+        // Pre-existing pastel gap of the brand violet in light mode (see KNOWN_LIGHT_GAPS above).
+        const knownGap = accent === "violet" && scheme === "light" && fg === "segmentText";
+        test(`${accent} ${scheme}: ${name} >= ${min}:1${knownGap ? " (known gap)" : ""}`, () => {
+          const ratio = contrast(palette[fg] as string, palette[bg] as string);
+          if (knownGap) expect(ratio).toBeLessThan(min);
+          else expect(ratio).toBeGreaterThanOrEqual(min);
+        });
+      }
+    }
+  }
+
+  test("every accent overrides exactly the shared key set in both schemes", () => {
+    for (const accent of ACCENT_IDS) {
+      for (const scheme of ["light", "dark"] as const) {
+        expect(Object.keys(ACCENT_SETS[accent][scheme]).sort()).toEqual([...ACCENT_KEYS].sort());
+      }
+    }
   });
 });
 

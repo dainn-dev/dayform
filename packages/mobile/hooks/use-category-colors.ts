@@ -12,12 +12,12 @@ export type CategoryColors = { bg: string; accent: string; icon: IconName };
  * the theme; icons still come from `categoryStyle` in lib/planner.ts.
  */
 export function useCategoryColors(): Record<Category, CategoryColors> {
-  const colors = useColors();
+  const { category: categoryColors } = useColors();
   return useMemo(() => {
     const entries = categories.map(category => [
       category,
-      { ...colors.category[category], icon: categoryStyle[category].icon as IconName },
+      { ...categoryColors[category], icon: categoryStyle[category].icon as IconName },
     ]);
     return Object.fromEntries(entries) as Record<Category, CategoryColors>;
-  }, [colors]);
+  }, [categoryColors]);
 }

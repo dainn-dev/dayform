@@ -1,9 +1,14 @@
 import { vi as archive } from "./archive";
 import { vi as backup } from "./backup";
+import { vi as calendar } from "./calendar";
 import { vi as carryOver } from "./carry-over";
 import { vi as errors } from "./errors";
 import { vi as gestures } from "./gestures";
+import { vi as greeting } from "./greeting";
+import { vi as newTask } from "./new-task";
 import { vi as notificationActions } from "./notification-actions";
+import { vi as notifications } from "./notifications";
+import { vi as personal } from "./personal";
 import { vi as pickers } from "./pickers";
 import { vi as recovery } from "./recovery";
 import { vi as recurrence } from "./recurrence";
@@ -15,6 +20,7 @@ import { vi as store } from "./store";
 import { vi as theme } from "./theme";
 import { vi as undo } from "./undo";
 import { vi as update } from "./update";
+import { vi as widget } from "./widget";
 
 /**
  * Vietnamese strings for features that keep their own dictionary file. The English text is the key.
@@ -23,10 +29,15 @@ import { vi as update } from "./update";
 export const extraTranslations: Record<string, string> = {
   ...archive,
   ...backup,
+  ...calendar,
   ...carryOver,
   ...errors,
   ...gestures,
+  ...greeting,
+  ...newTask,
   ...notificationActions,
+  ...notifications,
+  ...personal,
   ...pickers,
   ...recovery,
   ...recurrence,
@@ -38,4 +49,5 @@ export const extraTranslations: Record<string, string> = {
   ...theme,
   ...undo,
   ...update,
+  ...widget,
 };

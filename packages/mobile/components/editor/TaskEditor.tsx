@@ -6,6 +6,9 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import type { Category, Repeat, Status, Task } from "../../lib/planner";
 import { useLanguage } from "../../lib/language";
+import { newTaskDefaults, type NewTaskDefaults } from "../../lib/new-task-defaults";
+import type { Settings } from "../../lib/settings";
+import { useSettings } from "../../lib/settings-context";
 import { useTasks } from "../../lib/tasks-context";
 import { CategoryChips } from "./CategoryChips";
 import { ConflictWarning } from "./ConflictWarning";
@@ -37,20 +40,35 @@ type Props = {
 
 const PICKER_ERROR = "Could not open the picker. Please try again.";
 
+const FALLBACK_TIME = "09:00";
+
+/** An existing task keeps its own values; only a NEW task (no `task`) takes the user's defaults. */
+function initialValues(task: Task | null | undefined, settings: Settings, defaultDate: string, defaultTime: string | null | undefined): NewTaskDefaults {
+  if (task) {
+    return {
+      duration: task.duration, category: task.category, remind: task.remind ?? null, scheduled: Boolean(task.start || defaultTime),
+      date: task.date ?? defaultDate, time: task.start ?? defaultTime ?? FALLBACK_TIME,
+    };
+  }
+  return newTaskDefaults(settings, { now: new Date(), slotTime: defaultTime ?? null, selectedDate: defaultDate });
+}
+
 export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, extraFields }: Props) {
   const { error } = useTasks();
   const { t } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const { settings } = useSettings();
+  const [initial] = useState(() => initialValues(task, settings, defaultDate, defaultTime));
   const [title, setTitle] = useState(task?.title ?? "");
-  const [duration, setDuration] = useState(String(task?.duration ?? 30));
-  const [scheduled, setScheduled] = useState(Boolean(task?.start || defaultTime));
-  const [date, setDate] = useState(task?.date ?? defaultDate);
-  const [time, setTime] = useState(task?.start ?? defaultTime ?? "09:00");
-  const [category, setCategory] = useState<Category>(task?.category ?? "Focus");
+  const [duration, setDuration] = useState(String(initial.duration));
+  const [scheduled, setScheduled] = useState(initial.scheduled);
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
+  const [category, setCategory] = useState<Category>(initial.category);
   const [status, setStatus] = useState<Status>(task?.status ?? "todo");
   const [notes, setNotes] = useState(task?.notes ?? "");
-  const [remind, setRemind] = useState<number | null>(task?.remind ?? null);
+  const [remind, setRemind] = useState<number | null>(initial.remind);
   const [repeat, setRepeat] = useState<Repeat | null>(task?.repeat ?? null);
   const [repeatUntil, setRepeatUntil] = useState<string | null>(task?.repeatUntil ?? null);
   const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil } });

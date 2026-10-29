@@ -8,7 +8,8 @@ import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import type { Task } from "../../lib/planner";
 import { formatMinutes, SNAP_MINUTES } from "../../lib/timeline-gestures";
-import { eventGeometry } from "./layout";
+import { useTimelineConfig } from "../../hooks/use-timeline-config";
+import { eventGeometry } from "../../lib/timeline-config";
 import { EdgeHandle } from "./EdgeHandle";
 import type { TaskPatch } from "./drag-controller";
 
@@ -34,9 +35,10 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
   const colors = useColors();
   const categoryColors = useCategoryColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const config = useTimelineConfig();
   const drag = useBlockDrag({ task, onCommit, onPress, onLockChange });
   const shown = drag.shown;
-  const { top, height } = eventGeometry(shown);
+  const { top, height } = eventGeometry(config, shown);
   const color = categoryColors[task.category];
   const width = 100 / lanes;
   const place = { left: `${lane * width}%` as const, width: `${width}%` as const };
@@ -79,8 +81,8 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
       </Pressable>
     </View>
     {lifted && <>
-      <EdgeHandle edge="top" blockTop={top} blockHeight={height} place={place} handlers={drag.topHandle} label={tr("Drag the handle to change duration")} />
-      <EdgeHandle edge="bottom" blockTop={top} blockHeight={height} place={place} handlers={drag.bottomHandle} label={tr("Drag the handle to change duration")} />
+      <EdgeHandle edge="top" blockTop={top} blockHeight={height} containerHeight={config.height} place={place} handlers={drag.topHandle} label={tr("Drag the handle to change duration")} />
+      <EdgeHandle edge="bottom" blockTop={top} blockHeight={height} containerHeight={config.height} place={place} handlers={drag.bottomHandle} label={tr("Drag the handle to change duration")} />
     </>}
   </>;
 }

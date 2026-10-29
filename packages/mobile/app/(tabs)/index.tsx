@@ -12,16 +12,18 @@ import { OutsideHours } from "../../components/timeline/OutsideHours";
 import { Timeline } from "../../components/timeline/Timeline";
 import { WeekStrip } from "../../components/timeline/WeekStrip";
 import type { TaskPatch } from "../../components/timeline/drag-controller";
-import { partitionVisible } from "../../components/timeline/layout";
 import { SectionEyebrow } from "../../components/ui/SectionEyebrow";
 import { useColors } from "../../hooks/use-colors";
 import { useNow } from "../../hooks/use-now";
+import { useTimelineConfig } from "../../hooks/use-timeline-config";
+import { partitionVisible } from "../../lib/timeline-config";
+import { useSettings } from "../../lib/settings-context";
 import type { ThemeColors } from "../../constants/theme";
 import { carryOverCandidates, carryOverUpdate } from "../../lib/carry-over";
 import { keepUntilValid } from "../../lib/recurrence";
 import { findEditTarget } from "../../lib/notification-actions";
 import { useTasks } from "../../lib/tasks-context";
-import { addDays, dateKey, minutes, mondayOf, Task } from "../../lib/planner";
+import { addDays, dateKey, minutes, weekStartOf, Task } from "../../lib/planner";
 
 export default function PlannerScreen() {
   const { t: tr } = useLanguage();
@@ -30,7 +32,10 @@ export default function PlannerScreen() {
   const now = useNow();
   const today = dateKey(now);
   const [selected, setSelected] = useState(today);
-  const [week, setWeek] = useState(mondayOf(today));
+  // Any day of the shown week; the week itself is derived so a changed week-start setting re-flows it.
+  const [weekAnchor, setWeekAnchor] = useState(today);
+  const week = weekStartOf(weekAnchor, useSettings().settings.calendar.weekStart);
+  const config = useTimelineConfig();
   const previousToday = useRef(today);
   useEffect(() => {
     const previous = previousToday.current;
@@ -39,7 +44,7 @@ export default function PlannerScreen() {
     // Midnight passed: follow the new day only if the user was looking at the old "today".
     if (selected !== previous) return;
     setSelected(today);
-    setWeek(mondayOf(today));
+    setWeekAnchor(today);
   }, [today, selected]);
   const [editing, setEditing] = useState<Task | null | undefined>(undefined);
   const [slot, setSlot] = useState<string | null>(null);
@@ -53,14 +58,14 @@ export default function PlannerScreen() {
     if (edit === undefined || loading || editing !== undefined) return;
     const target = findEditTarget(tasks, edit);
     if (target) {
-      if (target.date) { setSelected(target.date); setWeek(mondayOf(target.date)); }
+      if (target.date) { setSelected(target.date); setWeekAnchor(target.date); }
       setEditing(target);
     }
     router.setParams({ edit: undefined });
   }, [edit, loading, tasks, editing]);
   const scheduled = useMemo(() => tasks.filter(t => t.date === selected && t.start).sort((a, b) => minutes(a.start!) - minutes(b.start!)), [tasks, selected]);
   const backlog = tasks.filter(t => !t.start);
-  const { visible, outside } = partitionVisible(scheduled);
+  const { visible, outside } = useMemo(() => partitionVisible(config, scheduled), [config, scheduled]);
 
   const openNew = (time: string | null = null) => { setSlot(time); setEditing(null); };
   const close = () => { setEditing(undefined); setSlot(null); };
@@ -72,7 +77,7 @@ export default function PlannerScreen() {
   const toggle = (t: Task) => patchTask(t.id, x => ({ status: x.status === "done" ? "todo" : "done" }));
   // Drag/resize saves this occurrence only: every occurrence of a series is its own task.
   const moveBlock = (t: Task, patch: TaskPatch) => patchTask(t.id, () => patch);
-  const chooseToday = () => { setSelected(today); setWeek(mondayOf(today)); };
+  const chooseToday = () => { setSelected(today); setWeekAnchor(today); };
   // Unfinished tasks of a past day can be moved to today with one tap; the view then follows them.
   const carryOver = useMemo(() => carryOverCandidates(tasks, selected, today), [tasks, selected, today]);
   const moveToToday = async () => { if (await mutate(carryOverUpdate(selected, today), { undo: "bulk" })) chooseToday(); };
@@ -80,7 +85,7 @@ export default function PlannerScreen() {
   return <SafeAreaView edges={["top", "left", "right"]} style={s.root}>
     <ScrollView scrollEnabled={!scrollLocked} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
       <GreetingHeader onToday={chooseToday} now={now} />
-      <WeekStrip week={week} selected={selected} today={today} tasks={tasks} onSelect={setSelected} onShiftWeek={days => setWeek(addDays(week, days))} />
+      <WeekStrip week={week} selected={selected} today={today} tasks={tasks} onSelect={setSelected} onShiftWeek={days => setWeekAnchor(addDays(week, days))} />
 
       {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.errorBanner}><Ionicons name="alert-circle-outline" size={18} color={colors.errorIcon} /><Text style={{ color: colors.errorBannerText, fontSize: 12, flex: 1 }}>{tr(error)}</Text><Ionicons name="close" size={16} color={colors.errorIcon} /></Pressable>}
       <View style={s.dailyPanel}>

@@ -292,3 +292,109 @@ describe("planReminders strict time", () => {
   });
 });
 
+
+describe("hideTitles", () => {
+  test("reminderMessage swaps the title for a generic localised one and keeps the lead-time body", () => {
+    expect(reminderMessage(makeTask(), "en", true)).toEqual({ title: "Upcoming task", body: "Starts in 15 min · 09:30" });
+    expect(reminderMessage(makeTask(), "vi", true)).toEqual({ title: "Việc sắp tới", body: "Bắt đầu sau 15 phút · 09:30" });
+  });
+  test("false keeps the real title", () => {
+    expect(reminderMessage(makeTask(), "en", false).title).toBe("Deep work");
+  });
+  test("planReminders never puts the title in the text and the id follows the toggle", () => {
+    const [shown] = planReminders([makeTask()], NOW, { hideTitles: false });
+    const [hidden] = planReminders([makeTask()], NOW, { hideTitles: true });
+    expect(hidden.title).toBe("Upcoming task");
+    expect(`${hidden.title} ${hidden.body}`).not.toContain("Deep work");
+    expect(hidden.id).not.toBe(shown.id);
+    expect(hidden.taskId).toBe("t1");
+  });
+});
+
+describe("planReminders quiet hours", () => {
+  const NIGHT = { from: "22:00", to: "07:00" };
+  test("a reminder outside the window is untouched", () => {
+    const [r] = planReminders([makeTask()], NOW, { quiet: NIGHT });
+    expect(r.fireAt).toEqual(new Date(2026, 9, 30, 9, 15));
+  });
+  test("a reminder inside the window moves to the end of the window the next morning", () => {
+    const task = makeTask({ start: "22:30", remind: 15, duration: 600 });
+    const [r] = planReminders([task], NOW, { quiet: NIGHT });
+    expect(r!.fireAt).toEqual(new Date(2026, 9, 31, 7, 0));
+  });
+  test("an early-morning reminder moves to the same morning", () => {
+    const task = makeTask({ date: "2026-10-31", start: "06:30", remind: 30, duration: 120 });
+    const [r] = planReminders([task], NOW, { quiet: NIGHT });
+    expect(r!.fireAt).toEqual(new Date(2026, 9, 31, 7, 0));
+  });
+  test("a same-day window postpones a realistic task and keeps it", () => {
+    const task = makeTask({ start: "12:30", remind: 15, duration: 60 });
+    const [r] = planReminders([task], NOW, { quiet: { from: "12:00", to: "13:00" } });
+    expect(r!.fireAt).toEqual(new Date(2026, 9, 30, 13, 0));
+  });
+  test("an evening reminder is dropped: tasks cannot outlive the day", () => {
+    const task = makeTask({ start: "22:30", remind: 15, duration: 30 });
+    expect(planReminders([task], NOW, { quiet: NIGHT })).toEqual([]);
+  });
+  test("is dropped when the postponed time is at the task end", () => {
+    const task = makeTask({ date: "2026-10-31", start: "06:30", remind: 30, duration: 30 });
+    expect(planReminders([task], NOW, { quiet: NIGHT })).toEqual([]);
+  });
+  test("is dropped when the postponed time is after the task end", () => {
+    const task = makeTask({ date: "2026-10-31", start: "06:30", remind: 30, duration: 15 });
+    expect(planReminders([task], NOW, { quiet: NIGHT })).toEqual([]);
+  });
+  test("is kept when the postponed time is just before the task end", () => {
+    const task = makeTask({ date: "2026-10-31", start: "06:30", remind: 30, duration: 31 });
+    expect(planReminders([task], NOW, { quiet: NIGHT })).toHaveLength(1);
+  });
+  test("a postponed reminder gets a different id than the unpostponed one", () => {
+    const task = makeTask({ start: "22:30", remind: 15, duration: 600 });
+    const [plain] = planReminders([task], NOW, {});
+    const [moved] = planReminders([task], NOW, { quiet: NIGHT });
+    expect(moved!.id).not.toBe(plain!.id);
+  });
+  test("never schedules in the past: an already-past reminder stays dropped", () => {
+    const task = makeTask({ start: "23:00", remind: 0, duration: 600 });
+    const late = new Date(2026, 9, 30, 23, 30);
+    expect(planReminders([task], late, { quiet: NIGHT })).toEqual([]);
+  });
+  test("equal from/to, null and undefined behave as disabled", () => {
+    const task = makeTask({ start: "23:00", remind: 0, duration: 600 });
+    const expected = new Date(2026, 9, 30, 23, 0);
+    expect(planReminders([task], NOW, { quiet: { from: "08:00", to: "08:00" } })[0]!.fireAt).toEqual(expected);
+    expect(planReminders([task], NOW, { quiet: null })[0]!.fireAt).toEqual(expected);
+    expect(planReminders([task], NOW, {})[0]!.fireAt).toEqual(expected);
+  });
+  test("re-sorts after postponing", () => {
+    const night = makeTask({ id: "n", start: "22:30", remind: 0, duration: 600 });
+    const morning = makeTask({ id: "m", date: "2026-10-31", start: "07:30", remind: 0 });
+    const plan = planReminders([morning, night], NOW, { quiet: NIGHT });
+    expect(plan.map((r) => r.taskId)).toEqual(["n", "m"]);
+  });
+  test("works across a DST change (wall-clock construction)", () => {
+    const task = makeTask({ date: "2026-03-29", start: "06:30", remind: 30, duration: 120 });
+    const [r] = planReminders([task], new Date(2026, 2, 1), { quiet: NIGHT });
+    expect(r!.fireAt).toEqual(new Date(2026, 2, 29, 7, 0));
+  });
+});
+
+describe("reconcileReminders summaries", () => {
+  const summary = (id: string): PlannedReminder => ({ ...planned(id), taskId: "", kind: "summary" });
+  test("schedules missing summaries and cancels stale ones", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:summary:2026-10-29:old"]);
+    const result = await reconcileReminders(scheduler, [summary("dayform:summary:2026-10-30:new")]);
+    expect(result).toEqual({ scheduled: 1, cancelled: 1, errors: [] });
+    expect([...ids]).toEqual(["dayform:summary:2026-10-30:new"]);
+  });
+  test("keeps an already scheduled summary and leaves snoozes to the live rule", async () => {
+    const { scheduler, calls } = fakeScheduler(["dayform:summary:2026-10-30:x", "dayform:snooze:a:1"]);
+    await reconcileReminders(scheduler, [summary("dayform:summary:2026-10-30:x")]);
+    expect(calls).toEqual([{ op: "list" }]);
+  });
+  test("cancels every summary when none is planned (feature switched off)", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:summary:2026-10-30:x", "other:1"]);
+    await reconcileReminders(scheduler, []);
+    expect([...ids]).toEqual(["other:1"]);
+  });
+});

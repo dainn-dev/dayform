@@ -214,3 +214,32 @@ describe("followToday", () => {
     expect(followToday("week", "2026-03-04", "2026-03-04", "2026-03-05")).toBe("2026-03-05");
   });
 });
+
+describe("week start setting", () => {
+  test("weekRange defaults to Monday and honours sun and sat", () => {
+    expect(weekRange("2026-05-06")).toEqual({ from: "2026-05-04", to: "2026-05-10" });
+    expect(weekRange("2026-05-06", "mon")).toEqual({ from: "2026-05-04", to: "2026-05-10" });
+    expect(weekRange("2026-05-06", "sun")).toEqual({ from: "2026-05-03", to: "2026-05-09" });
+    expect(weekRange("2026-05-06", "sat")).toEqual({ from: "2026-05-02", to: "2026-05-08" });
+  });
+  test("a Sunday belongs to its own week when weeks start on Sunday", () => {
+    expect(weekRange("2026-05-10", "sun")).toEqual({ from: "2026-05-10", to: "2026-05-16" });
+  });
+  test("crosses year boundaries and the leap day", () => {
+    expect(weekRange("2026-01-01", "sun")).toEqual({ from: "2025-12-28", to: "2026-01-03" });
+    expect(weekRange("2026-01-01", "sat")).toEqual({ from: "2025-12-27", to: "2026-01-02" });
+    expect(weekRange("2028-02-29", "sun")).toEqual({ from: "2028-02-27", to: "2028-03-04" });
+  });
+  test("shiftRange moves whole weeks from the chosen start; months ignore it", () => {
+    expect(shiftRange("week", "2026-05-06", 1, "sun")).toEqual({ from: "2026-05-10", to: "2026-05-16" });
+    expect(shiftRange("week", "2026-05-06", -1, "sat")).toEqual({ from: "2026-04-25", to: "2026-05-01" });
+    expect(shiftRange("month", "2026-05-06", 1, "sun")).toEqual(monthRange("2026-06-01"));
+  });
+  test("followToday uses the chosen week", () => {
+    // Saturday 2026-05-09 -> Sunday 2026-05-10: with Sunday weeks it is a new week, with Monday weeks the same one.
+    expect(followToday("week", "2026-05-09", "2026-05-09", "2026-05-10", "sun")).toBe("2026-05-10");
+    expect(followToday("week", "2026-05-06", "2026-05-09", "2026-05-10", "sun")).toBe("2026-05-10");
+    expect(followToday("week", "2026-05-02", "2026-05-09", "2026-05-10", "sun")).toBe("2026-05-02");
+    expect(followToday("week", "2026-05-04", "2026-05-09", "2026-05-10", "mon")).toBe("2026-05-10");
+  });
+});

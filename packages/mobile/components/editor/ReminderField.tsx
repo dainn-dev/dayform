@@ -1,55 +1,34 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text } from "react-native";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
-import { reminderOptions } from "../../lib/planner";
-import { fillPlaceholder, reminderLabelKey } from "../../lib/reminder-label";
-import { ensureReminderChannel, requestReminderPermission } from "../../lib/reminders-expo";
-import { ChoiceChips, type Choice } from "./ChoiceChips";
+import { ChoiceChips } from "./ChoiceChips";
 import { useFieldStyles } from "./field-styles";
+import { reminderChoices } from "./reminder-choices";
+import { PERMISSION_HINT, useReminderPermission } from "./use-reminder-permission";
 
 type Props = { value: number | null; onChange: (value: number | null) => void };
-
-const PERMISSION_HINT = "Notifications are turned off. Turn them on in system settings to get reminders.";
-/** The presets, plus the task's current value when it is a custom one (so it stays visible). */
-function choicesFor(current: number | null, translate: (text: string) => string): Choice<number | null>[] {
-  const minutesList: number[] = [...reminderOptions];
-  if (current !== null && !minutesList.includes(current)) minutesList.push(current);
-  minutesList.sort((a, b) => a - b);
-  const labelOf = (minutesBefore: number) => {
-    const { key, n } = reminderLabelKey(minutesBefore);
-    return fillPlaceholder(translate(key), n);
-  };
-  return [{ value: null, label: translate("No reminder") }, ...minutesList.map(value => ({ value, label: labelOf(value) }))];
-}
 
 /**
  * Reminder lead-time chips. Picking one asks for notification permission (never on mount);
  * a refusal keeps the selection and shows a hint. The shell only mounts it for scheduled tasks.
  */
 export function ReminderField({ value, onChange }: Props) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const colors = useColors();
   const f = useFieldStyles();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const [permissionDenied, setPermissionDenied] = useState(false);
+  const permission = useReminderPermission();
 
-  const select = async (next: number | null) => {
+  const select = (next: number | null) => {
     onChange(next);
-    if (next === null) return setPermissionDenied(false);
-    try {
-      await ensureReminderChannel(language);
-      setPermissionDenied((await requestReminderPermission()) !== "granted");
-    } catch {
-      setPermissionDenied(true);
-    }
+    void permission.request(next);
   };
-  const choices = choicesFor(value, t);
   return <>
     <Text style={f.label}>{t("REMINDER")}</Text>
-    <ChoiceChips choices={choices} value={value} onChange={next => { void select(next); }} />
-    {permissionDenied && value !== null && <Text accessibilityRole="alert" style={s.hint}>{t(PERMISSION_HINT)}</Text>}
+    <ChoiceChips choices={reminderChoices(value, t)} value={value} onChange={select} />
+    {permission.denied && value !== null && <Text accessibilityRole="alert" style={s.hint}>{t(PERMISSION_HINT)}</Text>}
   </>;
 }
 

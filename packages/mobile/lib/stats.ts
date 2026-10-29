@@ -1,5 +1,5 @@
-// Pure statistics for the Stats tab. Dates are local YYYY-MM-DD strings (never UTC), weeks start Monday.
-import { addDays, categories, dateKey, fromKey, mondayOf, type Category, type Task } from "./planner";
+// Pure statistics for the Stats tab. Dates are local YYYY-MM-DD strings (never UTC), weeks start on the user's chosen day (Monday by default).
+import { addDays, categories, dateKey, fromKey, weekStartOf, type Category, type Task, type WeekStart } from "./planner";
 
 export type DateRange = { from: string; to: string };
 export type RangeKind = "week" | "month";
@@ -20,9 +20,9 @@ export type Stats = {
   streak: number;
 };
 
-/** Monday..Sunday of the week containing `anchor`. */
-export function weekRange(anchor: string): DateRange {
-  const from = mondayOf(anchor);
+/** The seven days of the week containing `anchor`, starting on `weekStart` (Monday by default). */
+export function weekRange(anchor: string, weekStart: WeekStart = "mon"): DateRange {
+  const from = weekStartOf(anchor, weekStart);
   return { from, to: addDays(from, 6) };
 }
 
@@ -35,8 +35,8 @@ export function monthRange(anchor: string): DateRange {
 }
 
 /** The week or month `delta` steps away from the one containing `anchor`. */
-export function shiftRange(kind: RangeKind, anchor: string, delta: number): DateRange {
-  if (kind === "week") return weekRange(addDays(anchor, delta * 7));
+export function shiftRange(kind: RangeKind, anchor: string, delta: number, weekStart: WeekStart = "mon"): DateRange {
+  if (kind === "week") return weekRange(addDays(anchor, delta * 7), weekStart);
   const date = fromKey(`${anchor.slice(0, 7)}-01`);
   date.setMonth(date.getMonth() + delta);
   return monthRange(dateKey(date));
@@ -46,8 +46,8 @@ export function shiftRange(kind: RangeKind, anchor: string, delta: number): Date
  * The anchor to show after midnight moved "today" from `previousToday` to `today`: a user who was looking
  * at the range containing the old today follows to the new one; anyone browsing elsewhere stays put.
  */
-export function followToday(kind: RangeKind, anchor: string, previousToday: string, today: string): string {
-  const range = kind === "week" ? weekRange(anchor) : monthRange(anchor);
+export function followToday(kind: RangeKind, anchor: string, previousToday: string, today: string, weekStart: WeekStart = "mon"): string {
+  const range = kind === "week" ? weekRange(anchor, weekStart) : monthRange(anchor);
   return previousToday >= range.from && previousToday <= range.to ? today : anchor;
 }
 

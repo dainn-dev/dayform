@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
+import { useSettings } from "../../lib/settings-context";
 import { computeStats, followToday, monthRange, shiftRange, weekRange, type RangeKind } from "../../lib/stats";
 import { rangeTitle } from "../../lib/range-title";
 import { useTasks } from "../../lib/tasks-context";
@@ -20,6 +21,7 @@ export default function StatsScreen() {
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const { tasks, loading } = useTasks();
+  const weekStart = useSettings().settings.calendar.weekStart;
   const today = useTodayKey();
   const [kind, setKind] = useState<RangeKind>("week");
   // Any date inside the shown week/month; the range is derived from it so switching Week/Month keeps the position.
@@ -30,11 +32,11 @@ export default function StatsScreen() {
     if (previous === today) return;
     previousToday.current = today;
     // Midnight passed: follow the new day only if the user was looking at the range of the old "today".
-    setAnchor(current => followToday(kind, current, previous, today));
-  }, [today, kind]);
-  const range = useMemo(() => (kind === "week" ? weekRange(anchor) : monthRange(anchor)), [kind, anchor]);
+    setAnchor(current => followToday(kind, current, previous, today, weekStart));
+  }, [today, kind, weekStart]);
+  const range = useMemo(() => (kind === "week" ? weekRange(anchor, weekStart) : monthRange(anchor)), [kind, anchor, weekStart]);
   const stats = useMemo(() => computeStats(tasks, range, today), [tasks, range, today]);
-  const shift = useCallback((delta: number) => setAnchor(current => shiftRange(kind, current, delta).from), [kind]);
+  const shift = useCallback((delta: number) => setAnchor(current => shiftRange(kind, current, delta, weekStart).from), [kind, weekStart]);
 
   return <SafeAreaView edges={["top", "left", "right"]} style={s.root}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>

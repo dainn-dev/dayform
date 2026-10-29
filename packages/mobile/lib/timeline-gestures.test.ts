@@ -400,3 +400,28 @@ describe("handleHitTop", () => {
     expect(handleHitTop("bottom", 10, HIT, OUT, 20)).toBe(0);
   });
 });
+
+describe("configured window", () => {
+  const window = { windowStart: 480, windowEnd: 1080 };
+  test("previewBlock clamps a move to the configured window", () => {
+    const state = { phase: "dragging", mode: "move", deltaPx: 10000 } as const;
+    expect(previewBlock(state, { start: 600, duration: 60 }, 1, window)).toEqual({ start: 1020, duration: 60 });
+    expect(previewBlock({ ...state, deltaPx: -10000 }, { start: 600, duration: 60 }, 1, window)).toEqual({ start: 480, duration: 60 });
+  });
+  test("previewBlock clamps a resize to the configured window", () => {
+    const bottom = { phase: "dragging", mode: "resize-bottom", deltaPx: 10000 } as const;
+    expect(previewBlock(bottom, { start: 600, duration: 60 }, 1, window)).toEqual({ start: 600, duration: 480 });
+    const top = { phase: "dragging", mode: "resize-top", deltaPx: -10000 } as const;
+    expect(previewBlock(top, { start: 600, duration: 60 }, 1, window)).toEqual({ start: 480, duration: 180 });
+  });
+  test("dragReducer commits a block clamped to the configured window", () => {
+    const block = { start: 600, duration: 60 };
+    const armed = dragReducer({ phase: "idle" }, { type: "LONG_PRESS" }, block, 1, window).state;
+    const dragging = dragReducer(armed, { type: "MOVE", dy: 10000 }, block, 1, window).state;
+    expect(dragReducer(dragging, { type: "RELEASE" }, block, 1, window).commit).toEqual({ start: 1020, duration: 60 });
+  });
+  test("without a window the default 06:00-22:00 applies", () => {
+    const state = { phase: "dragging", mode: "move", deltaPx: 10000 } as const;
+    expect(previewBlock(state, { start: 600, duration: 60 }, 1)).toEqual({ start: 1260, duration: 60 });
+  });
+});

@@ -10,8 +10,8 @@ import {
   type DragEvent,
   type DragMode,
   type DragState,
+  type WindowBounds,
 } from "../../lib/timeline-gestures";
-import { SCALE } from "./constants";
 
 export type TaskPatch = ReturnType<typeof toTaskPatch>;
 
@@ -20,6 +20,9 @@ export interface DragHost {
   latest(): {
     readonly task: Task;
     readonly block: Block;
+    /** Pixels per minute and the visible window (minutes), from the Calendar settings. */
+    readonly scale: number;
+    readonly limits: WindowBounds;
     onCommit(patch: TaskPatch): Promise<boolean>;
     onPress(): void;
     onLockChange?(locked: boolean): void;
@@ -91,11 +94,11 @@ export function createDragController(host: DragHost): DragController {
   }
 
   function send(event: DragEvent) {
-    const { block } = host.latest();
+    const { block, scale, limits } = host.latest();
     const prev = state;
-    const result = dragReducer(prev, event, block, SCALE);
+    const result = dragReducer(prev, event, block, scale, limits);
     state = result.state;
-    const moved = !sameBlock(previewBlock(prev, block, SCALE), previewBlock(state, block, SCALE));
+    const moved = !sameBlock(previewBlock(prev, block, scale, limits), previewBlock(state, block, scale, limits));
     // Re-render only when something visible changed: the preview is snapped to 15 minutes.
     if (prev.phase !== state.phase || moved) host.setDrag(state);
     if (prev.phase === "idle" && state.phase === "armed") haptic("arm");
@@ -174,8 +177,8 @@ export function createDragController(host: DragHost): DragController {
       syncLock();
     },
     shift: async deltaMinutes => {
-      const { task, block } = host.latest();
-      const start = minutes(shiftStart(task.start!, task.duration, deltaMinutes));
+      const { task, block, limits } = host.latest();
+      const start = minutes(shiftStart(task.start!, task.duration, deltaMinutes, limits.windowStart, limits.windowEnd));
       if (start === block.start) return { kind: "limit" };
       return (await commit({ start, duration: block.duration })) ? { kind: "moved", start } : { kind: "failed" };
     },

@@ -2,7 +2,16 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useLanguage } from "../lib/language";
 import { useTasks } from "../lib/tasks-context";
-import { planReminders, reconcileReminders, type ReminderLanguage } from "../lib/reminders";
+import { useSettings } from "../lib/settings-context";
+import type { Settings } from "../lib/settings";
+import { planSummary, SUMMARY_DAYS } from "../lib/summary-notification";
+import {
+  DEFAULT_REMINDER_LIMIT,
+  planReminders,
+  reconcileReminders,
+  type PlannedReminder,
+  type ReminderLanguage,
+} from "../lib/reminders";
 import {
   createExpoScheduler,
   ensureReminderChannel,
@@ -13,14 +22,29 @@ import type { Task } from "../lib/planner";
 
 const DEBOUNCE_MS = 500;
 
-/** `canSync` is false until the tasks are trustworthy; syncing earlier would cancel every reminder. */
-type SyncInput = { tasks: Task[]; language: ReminderLanguage; canSync: boolean };
+type NotificationSettings = Settings["notifications"];
 
-async function syncReminders({ tasks, language }: SyncInput): Promise<string[]> {
+/**
+ * `canSync` is false until the tasks and the settings are trustworthy; syncing earlier would cancel every
+ * reminder (or schedule titles the user asked to hide).
+ */
+type SyncInput = { tasks: Task[]; language: ReminderLanguage; notifications: NotificationSettings; canSync: boolean };
+
+/** Task reminders plus, when enabled, the next days' morning summaries (which share iOS's pending limit). */
+function planAll(tasks: Task[], language: ReminderLanguage, settings: NotificationSettings, now: Date): PlannedReminder[] {
+  const { hideTitles, quietEnabled, quietFrom, quietTo, summaryEnabled, summaryTime } = settings;
+  const quiet = quietEnabled ? { from: quietFrom, to: quietTo } : null;
+  const limit = summaryEnabled ? DEFAULT_REMINDER_LIMIT - SUMMARY_DAYS : DEFAULT_REMINDER_LIMIT;
+  const reminders = planReminders(tasks, now, { language, hideTitles, quiet, limit });
+  if (!summaryEnabled) return reminders;
+  return [...reminders, ...planSummary(tasks, now, { time: summaryTime, language, hideTitles })];
+}
+
+async function syncReminders({ tasks, language, notifications }: SyncInput): Promise<string[]> {
   // Never prompts: the editor asks for permission when the user first picks a reminder.
   if ((await getReminderPermission()) !== "granted") return [];
   await ensureReminderChannel(language);
-  const planned = planReminders(tasks, new Date(), { language });
+  const planned = planAll(tasks, language, notifications, new Date());
   // Snoozed notifications of deleted or finished tasks must not fire either.
   const liveTaskIds = new Set(tasks.filter((task) => task.status !== "done").map((task) => task.id));
   return (await reconcileReminders(createExpoScheduler(), planned, liveTaskIds)).errors;
@@ -72,19 +96,21 @@ function createSyncer(read: () => SyncInput): Syncer {
 
 /**
  * Keeps scheduled local notifications in line with the tasks. Renders nothing. It never syncs while
- * the tasks are loading or writes are blocked (locked/read-only): the list is then empty or partial,
- * and reconciling against it would cancel the user's reminders.
+ * the tasks or settings are loading or writes are blocked (locked/read-only): the list is then empty or
+ * partial, and reconciling against it would cancel the user's reminders. Settings changes re-sync.
  */
 export function RemindersBridge(): null {
   const { tasks, loading, writesBlocked } = useTasks();
   const { language } = useLanguage();
-  const canSync = !loading && !writesBlocked;
-  const latest = useRef<SyncInput>({ tasks, language, canSync });
+  const { settings, ready: settingsReady } = useSettings();
+  const { notifications } = settings;
+  const canSync = !loading && !writesBlocked && settingsReady;
+  const latest = useRef<SyncInput>({ tasks, language, notifications, canSync });
   const syncer = useRef<Syncer | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, language, canSync };
-  }, [tasks, language, canSync]);
+    latest.current = { tasks, language, notifications, canSync };
+  }, [tasks, language, notifications, canSync]);
 
   // Mount-only: handler, syncer and the foreground subscription stay stable across task changes.
   useEffect(() => {
@@ -103,7 +129,7 @@ export function RemindersBridge(): null {
 
   useEffect(() => {
     if (canSync) syncer.current?.schedule();
-  }, [tasks, language, canSync]);
+  }, [tasks, language, notifications, canSync]);
 
   return null;
 }

@@ -21,11 +21,11 @@ type OpenPicker = "date" | "time" | null;
 
 /** Date and time fields that open the platform picker: a dialog on Android, an inline picker on iOS. */
 export function NativeScheduleFields({ date, time, onDateChange, onTimeChange, onPickerError }: ScheduleFieldsProps) {
-  const { t, language, locale, time: formatTime } = useLanguage();
+  const { t, locale, time: formatTime, timeFormat } = useLanguage();
   const colors = useColors();
   const f = useFieldStyles();
   const [openPicker, setOpenPicker] = useState<OpenPicker>(null);
-  const is24Hour = language === "vi";
+  const is24Hour = timeFormat === "24h";
 
   const openAndroid = (mode: "date" | "time") => openAndroidPicker({
     mode, value: mode === "date" ? date : time, is24Hour,
@@ -40,7 +40,7 @@ export function NativeScheduleFields({ date, time, onDateChange, onTimeChange, o
   return <>
     <View style={f.row}>
       <PickerField label={t("DATE")} display={date} icon="calendar-outline" accessibilityLabel={t("Date YYYY-MM-DD")} isActive={openPicker === "date"} onPress={() => press("date")} />
-      <PickerField label={is24Hour ? t("START · 24H") : t("START")} display={formatTime(time)} icon="time-outline" accessibilityLabel={t("Start time 24 hour")} isActive={openPicker === "time"} onPress={() => press("time")} />
+      <PickerField label={is24Hour ? t("START · 24H") : t("START")} display={formatTime(time)} icon="time-outline" accessibilityLabel={is24Hour ? t("Start time 24 hour") : t("Start time")} isActive={openPicker === "time"} onPress={() => press("time")} />
     </View>
     {Platform.OS === "ios" && openPicker === "date" && <DateTimePicker mode="date" display="inline" value={dateToPicker(date, now)} locale={locale} accentColor={colors.primary} onValueChange={(_event, picked) => onDateChange(pickerToDate(picked))} />}
     {Platform.OS === "ios" && openPicker === "time" && <DateTimePicker mode="time" display="spinner" value={timeToPicker(time, now)} locale={locale} textColor={colors.foreground} onValueChange={(_event, picked) => onTimeChange(pickerToTime(picked))} />}

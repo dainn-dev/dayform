@@ -47,6 +47,19 @@ export function mondayOf(key: string) {
   const d = fromKey(key);
   return addDays(key, -((d.getDay() + 6) % 7));
 }
+export type WeekStart = "mon" | "sun" | "sat";
+const WEEK_START_DAY: Record<WeekStart, number> = { sun: 0, mon: 1, sat: 6 };
+const DAYS_PER_WEEK = 7;
+
+/** First day of the week containing `key`, for a week that starts on `weekStart`. */
+export function weekStartOf(key: string, weekStart: WeekStart): string {
+  const offset = (fromKey(key).getDay() - WEEK_START_DAY[weekStart] + DAYS_PER_WEEK) % DAYS_PER_WEEK;
+  return addDays(key, -offset);
+}
+/** The seven consecutive day keys of the week that begins on `startKey`. */
+export function weekDays(startKey: string): string[] {
+  return Array.from({ length: DAYS_PER_WEEK }, (_, i) => addDays(startKey, i));
+}
 export function minutes(time: string) {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
@@ -54,6 +67,16 @@ export function minutes(time: string) {
 export function timeLabel(time: string) {
   const [h, m] = time.split(":").map(Number);
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+export type TimeFormat = "12h" | "24h";
+/** The "Time format" setting resolved: "auto" is 24h for Vietnamese and 12h otherwise. */
+export function resolveTimeFormat(setting: "auto" | TimeFormat, language: string): TimeFormat {
+  if (setting !== "auto") return setting;
+  return language === "vi" ? "24h" : "12h";
+}
+/** A stored HH:mm shown in the chosen format (the stored value itself never changes). */
+export function formatTime(time: string, format: TimeFormat): string {
+  return format === "24h" ? time : timeLabel(time);
 }
 export function durationLabel(value: number) {
   const h = Math.floor(value / 60), m = value % 60;

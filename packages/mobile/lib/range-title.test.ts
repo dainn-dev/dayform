@@ -25,3 +25,12 @@ describe("rangeTitle", () => {
     expect(rangeTitle("week", { from: "2026-03-30", to: "2026-04-05" }, "en-US")).toBe("Mar 30 – Apr 5, 2026");
   });
 });
+
+describe("rangeTitle with another week start", () => {
+  test("a Sunday-start week", () => {
+    expect(rangeTitle("week", { from: "2026-05-03", to: "2026-05-09" }, "en-US")).toBe("May 3 – May 9, 2026");
+  });
+  test("a Saturday-start week across a year boundary", () => {
+    expect(rangeTitle("week", { from: "2025-12-27", to: "2026-01-02" }, "en-US")).toBe("Dec 27, 2025 – Jan 2, 2026");
+  });
+});

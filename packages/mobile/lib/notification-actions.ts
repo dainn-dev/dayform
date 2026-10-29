@@ -1,6 +1,7 @@
 import type { Task } from "./planner";
 import { SNOOZE_ID_PREFIX, type PlannedReminder, type ReminderLanguage } from "./reminders";
 import { DONE_ACTION_VI, SNOOZED_BODY_VI, vi as notificationActionsVi } from "./i18n/notification-actions";
+import { localize } from "./i18n/notifications";
 
 /** Category attached to every reminder. No ":" or "-": expo-notifications warns they break categories. */
 export const REMINDER_CATEGORY_ID = "dayform_reminder";
@@ -64,14 +65,26 @@ export function snoozeId(taskId: string, fireAt: Date): string {
   return `${SNOOZE_ID_PREFIX}${taskId}:${fireAt.getTime()}`;
 }
 
-export function snoozeMessage(task: Task, language: ReminderLanguage): { title: string; body: string } {
+export function snoozeMessage(
+  task: Task,
+  language: ReminderLanguage,
+  hideTitle = false,
+): { title: string; body: string } {
   const prefix = language === "vi" ? SNOOZED_BODY_VI : "Reminder";
-  return { title: task.title, body: task.start ? `${prefix} · ${task.start}` : prefix };
+  const title = hideTitle ? localize(language, "Upcoming task") : task.title;
+  return { title, body: task.start ? `${prefix} · ${task.start}` : prefix };
 }
 
-export function buildSnoozeReminder(task: Task, now: Date, language: ReminderLanguage): PlannedReminder {
-  const fireAt = snoozeFireAt(now);
-  return { id: snoozeId(task.id, fireAt), taskId: task.id, fireAt, ...snoozeMessage(task, language) };
+export type SnoozeOptions = { minutes?: number; hideTitles?: boolean };
+
+export function buildSnoozeReminder(
+  task: Task,
+  now: Date,
+  language: ReminderLanguage,
+  { minutes = SNOOZE_MINUTES, hideTitles = false }: SnoozeOptions = {},
+): PlannedReminder {
+  const fireAt = snoozeFireAt(now, minutes);
+  return { id: snoozeId(task.id, fireAt), taskId: task.id, fireAt, ...snoozeMessage(task, language, hideTitles) };
 }
 
 /** One key per interaction: the same response seen twice (listener and last-response) is handled once. */
@@ -100,8 +113,12 @@ export function findEditTarget(tasks: readonly Task[], param: unknown): Task | n
   return tasks.find((task) => task.id === param) ?? null;
 }
 
-export function actionLabels(language: ReminderLanguage): { done: string; snooze: string } {
-  const snooze = "Snooze 10 min";
+/** Button titles. The snooze key is "Snooze <minutes> min": every length has its own Vietnamese entry. */
+export function actionLabels(
+  language: ReminderLanguage,
+  snoozeMinutes: number = SNOOZE_MINUTES,
+): { done: string; snooze: string } {
+  const snooze = `Snooze ${snoozeMinutes} min`;
   if (language === "vi") return { done: DONE_ACTION_VI, snooze: notificationActionsVi[snooze] ?? snooze };
   return { done: "Done", snooze };
 }
@@ -113,6 +130,10 @@ export type ActionOutcome = "handled" | "retry" | "failed";
 export type ActionContext = {
   tasks: readonly Task[];
   language: ReminderLanguage;
+  /** Snooze length in minutes (the setting); defaults to SNOOZE_MINUTES. */
+  snoozeMinutes?: number;
+  /** Snoozed notifications show a generic title instead of the task title. */
+  hideTitles?: boolean;
   /** Read fresh each time: the store can become write-blocked while a write is in flight. */
   writesBlocked(): boolean;
   mutate(update: (tasks: Task[]) => Task[], options: { silent: true }): Promise<boolean>;
@@ -135,7 +156,10 @@ async function snooze(taskId: string, context: ActionContext): Promise<ActionOut
   const task = context.tasks.find((candidate) => candidate.id === taskId);
   if (!task || task.status === "done") return "handled";
   try {
-    await context.schedule(buildSnoozeReminder(task, context.now(), context.language));
+    await context.schedule(buildSnoozeReminder(task, context.now(), context.language, {
+      minutes: context.snoozeMinutes,
+      hideTitles: context.hideTitles,
+    }));
     return "handled";
   } catch (error) {
     context.warn("Notification action: snooze could not be scheduled", error);

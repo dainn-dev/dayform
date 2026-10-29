@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { durationLabel, timeLabel } from "./planner";
+import { durationLabel, formatTime, resolveTimeFormat, type TimeFormat } from "./planner";
+import { useSettings } from "./settings-context";
 import { extraTranslations } from "./i18n";
 
 export type Language = "en" | "vi";
@@ -47,6 +48,8 @@ type LanguageContextValue = {
   t: (text: string) => string;
   duration: (minutes: number) => string;
   time: (value: string) => string;
+  /** The 12h/24h format in effect: the Calendar setting, or the language's habit when it is "auto". */
+  timeFormat: TimeFormat;
   summary: (completed: number, count: number, planned: number) => string;
   languageError: string | null;
   /** True once the stored language has been read (or failed to), so the first paint uses the right language. */
@@ -55,7 +58,7 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const KEY = "dayform.language.v1";
 
-function makeFormatters(language: Language) {
+function makeFormatters(language: Language, timeFormat: TimeFormat) {
   const duration = (value: number) => {
     if (language === "en") return durationLabel(value);
     const h = Math.floor(value / 60), m = value % 60;
@@ -64,7 +67,7 @@ function makeFormatters(language: Language) {
   return {
     duration,
     t: (text: string) => language === "vi" ? translations[text] ?? text : text,
-    time: (value: string) => language === "vi" ? value : timeLabel(value),
+    time: (value: string) => formatTime(value, timeFormat),
     summary: (completed: number, count: number, planned: number) => language === "vi"
       ? `${completed}/${count} việc đã xong · ${duration(planned)} đã lên lịch`
       : `${completed} of ${count} tasks complete · ${duration(planned)} planned`,
@@ -79,6 +82,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, updateLanguage] = useState<Language>("en");
   const [languageError, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const timeSetting = useSettings().settings.calendar.timeFormat;
   const touched = useRef(false);
   const queue = useRef(Promise.resolve());
   useEffect(() => {
@@ -94,12 +98,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     queue.current = queue.current.then(() => AsyncStorage.setItem(KEY, value)).catch(() => setError("save"));
   }, []);
+  const timeFormat = resolveTimeFormat(timeSetting, language);
   const value = useMemo<LanguageContextValue>(() => ({
     language, setLanguage, ready,
     locale: language === "vi" ? "vi-VN" : "en-US",
-    ...makeFormatters(language),
+    ...makeFormatters(language, timeFormat),
+    timeFormat,
     languageError: languageError ? errorMessage(language) : null,
-  }), [language, setLanguage, ready, languageError]);
+  }), [language, setLanguage, ready, languageError, timeFormat]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 export function useLanguage() {
