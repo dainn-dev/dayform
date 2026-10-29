@@ -18,6 +18,15 @@ Use Expo Go for device development or the Runable mobile preview for the web-ren
 
 The mobile project targets **Expo SDK 57**. Android devices need Expo Go for SDK 57 from [expo.dev/go](https://expo.dev/go). Physical iPhones cannot use the App Store Expo Go for SDK 57; use a development build or Expo Go distributed through TestFlight (`eas go`, with Apple Developer Program membership). The web-rendered Runable preview remains available without Expo Go.
 
+## Install and update (Android)
+
+Download `dayform-<version>.apk` from the latest [GitHub Release](https://github.com/dainn-dev/dayform/releases) and
+install it (Android asks once to allow installs from your browser or file manager). Releases are signed with the
+project's private key, so a newer release installs over the old one and keeps your data. In the app,
+**Personal → Updates** has one switch and one button: it checks for a new APK (you confirm the install) and for new
+app content, which downloads quietly and is used the next time you open the app. Neither check sends your tasks.
+Maintainers: see `RELEASING.md`.
+
 ## Managed template notes
 
 Runable copies this Bun and Turborepo project into each new sandbox.
