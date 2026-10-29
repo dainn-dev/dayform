@@ -241,3 +241,111 @@ export function createActionQueue<R>(deps: ActionQueueDeps<R>): ActionQueue<R> {
 
   return { push(response) { pending.push(response); void drain(); }, drain };
 }
+
+/** What happened to a response: retry keeps it pending, failed drops it (already warned about). */
+export type ActionOutcome = "handled" | "retry" | "failed";
+
+/** Everything `runAction` touches, injected so the logic stays native-free. */
+export type ActionContext = {
+  tasks: readonly Task[];
+  language: ReminderLanguage;
+  /** Read fresh each time: the store can become write-blocked while a write is in flight. */
+  writesBlocked(): boolean;
+  mutate(update: (tasks: Task[]) => Task[], options: { silent: true }): Promise<boolean>;
+  schedule(reminder: PlannedReminder): Promise<void>;
+  open(taskId: string): void;
+  warn(message: string, error?: unknown): void;
+  now(): Date;
+};
+
+async function markDone(taskId: string, context: ActionContext): Promise<ActionOutcome> {
+  // A blocked store refuses the write; keep the tap pending instead of losing it.
+  if (context.writesBlocked()) return "retry";
+  if (await context.mutate(markDoneUpdate(taskId), { silent: true })) return "handled";
+  if (context.writesBlocked()) return "retry";
+  context.warn("Notification action: the task could not be marked done");
+  return "failed";
+}
+
+async function snooze(taskId: string, context: ActionContext): Promise<ActionOutcome> {
+  const task = context.tasks.find((candidate) => candidate.id === taskId);
+  if (!task || task.status === "done") return "handled";
+  try {
+    await context.schedule(buildSnoozeReminder(task, context.now(), context.language));
+    return "handled";
+  } catch (error) {
+    context.warn("Notification action: snooze could not be scheduled", error);
+    return "failed";
+  }
+}
+
+/** Acts on one parsed response. Only the validated task id is ever used. */
+export async function runAction(action: ResponseAction, context: ActionContext): Promise<ActionOutcome> {
+  switch (action.kind) {
+    case "ignore":
+      return "handled";
+    case "open":
+      context.open(action.taskId);
+      return "handled";
+    case "done":
+      return markDone(action.taskId, context);
+    case "snooze":
+      return snooze(action.taskId, context);
+  }
+}
+
+export type ActionQueueDeps<R> = {
+  /** False until the tasks are loaded and navigation works. */
+  ready(): boolean;
+  keyOf(response: R): string;
+  handle(response: R): Promise<ActionOutcome>;
+  /** Called when nothing is pending any more: the last response may then be cleared. */
+  onIdle(): void;
+  onError(error: unknown): void;
+};
+
+export type ActionQueue<R> = { push(response: R): void; drain(): Promise<void> };
+
+/**
+ * Single-flight queue: waits until `ready`, handles each response once and in order. A "retry" outcome
+ * leaves the response (and everything after it) pending and not remembered, so a later `drain` replays it.
+ */
+export function createActionQueue<R>(deps: ActionQueueDeps<R>): ActionQueue<R> {
+  const pending: R[] = [];
+  let handled: string[] = [];
+  let running = false;
+  let again = false;
+
+  const processNext = async (): Promise<boolean> => {
+    const response = pending[0]!;
+    const key = deps.keyOf(response);
+    if (handled.includes(key)) { pending.shift(); return true; }
+    let outcome: ActionOutcome;
+    try {
+      outcome = await deps.handle(response);
+    } catch (error) {
+      deps.onError(error);
+      outcome = "failed";
+    }
+    if (outcome === "retry") return false;
+    handled = rememberHandled(handled, key).keys;
+    pending.shift();
+    return true;
+  };
+
+  const drain = async (): Promise<void> => {
+    if (running) { again = true; return; }
+    running = true;
+    try {
+      while (pending.length > 0 && deps.ready()) {
+        if (!(await processNext())) break;
+      }
+      if (pending.length === 0) deps.onIdle();
+    } finally {
+      running = false;
+    }
+    if (again) { again = false; await drain(); }
+  };
+
+  return { push(response) { pending.push(response); void drain(); }, drain };
+}
