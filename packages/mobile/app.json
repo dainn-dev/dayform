@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.dayform.hpxhrm5k",
+      "versionCode": 1,
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "extra": {
+      "analytics": false,
+      "apiUrl": "https://dayform-u41hhel-preview-4200.runable.site/",
+      "applicationId": "dayform-u41hhel",
+      "runableAuthIssuer": "https://api.runable.com/api/auth"
+    },
+    "ios": {
+      "bundleIdentifier": "com.dayform.hpxhrm5k",
+      "supportsTablet": true
+    },
+    "name": "Dayform",
+    "slug": "dayform",
+    "version": "1.0.0",
+    "scheme": "runable-dayform-u41hhel",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-status-bar",
+      "expo-font",
+      "expo-system-ui",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6565E8"
+        }
+      ]
+    ]
+  }
+}
