@@ -11,7 +11,7 @@ import { KindSymbol } from "./KindSymbol";
 import { useCycleFormat } from "./use-cycle-format";
 
 /**
- * "Safe days (estimate)". The method and the dates appear only when the prediction produced a method; the
+ * "Lower-risk days (estimate)". The method and the dates appear only when the prediction produced a method; the
  * disclaimer is always right next to them. Otherwise the card says in a plain sentence why there is nothing.
  */
 export function SafeDaysCard({ state, today }: { state: CycleState; today: string }) {
@@ -21,7 +21,7 @@ export function SafeDaysCard({ state, today }: { state: CycleState; today: strin
   const s = useMemo(() => makeStyles(colors), [colors]);
   const view = useMemo(() => safeDaysView(predict(state, today).safeDays, format.short, t), [state, today, format.short, t]);
 
-  return <CycleCard title={t("Safe days (estimate)")}>
+  return <CycleCard title={t("Lower-risk days (estimate)")}>
     {view.visible
       ? <View style={s.body}>
           <View style={s.disclaimer} accessibilityRole="alert">

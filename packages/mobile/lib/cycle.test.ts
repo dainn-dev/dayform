@@ -269,8 +269,30 @@ describe("mergeCycleState", () => {
     enabled: false, defaults: { cycleLength: 24, periodLength: 6 }, paused: true,
   });
 
-  test("replace takes the incoming state as it is", () => {
-    expect(mergeCycleState(current, incoming, "replace")).toBe(incoming);
+  test("replace takes the incoming periods, defaults and reminders", () => {
+    const withReminders = { ...incoming, reminders: { ...incoming.reminders, daysBefore: 3, neutralText: false } };
+    const replaced = mergeCycleState(current, withReminders, "replace");
+    expect(replaced.periods).toEqual(withReminders.periods);
+    expect(replaced.defaults).toEqual({ cycleLength: 24, periodLength: 6 });
+    expect(replaced.reminders).toEqual(withReminders.reminders);
+  });
+
+  test("replace never changes the lock, the disclaimer, the switches or the timeline flag", () => {
+    const mine = stateOf([{ start: "2026-04-22" }], {
+      enabled: true, acknowledged: true, paused: false, showOnTimeline: false, lock: { enabled: true, timeoutSec: 30 },
+    });
+    const hostile = stateOf([{ start: "2026-03-01" }], {
+      enabled: false, acknowledged: false, paused: true, showOnTimeline: true, lock: { enabled: false, timeoutSec: 300 },
+    });
+    const replaced = mergeCycleState(mine, hostile, "replace");
+    expect(replaced.lock).toEqual({ enabled: true, timeoutSec: 30 });
+    expect(replaced).toMatchObject({ enabled: true, acknowledged: true, paused: false, showOnTimeline: false });
+    expect(replaced.periods).toEqual([{ start: "2026-03-01" }]);
+    expect(Object.keys(replaced)).toEqual(Object.keys(DEFAULT_CYCLE_STATE));
+  });
+
+  test("a replace that changes nothing returns the current state object", () => {
+    expect(mergeCycleState(current, { ...current, enabled: false, lock: { enabled: false, timeoutSec: 0 } }, "replace")).toBe(current);
   });
 
   test("merge unions periods, skipping duplicates and overlaps, and keeps the current settings", () => {

@@ -66,6 +66,19 @@ export const REPLACE_PERSONAL_DATA_QUESTION = "Replace all your current personal
 /** Translation key: the notice after a restore that touched only the tracker. */
 export const PERSONAL_DATA_RESTORED = "Personal data restored";
 
+/** Translation key: the question before a replace restore of a copy that holds tasks and tracker data. */
+export const REPLACE_TASKS_AND_PERSONAL_QUESTION = "Replace all your current tasks and personal data with this copy?";
+
+/**
+ * The confirmation before a replace restore. It mentions the tracker (as "personal data") whenever the copy carries
+ * some; `parsed` is the previewed copy, `null` while it is unknown.
+ */
+export function replaceCopyQuestion(kind: RecoveryKind, parsed: Pick<ParsedTasks, "tasks" | "cycle"> | null): string {
+  if (parsed === null) return kind === "cycle" ? REPLACE_PERSONAL_DATA_QUESTION : "Replace all your current tasks with this copy?";
+  if (parsed.cycle === undefined) return "Replace all your current tasks with this copy?";
+  return parsed.tasks.length === 0 ? REPLACE_PERSONAL_DATA_QUESTION : REPLACE_TASKS_AND_PERSONAL_QUESTION;
+}
+
 /** True when restoring this preview changes no task, only the tracker. */
 export const isPersonalDataOnly = (parsed: ParsedTasks): boolean => parsed.tasks.length === 0 && parsed.cycle !== undefined;
 
@@ -98,6 +111,7 @@ export function restoreErrorMessage(reason: RestoreFailure): string {
     case "no-valid-tasks":
     case "safety-copy-failed":
     case "list-changed":
+    case "auth-denied":
     case "save-failed": return importErrorMessage(reason);
   }
 }

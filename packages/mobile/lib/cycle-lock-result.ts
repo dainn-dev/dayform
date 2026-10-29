@@ -3,7 +3,10 @@ export type AuthStatus = "success" | "cancelled" | "failed" | "unavailable";
 export type AuthResult = { status: AuthStatus };
 
 const CANCEL_ERRORS = new Set(["user_cancel", "app_cancel", "system_cancel", "user_fallback"]);
-const UNAVAILABLE_ERRORS = new Set(["not_enrolled", "not_available", "passcode_not_set"]);
+// `not_available` is deliberately not here: the native module also reports it for a sensor that is only busy or
+// temporarily unavailable, and treating that as "no screen lock" would offer to skip the lock on a phone that has one.
+// Whether the phone has a lock is decided by the capability probe (`probeFrom`), never by an error code.
+const UNAVAILABLE_ERRORS = new Set(["not_enrolled", "passcode_not_set"]);
 
 /** Maps an `expo-local-authentication` error code to a status. Unknown codes count as a plain failure. */
 export function statusFromError(error: string): AuthStatus {
@@ -21,3 +24,11 @@ export type LockSupport = { enrolled: boolean; level: number };
 export function canAuthenticate(support: LockSupport): boolean {
   return support.level > 0 || support.enrolled;
 }
+
+/** What the capability check found: a lock to verify against, truly none, or the check itself failed (unknown). */
+export type LockProbe = "available" | "none" | "error";
+
+export const probeFrom = (support: LockSupport): LockProbe => (canAuthenticate(support) ? "available" : "none");
+
+/** The user may continue without a check only when the phone truly has no screen lock; an unknown state retries. */
+export const continueAllowed = (probe: LockProbe): boolean => probe === "none";

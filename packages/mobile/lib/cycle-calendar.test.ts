@@ -90,7 +90,7 @@ describe("monthGrid kinds", () => {
     expect(kindOn(june, "2026-06-29")).toBe("predicted-period");
     expect(kindOn(june, "2026-06-30")).toBe("predicted-period");
     expect(kindOn(june, "2026-07-03")).toBe("predicted-period");
-    expect(kindOn(june, "2026-07-04")).toBe("safe-estimate");
+    expect(kindOn(june, "2026-07-04")).toBe("none");
   });
 
   test("predictions repeat for the following cycles and stop after 2 projected cycles", () => {
@@ -99,7 +99,7 @@ describe("monthGrid kinds", () => {
     expect(kindOn(july, "2026-07-06")).toBe("fertile");
     expect(kindOn(july, "2026-07-27")).toBe("predicted-period");
     const august = monthGrid(2026, 8, "mon", STATE, TODAY);
-    expect(kindOn(august, "2026-08-23")).toBe("safe-estimate");
+    expect(kindOn(august, "2026-08-23")).toBe("none");
     expect(kindOn(august, "2026-08-24")).toBe("none");
     expect(kindOn(monthGrid(2027, 3, "mon", STATE, TODAY), "2027-03-10")).toBe("none");
   });
@@ -124,7 +124,7 @@ describe("monthGrid kinds", () => {
     const grid = monthGrid(2026, 6, "mon", state, "2026-06-03");
     expect(kindOn(grid, "2026-06-29")).toBe("predicted-period");
     expect(kindOn(grid, "2026-07-01")).toBe("predicted-period");
-    expect(kindOn(grid, "2026-07-02")).toBe("safe-estimate");
+    expect(kindOn(grid, "2026-07-02")).toBe("none");
   });
 
   test("a period still going on keeps predicting its remaining days", () => {
@@ -135,6 +135,39 @@ describe("monthGrid kinds", () => {
     expect(kindOn(grid, "2026-06-10")).toBe("predicted-period");
     expect(kindOn(grid, "2026-06-12")).toBe("predicted-period");
     expect(kindOn(grid, "2026-06-13")).not.toBe("predicted-period");
+  });
+});
+
+describe("safe-estimate only in the current cycle", () => {
+  test("it runs from the last start up to the predicted next start and never beyond", () => {
+    const grid = [...monthGrid(2026, 6, "mon", STATE, TODAY), ...monthGrid(2026, 7, "mon", STATE, TODAY), ...monthGrid(2026, 8, "mon", STATE, TODAY)];
+    const safe = datesOfKind(grid, "safe-estimate");
+    expect(safe.length).toBeGreaterThan(0);
+    expect(safe.every(date => date >= "2026-06-01" && date < "2026-06-29")).toBe(true);
+  });
+
+  test("projected cycles keep the predicted period and the fertile window, never a safe estimate", () => {
+    const july = monthGrid(2026, 7, "mon", STATE, TODAY);
+    expect(kindOn(july, "2026-07-01")).toBe("predicted-period");
+    expect(kindOn(july, "2026-07-06")).toBe("fertile");
+    // Cycle days 7..18 of the method range stay marked fertile in projected cycles (the cautious side), nothing is safe.
+    expect(kindOn(july, "2026-07-17")).toBe("fertile");
+    expect(kindOn(july, "2026-07-18")).toBe("none");
+    expect(datesOfKind(july, "safe-estimate").every(date => date < "2026-06-29")).toBe(true);
+    const august = monthGrid(2026, 8, "mon", STATE, TODAY);
+    expect(kindOn(august, "2026-07-28")).toBe("predicted-period");
+    expect(kindOn(august, "2026-08-10")).toBe("fertile");
+  });
+
+  test("a period that comes late cannot turn a labelled-safe day fertile: days after the predicted start are never safe", () => {
+    for (const date of ["2026-06-29", "2026-07-04", "2026-07-10", "2026-07-20", "2026-08-15"]) {
+      expect(kindOn(monthGrid(2026, Number(date.slice(5, 7)), "mon", STATE, TODAY), date)).not.toBe("safe-estimate");
+    }
+  });
+
+  test("weekMarks agree with the grid in the current and in a projected cycle", () => {
+    const shown = { ...STATE, showOnTimeline: true };
+    expect(weekMarks(["2026-06-25", "2026-07-04", "2026-07-20"], shown, TODAY).map(mark => mark.kind)).toEqual(["safe-estimate", "none", "none"]);
   });
 });
 

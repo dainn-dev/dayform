@@ -1,6 +1,6 @@
 import React from "react";
 import { useCycle } from "../../lib/cycle-context";
-import { DEFAULT_CYCLE_STATE, type CycleState } from "../../lib/cycle-model";
+import type { CycleState } from "../../lib/cycle-model";
 import type { DialogTarget } from "../../lib/cycle-ui-actions";
 import { useLanguage } from "../../lib/language";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -8,6 +8,11 @@ import { DayDialog } from "./DayDialog";
 import { PeriodEditor } from "./PeriodEditor";
 import { useCycleFormat } from "./use-cycle-format";
 import { useCycleReport } from "./use-cycle-report";
+import { useDeleteAll } from "./use-delete-all";
+
+/** Second part of the delete-all text: the automatic copies go too, an exported file is out of the app's reach. */
+const DELETE_ALL_COPIES_NOTE =
+  "It is also removed from the automatic copies kept on this device. A backup file you exported earlier is not deleted.";
 
 type Props = {
   target: DialogTarget | null;
@@ -20,9 +25,10 @@ type Props = {
 export function CycleDialogs({ target, state, today, onChange }: Props) {
   const { t } = useLanguage();
   const format = useCycleFormat();
-  const { removePeriod, importState } = useCycle();
+  const { removePeriod } = useCycle();
   const { message, busy, run, clear } = useCycleReport();
-  const close = () => { clear(); onChange(null); };
+  const deleteAll = useDeleteAll();
+  const close = () => { clear(); deleteAll.clear(); onChange(null); };
 
   if (target === null) return null;
   if (target.kind === "day") {
@@ -38,8 +44,8 @@ export function CycleDialogs({ target, state, today, onChange }: Props) {
       confirmLabel={t("Delete period")} onCancel={close}
       onConfirm={() => { void run(() => removePeriod(period.start)).then(done => { if (done) close(); }); }} />;
   }
-  return <ConfirmDialog visible title={t("Delete all cycle data?")} busy={busy} error={message}
-    message={t("This removes every logged period and turns tracking off. It cannot be undone.")}
+  return <ConfirmDialog visible title={t("Delete all cycle data?")} busy={deleteAll.busy} error={deleteAll.message}
+    message={`${t("This removes every logged period and turns tracking off. It cannot be undone.")} ${t(DELETE_ALL_COPIES_NOTE)}`}
     confirmLabel={t("Delete everything")} onCancel={close}
-    onConfirm={() => { void run(() => importState(DEFAULT_CYCLE_STATE, "replace")).then(done => { if (done) close(); }); }} />;
+    onConfirm={() => { void deleteAll.confirm().then(done => { if (done) close(); }); }} />;
 }

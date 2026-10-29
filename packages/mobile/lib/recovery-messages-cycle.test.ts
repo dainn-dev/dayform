@@ -2,10 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { formatNotice, type ImportSummary } from "./backup-flow";
 import { DEFAULT_CYCLE_STATE } from "./cycle";
 import { vi as cycleNotifyVi } from "./i18n/cycle-notify";
+import { vi as cyclePrivacyVi } from "./i18n/cycle-privacy";
 import {
   INCLUDES_PERSONAL_DATA,
   PERSONAL_DATA_RESTORED,
   REPLACE_PERSONAL_DATA_QUESTION,
+  REPLACE_TASKS_AND_PERSONAL_QUESTION,
+  replaceCopyQuestion,
   isPersonalDataOnly,
   kindLabel,
   previewSummaryParts,
@@ -53,5 +56,30 @@ describe("recovery messages for the period tracker", () => {
 
   test("the translated keys exist", () => {
     for (const key of [PERSONAL_DATA_RESTORED, REPLACE_PERSONAL_DATA_QUESTION, INCLUDES_PERSONAL_DATA]) expect(cycleNotifyVi[key]).toBeTruthy();
+  });
+});
+
+describe("replaceCopyQuestion", () => {
+  const cycle = DEFAULT_CYCLE_STATE;
+  const one = [{ id: "a" }] as never;
+
+  test("mentions personal data whenever the copy carries tracker data", () => {
+    expect(replaceCopyQuestion("snapshot", { tasks: one, cycle })).toBe(REPLACE_TASKS_AND_PERSONAL_QUESTION);
+    expect(replaceCopyQuestion("snapshot", { tasks: [], cycle })).toBe(REPLACE_PERSONAL_DATA_QUESTION);
+    expect(replaceCopyQuestion("cycle", { tasks: [], cycle })).toBe(REPLACE_PERSONAL_DATA_QUESTION);
+  });
+
+  test("a copy without tracker data asks only about the tasks", () => {
+    expect(replaceCopyQuestion("snapshot", { tasks: one })).toBe("Replace all your current tasks with this copy?");
+  });
+
+  test("before the preview is known the kind decides", () => {
+    expect(replaceCopyQuestion("cycle", null)).toBe(REPLACE_PERSONAL_DATA_QUESTION);
+    expect(replaceCopyQuestion("backup", null)).toBe("Replace all your current tasks with this copy?");
+  });
+
+  test("the new question is translated and neutral", () => {
+    expect(cyclePrivacyVi[REPLACE_TASKS_AND_PERSONAL_QUESTION]).toBeTruthy();
+    expect(REPLACE_TASKS_AND_PERSONAL_QUESTION.toLowerCase()).not.toMatch(/period|health|cycle/);
   });
 });

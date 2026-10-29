@@ -5,12 +5,12 @@ import { formatNotice, planImport, type ImportPlan } from "../../lib/backup-flow
 import { useLanguage } from "../../lib/language";
 import type { RecoveryItem } from "../../lib/recovery";
 import {
-  REPLACE_PERSONAL_DATA_QUESTION,
   isPersonalDataOnly,
   itemActionLabel,
   itemLine,
   kindLabel,
   previewSummaryParts,
+  replaceCopyQuestion,
   restoreErrorMessage,
   summaryLine,
 } from "../../lib/recovery-messages";
@@ -60,7 +60,7 @@ export function RecoveryItemRow({ item, actions }: Props) {
         {planned && <Text style={s.meta}>{t("Restore (replace)")}: {planText(replacePlan, t)}</Text>}
       </> : <Text accessibilityRole="alert" style={s.error}>{t(restoreErrorMessage(previewHere.reason))}</Text>}
     </View>}
-    {mine !== null && mine.kind === "replace" && <RecoveryConfirm question={item.kind === "cycle" ? REPLACE_PERSONAL_DATA_QUESTION : "Replace all your current tasks with this copy?"}
+    {mine !== null && mine.kind === "replace" && <RecoveryConfirm question={replaceCopyQuestion(item.kind, parsed)}
       yes="Yes, replace" busy={busy} onYes={() => { void restore(item.key, "replace"); }} onCancel={cancel} />}
     {mine !== null && mine.kind === "delete" && <RecoveryConfirm question="Delete this copy for good?"
       yes="Yes, delete" busy={busy} onYes={() => { void confirmDelete(); }} onCancel={cancel} />}

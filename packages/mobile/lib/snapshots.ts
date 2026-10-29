@@ -1,6 +1,6 @@
 import { serializeBackup } from "./backup";
 import type { CategoriesState } from "./categories";
-import type { CycleState } from "./cycle";
+import { hasCycleData, type CycleState } from "./cycle";
 import { dateKey, fromKey, type Task } from "./planner";
 import { utf8Length } from "./text-size";
 
@@ -115,7 +115,8 @@ async function listKeys(storage: SnapshotStorage): Promise<readonly string[] | n
 
 /**
  * Writes `dayform.snapshot.<today>` when one is due, then prunes old ones. Never throws, never reads or
- * writes the main task key, and never snapshots an empty list (it could replace a good one with nothing).
+ * writes the main task key, and never snapshots an empty list (it could replace a good one with nothing) unless the
+ * tracker holds data.
  * `cycle` (the private period tracker, health data) is part of the snapshot only when it holds data; it stays on
  * the device like the tasks. The size cap applies to the whole text, tracker data included.
  */
@@ -127,7 +128,8 @@ export async function takeSnapshot(
   cycle?: CycleState,
 ): Promise<SnapshotResult> {
   if (Number.isNaN(now.getTime())) return { kind: "failed", reason: "invalid-date" };
-  if (tasks.length === 0) return { kind: "skipped", reason: "empty" };
+  // An empty list is not worth a snapshot (it could replace a good one with nothing), unless the tracker has data.
+  if (tasks.length === 0 && !(cycle !== undefined && hasCycleData(cycle))) return { kind: "skipped", reason: "empty" };
   const keys = await listKeys(storage);
   if (keys === null) return { kind: "failed", reason: "list-failed" };
   const today = dateKey(now);

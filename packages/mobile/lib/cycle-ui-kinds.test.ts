@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { CalendarDay, CalendarKind } from "./cycle-calendar";
-import { KIND_META, dayLabel, legendKinds, markLabel, timelineKind, withMarkLabel } from "./cycle-ui-kinds";
+import { KIND_META, dayLabel, legendKinds, legendNote, markLabel, timelineKind, withMarkLabel } from "./cycle-ui-kinds";
 
 const identity = (text: string) => text;
 const mark = (text: string) => `~${text}`;
@@ -26,6 +26,21 @@ describe("legendKinds", () => {
 
   test("lists safe days only when the grid shows them", () => {
     expect(legendKinds([[day("safe-estimate")]])).toContain("safe-estimate");
+  });
+});
+
+describe("legendNote", () => {
+  test("is the short disclaimer whenever the lower-risk kind is listed, otherwise nothing", () => {
+    expect(legendNote(["period", "fertile", "safe-estimate"])).toBe("Calendar estimate only. Not a way to prevent pregnancy.");
+    expect(legendNote(["period", "predicted-period", "fertile"])).toBeNull();
+    expect(legendNote(["period"])).toBeNull();
+  });
+});
+
+describe("kind labels", () => {
+  test("the lower-risk kind is hedged and never called safe", () => {
+    expect(KIND_META["safe-estimate"].label).toBe("Lower-risk days (low confidence)");
+    expect(KIND_META["safe-estimate"].label.toLowerCase()).not.toContain("safe");
   });
 });
 

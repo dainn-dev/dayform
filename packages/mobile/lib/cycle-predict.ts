@@ -7,13 +7,17 @@ import { addDays } from "./planner";
  * advice and not contraception. All functions are pure: "today" is always passed in.
  *
  * Cycle length  = days between two consecutive logged period starts. A gap under 15 or over 60 days is a missed
- *                 entry or a pause, not a cycle, and is ignored.
- * Average       = mean of the most recent 6 cycle lengths, clamped to 21..45 (the default cycle length when no
- *                 cycle is known). The next start is the last start plus the rounded average.
+ *                 entry or a pause, not a cycle.
+ * Recent run    = the cycles counted backwards from the LATEST logged start, stopping at the first gap that is not
+ *                 a usable cycle. A break (a pause, a missed entry, a stray early log) therefore resets the history:
+ *                 older cycles never count toward anything again. predict() uses this one run for the cycle count,
+ *                 the average, the spread and the safe days, so they always agree with each other.
+ * Average       = mean of the most recent 6 cycles of the run, clamped to 21..45 (the default cycle length when the
+ *                 run is empty). The next start is the last start plus the rounded average.
  * Ovulation     ~ next start - 14 days (a fixed luteal phase). Fertile window = ovulation - 5 .. ovulation + 1.
  * Spread        = half the range of the recent cycles, 1..7 days (3 days when fewer than 2 cycles are known).
- * Safe days     = the fertile days of a published calendar method, produced only when the data supports it:
- *   - fewer than 3 cycles: nothing ("not-enough-cycles");
+ * Safe days     = the fertile days of a published calendar method, produced only when the recent run supports it:
+ *   - fewer than 3 cycles in the run: nothing ("not-enough-cycles");
  *   - any of the last 12 cycles outside 21..45, or longest - shortest > 9: nothing ("irregular");
  *   - 3 to 5 cycles, all within 26..32: Standard Days (cycle days 8..19 counted from the last start);
  *   - 6 or more cycles: Ogino-Knaus on the last 12 (first fertile day = shortest - 18, last = longest - 11);
@@ -63,7 +67,7 @@ export type Prediction = {
   averageLength: number | null;
   /** `averageLength` rounded to whole days: the length used for every date. */
   cycleLength: number | null;
-  /** Every usable cycle length on record. */
+  /** Cycles in the recent unbroken run that ends at the latest start (older ones before a break do not count). */
   cycleCount: number;
   lastStart: string | null;
   /** Negative while the period is late. */
@@ -88,6 +92,22 @@ export function cycleEntries(periods: readonly Period[]): CycleEntry[] {
     if (length >= MIN_CYCLE_GAP_DAYS && length <= MAX_CYCLE_GAP_DAYS) entries.push({ start: sorted[i - 1].start, length });
   }
   return entries;
+}
+
+/**
+ * The cycles of the unbroken run that ends at the latest period start, oldest first. Walking back from the latest
+ * start, it stops at the first gap that is not a usable cycle (see MIN/MAX_CYCLE_GAP_DAYS), so everything before a
+ * break is ignored. Empty when the latest gap is unusable or there are fewer than two periods.
+ */
+export function recentCycleEntries(periods: readonly Period[]): CycleEntry[] {
+  const sorted = [...periods].sort(comparePeriods);
+  const run: CycleEntry[] = [];
+  for (let i = sorted.length - 1; i >= 1; i -= 1) {
+    const length = daysBetween(sorted[i - 1].start, sorted[i].start);
+    if (length < MIN_CYCLE_GAP_DAYS || length > MAX_CYCLE_GAP_DAYS) break;
+    run.unshift({ start: sorted[i - 1].start, length });
+  }
+  return run;
 }
 
 export function cycleLengths(periods: readonly Period[]): number[] {
@@ -148,7 +168,7 @@ export function predict(state: CycleState, today: string): Prediction {
   const lastStart = known.at(-1)?.start;
   if (lastStart === undefined) return inactive("no-data");
 
-  const lengths = cycleLengths(known);
+  const lengths = recentCycleEntries(known).map(entry => entry.length);
   const recent = lengths.slice(-AVERAGE_WINDOW_CYCLES);
   const average = recent.length === 0
     ? state.defaults.cycleLength

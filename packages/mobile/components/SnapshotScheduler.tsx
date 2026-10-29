@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { deleteStaleBackups } from "../lib/backup-expo";
 import { snapshotStatus } from "../lib/snapshot-status";
 import { useCategories } from "../lib/categories-context";
 import { useCycle } from "../lib/cycle-context";
@@ -52,6 +53,10 @@ export function SnapshotScheduler(): null {
       runner.current = null;
     };
   }, []);
+
+  // A backup file with tracker data is deleted right after sharing; this removes one an earlier run left behind
+  // (for example when the app was killed while the share sheet was open).
+  useEffect(() => { deleteStaleBackups(); }, []);
 
   useEffect(() => {
     if (!canSnapshot) return undefined;

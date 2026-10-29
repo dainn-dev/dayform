@@ -35,8 +35,12 @@ function removeQuietly(file: File): void {
   }
 }
 
-/** Deletes backups left in the cache by earlier exports (called before writing a new one). */
-function deleteStaleBackups(): void {
+/**
+ * Deletes backups left in the cache by earlier exports: before writing a new one, after one that held tracker data
+ * was shared, when the tracker is deleted and once when the app starts (an earlier run may have been killed while
+ * the share sheet was open). Never throws.
+ */
+export function deleteStaleBackups(): void {
   try {
     for (const entry of Paths.cache.list()) {
       if (entry instanceof File && BACKUP_FILE_PATTERN.test(entry.name)) removeQuietly(entry);
@@ -46,13 +50,13 @@ function deleteStaleBackups(): void {
   }
 }
 
-function writeBackupFile(tasks: readonly Task[], categories: CategoriesState | undefined, cycle: CycleState | undefined): string | null {
+function writeBackupFile(tasks: readonly Task[], categories: CategoriesState | undefined, cycle: CycleState | undefined): File | null {
   try {
     deleteStaleBackups();
     const file = new File(Paths.cache, backupFileName(new Date()));
     file.create({ overwrite: true });
     file.write(serializeBackup(tasks, new Date(), { categories, cycle }));
-    return file.uri;
+    return file;
   } catch {
     return null;
   }
@@ -67,8 +71,9 @@ async function canShare(): Promise<boolean> {
 }
 
 /**
- * Writes the backup JSON to the cache directory, then opens the system share sheet. The file is kept
- * after sharing (the receiving app may read it lazily) and removed by the next export. `categories` is written
+ * Writes the backup JSON to the cache directory, then opens the system share sheet. The file is kept after sharing
+ * (the receiving app may read it lazily) and removed by the next export and at app start (`deleteStaleBackups`),
+ * including when it holds tracker data (health data). `categories` is written
  * into the file only when it holds customisations, `cycle` (health data) only when the tracker is on or has periods.
  * `shareAsync` resolves whether or not the user picked a target and rejects only on a real failure,
  * so a dismissed sheet is a success here.
@@ -79,11 +84,14 @@ export async function exportBackupFile(
   cycle?: CycleState,
 ): Promise<ExportResult> {
   if (Platform.OS === "web") return { ok: false, reason: "unsupported-platform" };
-  const uri = writeBackupFile(tasks, categories, cycle);
-  if (uri === null) return { ok: false, reason: "write-failed" };
+  const file = writeBackupFile(tasks, categories, cycle);
+  if (file === null) return { ok: false, reason: "write-failed" };
   if (!(await canShare())) return { ok: false, reason: "sharing-unavailable" };
+  // The file is deliberately NOT deleted when the share call settles: the chosen app (mail, a drive) may read it
+  // lazily after the sheet closes, and a deleted file would silently send an empty backup. The cached copy is removed
+  // the next time the app starts (deleteStaleBackups) and before the next export.
   try {
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(file.uri, {
       mimeType: JSON_MIME_TYPE,
       UTI: "public.json",
       dialogTitle: SHARE_DIALOG_TITLE,

@@ -18,8 +18,11 @@ import {
   CYCLE_NOT_RESTORED,
   withCycleNote,
   HEALTH_DATA_WARNING,
+  IMPORT_HAS_TRACKER_NOTE,
+  replaceImportQuestion,
 } from "./backup-flow";
 import { vi as cycleNotifyVi } from "./i18n/cycle-notify";
+import { vi as cyclePrivacyVi } from "./i18n/cycle-privacy";
 import { DEFAULT_CYCLE_STATE, type CycleState } from "./cycle";
 import { BACKUP_KEY_PREFIX, MAX_RECORDS, contentKey } from "./task-storage";
 import { parseBackup, serializeBackup } from "./backup";
@@ -259,7 +262,7 @@ describe("user-facing messages", () => {
   });
 
   test("maps every import failure to a distinct message", () => {
-    const reasons = ["too-many-tasks", "too-large", "no-valid-tasks", "save-failed", "safety-copy-failed", "list-changed"] as const;
+    const reasons = ["too-many-tasks", "too-large", "no-valid-tasks", "save-failed", "safety-copy-failed", "list-changed", "auth-denied"] as const;
     expect(new Set(reasons.map(importErrorMessage)).size).toBe(reasons.length);
     expect(importErrorMessage("no-valid-tasks")).toBe("No valid tasks were found in this file.");
     expect(importErrorMessage("too-large")).toBe("This backup is too big to store on this device.");
@@ -531,8 +534,9 @@ describe("runImport applies the backup's period tracker data", () => {
 
   test("tracker data is not applied when the tasks were refused", async () => {
     const h = hook();
-    const outcome = await runImport(mutateInto({ tasks: [] }), withCycle([]), "merge", { ...safety().target, importCycle: h.fn });
-    expect(outcome).toEqual({ ok: false, reason: "no-valid-tasks" });
+    const tooMany = ids("n", MAX_RECORDS + 1);
+    const outcome = await runImport(mutateInto({ tasks: [] }), withCycle(tooMany), "merge", { ...safety().target, importCycle: h.fn });
+    expect(outcome).toEqual({ ok: false, reason: "too-many-tasks" });
     expect(h.calls).toEqual([]);
   });
 
@@ -593,5 +597,166 @@ describe("health data warning", () => {
     expect(HEALTH_DATA_WARNING.toLowerCase()).toContain("health data");
     expect(HEALTH_DATA_WARNING.toLowerCase()).toContain("not encrypted");
     expect(cycleNotifyVi[HEALTH_DATA_WARNING]).toBeTruthy();
+  });
+});
+
+describe("tracker-only users (no tasks, but tracker data)", () => {
+  const tracker: CycleState = { ...DEFAULT_CYCLE_STATE, enabled: true, periods: [{ start: "2026-09-02" }] };
+  const mutateInto = (box: { tasks: Task[] }) => async (update: (tasks: Task[]) => Task[]) => {
+    box.tasks = update(box.tasks);
+    return true;
+  };
+  const okHook = (calls: Array<[unknown, string]> = []) => async (value: unknown, mode: string) => {
+    calls.push([value, mode]);
+    return { ok: true };
+  };
+
+  test("an export is blocked only when there is neither a task nor tracker data", () => {
+    expect(exportBlockedMessage(false, 0, false)).toBe("There are no tasks to export.");
+    expect(exportBlockedMessage(false, 0)).toBe("There are no tasks to export.");
+    expect(exportBlockedMessage(false, 0, true)).toBeNull();
+    expect(exportBlockedMessage(true, 0, true)).toBe("Your tasks are still loading. Try again in a moment.");
+  });
+
+  test("a replace that overwrites the tracker saves a safety copy even with no task to protect", async () => {
+    const copy = safety();
+    const incoming = { ...DEFAULT_CYCLE_STATE, periods: [{ start: "2026-08-01" }] };
+    const outcome = await runImport(mutateInto({ tasks: [] }), { tasks: [task("z")], rejected: 0, cycle: incoming }, "replace", {
+      ...copy.target, cycle: tracker, importCycle: okHook(),
+    });
+    expect(okOutcome(outcome).cycle).toBe("applied");
+    const text = serializeBackup([], SAFETY_NOW, { compact: true, cycle: tracker });
+    expect(copy.data.get(contentKey(BACKUP_KEY_PREFIX, text))).toBe(text);
+  });
+
+  test("no copy when the file leaves the tracker alone, or the tracker is empty (nothing would be lost)", async () => {
+    const noFileCycle = safety();
+    await runImport(mutateInto({ tasks: [] }), parsed([task("z")]), "replace", { ...noFileCycle.target, cycle: tracker, importCycle: okHook() });
+    expect(noFileCycle.data.size).toBe(0);
+    const emptyTracker = safety();
+    await runImport(mutateInto({ tasks: [] }), { tasks: [task("z")], rejected: 0, cycle: tracker }, "replace", {
+      ...emptyTracker.target, cycle: DEFAULT_CYCLE_STATE, importCycle: okHook(),
+    });
+    expect(emptyTracker.data.size).toBe(0);
+  });
+
+  test("a failed safety copy still refuses the replace when it protects the tracker", async () => {
+    const copy = safety(true);
+    const outcome = await runImport(mutateInto({ tasks: [] }), { tasks: [task("z")], rejected: 0, cycle: tracker }, "replace", {
+      ...copy.target, cycle: tracker, importCycle: okHook(),
+    });
+    expect(outcome).toEqual({ ok: false, reason: "safety-copy-failed" });
+  });
+
+  test("a file with tracker data and no task is applied to the tracker alone, in both modes", async () => {
+    for (const mode of ["merge", "replace"] as const) {
+      const calls: Array<[unknown, string]> = [];
+      const box = { tasks: [task("keep")] };
+      const outcome = await runImport(mutateInto(box), { tasks: [], rejected: 0, cycle: tracker }, mode, {
+        ...safety().target, importCycle: okHook(calls),
+      });
+      expect(outcome).toMatchObject({ ok: true, cycle: "applied", cycleOnly: true, summary: { added: 0, updated: 0, removed: 0 } });
+      expect(calls).toEqual([[tracker, mode]]);
+      expect(box.tasks.map(item => item.id)).toEqual(["keep"]);
+    }
+  });
+
+  test("a tracker-only replace saves the current tracker first, and a failed copy or save is reported", async () => {
+    const copy = safety();
+    await runImport(mutateInto({ tasks: [] }), { tasks: [], rejected: 0, cycle: tracker }, "replace", {
+      ...copy.target, cycle: { ...tracker, periods: [{ start: "2026-07-01" }] }, importCycle: okHook(),
+    });
+    expect(copy.data.size).toBe(1);
+    const refused = await runImport(mutateInto({ tasks: [] }), { tasks: [], rejected: 0, cycle: tracker }, "replace", {
+      ...safety(true).target, cycle: { ...tracker, periods: [{ start: "2026-07-01" }] }, importCycle: okHook(),
+    });
+    expect(refused).toEqual({ ok: false, reason: "safety-copy-failed" });
+    for (const importCycle of [async () => ({ ok: false }), async () => { throw new Error("disk"); }]) {
+      expect(await runImport(mutateInto({ tasks: [] }), { tasks: [], rejected: 0, cycle: tracker }, "merge", {
+        ...safety().target, importCycle,
+      })).toEqual({ ok: false, reason: "save-failed" });
+    }
+  });
+
+  test("a file with no task and no tracker hook is still refused", async () => {
+    expect(await runImport(mutateInto({ tasks: [] }), { tasks: [], rejected: 0, cycle: tracker }, "merge", safety().target))
+      .toEqual({ ok: false, reason: "no-valid-tasks" });
+  });
+});
+
+describe("runImport asks to authorize before anything is read or written", () => {
+  const tracker: CycleState = { ...DEFAULT_CYCLE_STATE, enabled: true, periods: [{ start: "2026-09-02" }] };
+  const importCycle = async () => ({ ok: true });
+
+  function recording() {
+    const events: string[] = [];
+    const mutate = async (update: (tasks: Task[]) => Task[]) => { events.push("mutate"); update([]); return true; };
+    const authorize = (answer: boolean | "throw") => async () => {
+      events.push("authorize");
+      if (answer === "throw") throw new Error("native");
+      return answer;
+    };
+    return { events, mutate, authorize };
+  }
+
+  test("a denied check refuses the import, writes nothing and reads nothing", async () => {
+    for (const answer of [false, "throw"] as const) {
+      const r = recording();
+      const copy = safety();
+      const outcome = await runImport(r.mutate, { tasks: [task("z")], rejected: 0, cycle: tracker }, "replace", {
+        ...copy.target, importCycle, authorize: r.authorize(answer),
+      });
+      expect(outcome).toEqual({ ok: false, reason: "auth-denied" });
+      expect(r.events).toEqual(["authorize"]);
+      expect(copy.data.size).toBe(0);
+    }
+  });
+
+  test("an allowed check goes on, before the first write", async () => {
+    const r = recording();
+    const outcome = await runImport(r.mutate, { tasks: [task("z")], rejected: 0, cycle: tracker }, "merge", {
+      ...safety().target, importCycle, authorize: r.authorize(true),
+    });
+    expect(outcome.ok).toBe(true);
+    expect(r.events[0]).toBe("authorize");
+  });
+
+  test("a tracker-only file is checked too", async () => {
+    const r = recording();
+    const outcome = await runImport(r.mutate, { tasks: [], rejected: 0, cycle: tracker }, "merge", {
+      ...safety().target, importCycle, authorize: r.authorize(false),
+    });
+    expect(outcome).toEqual({ ok: false, reason: "auth-denied" });
+  });
+
+  test("a file without tracker data, or an import that cannot apply it, is never checked", async () => {
+    const plain = recording();
+    await runImport(plain.mutate, parsed([task("z")]), "merge", { ...safety().target, importCycle, authorize: plain.authorize(false) });
+    expect(plain.events).toEqual(["mutate"]);
+    const noHook = recording();
+    await runImport(noHook.mutate, { tasks: [task("z")], rejected: 0, cycle: tracker }, "merge", { ...safety().target, authorize: noHook.authorize(false) });
+    expect(noHook.events).toEqual(["mutate"]);
+  });
+
+  test("the failure has a neutral, translated message", () => {
+    expect(importErrorMessage("auth-denied")).toBe("Could not confirm it is you, so nothing was changed.");
+  });
+});
+
+describe("replaceImportQuestion", () => {
+  test("names the tracker whenever the file carries tracker data", () => {
+    const cycle = { ...DEFAULT_CYCLE_STATE, enabled: true };
+    expect(replaceImportQuestion({ tasks: [task("a")] })).toBe("Replace all your current tasks?");
+    expect(replaceImportQuestion({ tasks: [task("a")], cycle })).toBe("Replace all your current tasks and your period tracker history?");
+    expect(replaceImportQuestion({ tasks: [], cycle })).toBe("Replace your current period tracker history?");
+  });
+
+  test("every question and the note are translated", () => {
+    const cycle = { ...DEFAULT_CYCLE_STATE, enabled: true };
+    for (const key of [
+      IMPORT_HAS_TRACKER_NOTE,
+      replaceImportQuestion({ tasks: [task("a")], cycle }),
+      replaceImportQuestion({ tasks: [], cycle }),
+    ]) expect(cyclePrivacyVi[key]).toBeTruthy();
   });
 });

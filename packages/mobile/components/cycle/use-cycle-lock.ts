@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useCycle } from "../../lib/cycle-context";
 import { nextUnlockState, type UnlockEvent } from "../../lib/cycle-lock";
-import { authenticate } from "../../lib/cycle-lock-expo";
+import { authenticate, probeLock } from "../../lib/cycle-lock-expo";
+import { continueAllowed } from "../../lib/cycle-lock-result";
 import {
   activityEvent, appStateEvent, continueEvent, gateView, msUntilRelock, outcomeOf, type GateView, type LockNotice,
 } from "../../lib/cycle-lock-gate";
@@ -18,8 +19,8 @@ export type CycleLock = {
   /** The app is not in the foreground: the content must be hidden (app switcher, recents). */
   covered: boolean;
   unlock: () => Promise<void>;
-  /** Continue although the phone has no screen lock to check against. */
-  continueAnyway: () => void;
+  /** Continue although the phone has no screen lock to check against; re-checks first and otherwise shows the retry state. */
+  continueAnyway: () => Promise<void>;
   /** Call on every touch of the open screen; keeps the inactivity window alive. */
   noteActivity: () => void;
 };
@@ -107,10 +108,23 @@ export function useCycleLock(): CycleLock {
     void unlock();
   }, [view, covered, unlock]);
 
-  const continueAnyway = useCallback(() => {
-    const at = Date.now();
-    apply(continueEvent(at), at);
-    setNotice("none");
+  const continueAnyway = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      // The earlier "unavailable" may have been a transient error: only a phone that truly has no lock may continue.
+      if (!continueAllowed(await probeLock())) {
+        setNotice("failed");
+        return;
+      }
+      const at = Date.now();
+      apply(continueEvent(at), at);
+      setNotice("none");
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }, [apply]);
 
   const noteActivity = useCallback(() => {

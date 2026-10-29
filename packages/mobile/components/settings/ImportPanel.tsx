@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "../../hooks/use-colors";
-import { countItem, formatNotice, importErrorMessage, planImport, type ImportSummary } from "../../lib/backup-flow";
+import {
+  IMPORT_HAS_TRACKER_NOTE, countItem, formatNotice, importErrorMessage, planImport, replaceImportQuestion, type ImportSummary,
+} from "../../lib/backup-flow";
+import { isPersonalDataOnly } from "../../lib/recovery-messages";
 import { useLanguage } from "../../lib/language";
 import { useTasks } from "../../lib/tasks-context";
 import type { ThemeColors } from "../../constants/theme";
@@ -41,16 +44,19 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
   const { tasks } = useTasks();
   if (stage.kind === "idle") return null;
 
-  const merge = planImport(tasks, stage.parsed, "merge");
-  const replace = planImport(tasks, stage.parsed, "replace");
-  const mergeBlocked = busy || !merge.ok;
-  const replaceBlocked = busy || !replace.ok;
+  // A file with the tracker alone changes no task, so there is no task plan to show or to be blocked by.
+  const trackerOnly = isPersonalDataOnly(stage.parsed);
+  const merge = trackerOnly ? null : planImport(tasks, stage.parsed, "merge");
+  const replace = trackerOnly ? null : planImport(tasks, stage.parsed, "replace");
+  const mergeBlocked = busy || (merge !== null && !merge.ok);
+  const replaceBlocked = busy || (replace !== null && !replace.ok);
 
   return <View style={s.panel}>
-    <Text style={s.headline}>{countsLine(stage.parsed.tasks.length, stage.parsed.rejected, t)}</Text>
+    {!trackerOnly && <Text style={s.headline}>{countsLine(stage.parsed.tasks.length, stage.parsed.rejected, t)}</Text>}
+    {stage.parsed.cycle !== undefined && <Text style={trackerOnly ? s.headline : s.detail}>{t(IMPORT_HAS_TRACKER_NOTE)}</Text>}
     {stage.kind === "confirm-replace" ? <>
-      <Text style={s.question}>{t("Replace all your current tasks?")}</Text>
-      {replace.ok ? <Text style={s.detail}>{detailLine(replace.summary, t)}</Text>
+      <Text style={s.question}>{t(replaceImportQuestion(stage.parsed))}</Text>
+      {replace === null ? null : replace.ok ? <Text style={s.detail}>{detailLine(replace.summary, t)}</Text>
         : <Text accessibilityRole="alert" style={s.error}>{t(importErrorMessage(replace.reason))}</Text>}
       <View style={s.row}>
         <Pressable disabled={replaceBlocked} onPress={() => { void importWith("replace"); }} accessibilityRole="button"
@@ -59,7 +65,7 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
       </View>
     </> : <>
       <Text style={s.question}>{t("How do you want to import them?")}</Text>
-      {merge.ok ? <Text style={s.detail}>{detailLine(merge.summary, t)}</Text>
+      {merge === null ? null : merge.ok ? <Text style={s.detail}>{detailLine(merge.summary, t)}</Text>
         : <Text accessibilityRole="alert" style={s.error}>{t(importErrorMessage(merge.reason))}</Text>}
       <View style={s.row}>
         <Pressable disabled={mergeBlocked} onPress={() => { void importWith("merge"); }} accessibilityRole="button"

@@ -110,7 +110,7 @@ describe("planCycleReminders nothing to plan", () => {
     expect(predict(two, TODAY).safeDays.reason).toBe("not-enough-cycles");
     expect(plan(two).some(item => item.id.includes(":fertile:"))).toBe(false);
     const irregular = stateOf({
-      periods: ["2026-05-01", "2026-05-23", "2026-07-01", "2026-07-25", "2026-09-30"].map(start => ({ start })),
+      periods: ["2026-07-07", "2026-07-29", "2026-09-06", "2026-09-30"].map(start => ({ start })),
     }, { notifyFertile: true });
     expect(predict(irregular, TODAY).safeDays.reason).toBe("irregular");
     expect(plan(irregular).some(item => item.id.includes(":fertile:"))).toBe(false);

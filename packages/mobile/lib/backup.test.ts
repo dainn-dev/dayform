@@ -9,7 +9,7 @@ import {
   serializeBackup,
 } from "./backup";
 import { MAX_RECORDS, taskSchema } from "./task-storage";
-import type { Task } from "./planner";
+import { addDays, dateKey, type Task } from "./planner";
 import { DEFAULT_CATEGORIES_STATE, type CategoriesState } from "./categories";
 import { DEFAULT_CYCLE_STATE, MAX_PERIODS, type CycleState } from "./cycle";
 import { HEALTH_DATA_NOTICE } from "./backup";
@@ -394,10 +394,9 @@ describe("backup period tracker data", () => {
   });
 
   test("a huge periods array is capped at MAX_PERIODS (newest kept)", () => {
-    const periods = Array.from({ length: MAX_PERIODS + 60 }, (_, i) => {
-      const day = new Date(Date.UTC(2020, 0, 1) + i * 30 * 86_400_000);
-      return { start: day.toISOString().slice(0, 10) };
-    });
+    // 15-day spacing keeps the newest 240 inside the ten-year window the parser applies, relative to today.
+    const count = MAX_PERIODS + 60;
+    const periods = Array.from({ length: count }, (_, i) => ({ start: addDays(dateKey(new Date()), -(count - 1 - i) * 15) }));
     const result = parseBackup(envelope({ cycle: { periods } }));
     if (!result.ok || result.cycle === undefined) throw new Error("expected cycle data");
     expect(result.cycle.periods).toHaveLength(MAX_PERIODS);

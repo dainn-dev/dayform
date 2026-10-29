@@ -12,7 +12,7 @@ export const KIND_META: Readonly<Record<MarkedKind, KindMeta>> = {
   "period": { label: tx("Period"), group: "period", shape: "disc" },
   "predicted-period": { label: tx("Expected period"), group: "predicted", shape: "ring" },
   "fertile": { label: tx("Fertile days (estimate)"), group: "fertile", shape: "diamond" },
-  "safe-estimate": { label: tx("Safe days (estimate)"), group: "safe", shape: "bar" },
+  "safe-estimate": { label: tx("Lower-risk days (low confidence)"), group: "safe", shape: "bar" },
 };
 
 const KIND_ORDER: readonly MarkedKind[] = ["period", "predicted-period", "fertile", "safe-estimate"];
@@ -23,6 +23,11 @@ export const isMarked = (kind: CalendarKind): kind is MarkedKind => kind !== "no
 export function legendKinds(grid: readonly (readonly CalendarDay[])[]): MarkedKind[] {
   const present = new Set<CalendarKind>(grid.flat().filter(day => day.inMonth).map(day => day.kind));
   return KIND_ORDER.filter(kind => kind === "period" || present.has(kind));
+}
+
+/** The short disclaimer shown right under the legend whenever the lower-risk kind is listed; null otherwise. */
+export function legendNote(kinds: readonly MarkedKind[]): string | null {
+  return kinds.includes("safe-estimate") ? tx("Calendar estimate only. Not a way to prevent pregnancy.") : null;
 }
 
 /** Spoken label of a calendar day: "Tuesday 3 March, today, period". `dateLabel` is already formatted. */

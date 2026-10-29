@@ -12,27 +12,46 @@ import {
   getReminderPermission,
   installReminderHandler,
 } from "../lib/reminders-expo";
-import { planAllReminders, type CycleSync, type NotificationSettings } from "../lib/reminders-plan";
+import {
+  cycleGroupScheduler,
+  planAllReminders,
+  planCycleGroup,
+  syncScope,
+  type CycleSync,
+  type NotificationSettings,
+  type SyncScope,
+} from "../lib/reminders-plan";
 import type { Task } from "../lib/planner";
 
 const DEBOUNCE_MS = 500;
 
 /**
- * `canSync` is false until the tasks and the settings are trustworthy; syncing earlier would cancel every
- * reminder (or schedule titles the user asked to hide). The period tracker has its own readiness: while it is
- * loading or unreadable its scheduled notifications are left alone (see `planAllReminders`).
+ * `scope` is `all` once the tasks and the settings are trustworthy; syncing earlier would cancel every reminder (or
+ * schedule titles the user asked to hide). The period tracker has its own readiness: while it is loading or
+ * unreadable its scheduled notifications are left alone (see `planAllReminders`). While the task store is unhealthy
+ * but the tracker was read, the scope is `cycle`: only the tracker group is reconciled (see `syncScope`).
  */
 type SyncInput = {
   tasks: Task[];
   language: ReminderLanguage;
   notifications: NotificationSettings;
   cycle: CycleSync;
-  canSync: boolean;
+  settingsReady: boolean;
+  scope: SyncScope;
 };
 
-async function syncReminders({ tasks, language, notifications, cycle }: SyncInput): Promise<string[]> {
+/** Only the `dayform:cycle:*` group: cancels it when the tracker is off, paused or empty, whatever the task store says. */
+async function syncCycleGroup({ language, notifications, cycle, settingsReady }: SyncInput): Promise<string[]> {
+  const { planned, keepCycle } = planCycleGroup({ language, notifications, cycle, settingsReady, now: new Date() });
+  if (planned.length > 0) await ensureCycleChannel(language);
+  return (await reconcileReminders(cycleGroupScheduler(createExpoScheduler()), planned, undefined, { keepCycle })).errors;
+}
+
+async function syncReminders(input: SyncInput): Promise<string[]> {
+  const { tasks, language, notifications, cycle } = input;
   // Never prompts: the editor asks for permission when the user first picks a reminder.
   if ((await getReminderPermission()) !== "granted") return [];
+  if (input.scope === "cycle") return syncCycleGroup(input);
   await ensureReminderChannel(language);
   const { planned, keepCycle } = planAllReminders({ tasks, language, notifications, cycle, now: new Date() });
   if (planned.some((reminder) => reminder.id.startsWith(CYCLE_ID_PREFIX))) await ensureCycleChannel(language);
@@ -58,7 +77,7 @@ function createSyncer(read: () => SyncInput): Syncer {
     if (disposed) return;
     if (running) { again = true; return; }
     const input = read();
-    if (!input.canSync) return;
+    if (input.scope === "none") return;
     running = true;
     try {
       const errors = await syncReminders(input);
@@ -86,10 +105,11 @@ function createSyncer(read: () => SyncInput): Syncer {
 }
 
 /**
- * Keeps scheduled local notifications in line with the tasks. Renders nothing. It never syncs while
- * the tasks or settings are loading or writes are blocked (locked/read-only): the list is then empty or
+ * Keeps scheduled local notifications in line with the tasks. Renders nothing. It never syncs the task reminders
+ * while the tasks or settings are loading or writes are blocked (locked/read-only): the list is then empty or
  * partial, and reconciling against it would cancel the user's reminders. Settings changes re-sync. Switching the
- * period tracker off, pausing it or deleting its data cancels every `dayform:cycle:*` notification.
+ * period tracker off, pausing it or deleting its data cancels every `dayform:cycle:*` notification, also while the
+ * task store is unhealthy (that group does not depend on it).
  */
 export function RemindersBridge(): null {
   const { tasks, loading, writesBlocked } = useTasks();
@@ -101,13 +121,13 @@ export function RemindersBridge(): null {
     () => ({ state: cycleState, ready: cycleReady, locked: cycleLocked }),
     [cycleState, cycleReady, cycleLocked],
   );
-  const canSync = !loading && !writesBlocked && settingsReady;
-  const latest = useRef<SyncInput>({ tasks, language, notifications, cycle, canSync });
+  const scope = syncScope({ tasksReady: !loading && !writesBlocked, settingsReady, cycle });
+  const latest = useRef<SyncInput>({ tasks, language, notifications, cycle, settingsReady, scope });
   const syncer = useRef<Syncer | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, language, notifications, cycle, canSync };
-  }, [tasks, language, notifications, cycle, canSync]);
+    latest.current = { tasks, language, notifications, cycle, settingsReady, scope };
+  }, [tasks, language, notifications, cycle, settingsReady, scope]);
 
   // Mount-only: handler, syncer and the foreground subscription stay stable across task changes.
   useEffect(() => {
@@ -125,8 +145,8 @@ export function RemindersBridge(): null {
   }, []);
 
   useEffect(() => {
-    if (canSync) syncer.current?.schedule();
-  }, [tasks, language, notifications, cycle, canSync]);
+    if (scope !== "none") syncer.current?.schedule();
+  }, [tasks, language, notifications, cycle, settingsReady, scope]);
 
   return null;
 }

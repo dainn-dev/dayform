@@ -31,6 +31,8 @@ export type CycleContextValue = {
   updateLock: (patch: Partial<CycleLock>) => Promise<CycleActionResult>;
   setShowOnTimeline: (show: boolean) => Promise<CycleActionResult>;
   importState: (incoming: CycleState, mode: "merge" | "replace") => Promise<CycleActionResult>;
+  /** Deletes all tracker data and puts every setting back to its default. */
+  reset: () => Promise<CycleActionResult>;
 };
 
 const noChange = async (): Promise<CycleActionResult> => ({ ok: true });
@@ -43,7 +45,7 @@ const FALLBACK: CycleContextValue = {
   locked: false,
   addPeriod: noChange, updatePeriod: noChange, removePeriod: noChange, setEnabled: noChange, acknowledge: noChange,
   setPaused: noChange, updateDefaults: noChange, updateReminders: noChange, updateLock: noChange,
-  setShowOnTimeline: noChange, importState: noChange,
+  setShowOnTimeline: noChange, importState: noChange, reset: noChange,
 };
 
 const CycleContext = createContext<CycleContextValue>(FALLBACK);
@@ -74,6 +76,7 @@ export function CycleProvider({ children }: { children: React.ReactNode }) {
     updateLock: store.updateLock,
     setShowOnTimeline: store.setShowOnTimeline,
     importState: store.importState,
+    reset: store.reset,
   }), [snapshot, store]);
   return <CycleContext.Provider value={value}>{children}</CycleContext.Provider>;
 }

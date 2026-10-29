@@ -267,16 +267,36 @@ describe("importState", () => {
     expect(mainWrites(writes)).toHaveLength(1);
   });
 
-  test("replace takes the incoming state wholesale", async () => {
+  test("replace takes the incoming periods but keeps the current switches and lock", async () => {
     const { store } = await loaded(stored(FULL));
-    await store.importState(incoming, "replace");
-    expect(store.getState().state).toEqual(incoming);
+    await store.importState({ ...incoming, lock: { enabled: false, timeoutSec: 0 } }, "replace");
+    expect(store.getState().state).toEqual({ ...FULL, periods: incoming.periods });
   });
 
   test("an import that changes nothing writes nothing", async () => {
     const { store, writes } = await loaded();
     expect(await store.importState(DEFAULT_CYCLE_STATE, "merge")).toEqual({ ok: true });
     expect(writes).toEqual([]);
+  });
+});
+
+describe("reset", () => {
+  test("puts the defaults back, lock and switches included, and persists them", async () => {
+    const { store, data } = await loaded(stored({ ...FULL, lock: { enabled: false, timeoutSec: 0 } }));
+    expect(await store.reset()).toEqual({ ok: true });
+    expect(store.getState().state).toEqual(DEFAULT_CYCLE_STATE);
+    expect(JSON.parse(data.get(CYCLE_KEY)!)).toEqual(DEFAULT_CYCLE_STATE);
+  });
+
+  test("is refused while the stored value could not be read safely", async () => {
+    const { store } = await loaded({}, { failGet: true });
+    expect(await store.reset()).toEqual({ ok: false, reason: "locked" });
+  });
+
+  test("reports a failed write and keeps the data", async () => {
+    const { store } = await loaded(stored(FULL), { failSet: () => true });
+    expect(await store.reset()).toEqual({ ok: false, reason: "write-failed" });
+    expect(store.getState().state.periods).toHaveLength(1);
   });
 });
 

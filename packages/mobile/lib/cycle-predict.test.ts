@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { DEFAULT_CYCLE_STATE, type CycleState, type Period } from "./cycle";
-import { averagePeriodLength, cycleEntries, cycleLengths, predict, type SafeDaysReason } from "./cycle-predict";
+import { averagePeriodLength, cycleEntries, cycleLengths, predict, recentCycleEntries, type SafeDaysReason } from "./cycle-predict";
 import { addDays } from "./planner";
 
 /** Period starts `first`, then one more after each gap. */
@@ -130,11 +130,15 @@ describe("predict: average and next start", () => {
     expect(predict(active(startsFrom("2026-01-01", [16, 17, 18])), "2026-03-01")).toMatchObject({ averageLength: 21, cycleLength: 21 });
   });
 
-  test("ignored gaps do not enter the average", () => {
+  test("the average uses only the unbroken run of cycles that ends at the latest start", () => {
     const periods = startsFrom("2026-01-01", [28, 90, 28, 10, 30]);
     const result = predict(active(periods), "2026-07-10");
-    expect(result.cycleCount).toBe(3);
-    expect(result.averageLength).toBe(28.7);
+    expect(result.cycleCount).toBe(1);
+    expect(result.averageLength).toBe(30);
+    const broken = startsFrom("2025-01-01", [40, 40, 90, 26, 28, 30]);
+    const withBreak = predict(active(broken), addDays(lastOf(broken), 2));
+    expect(withBreak.cycleCount).toBe(3);
+    expect(withBreak.averageLength).toBe(28);
   });
 
   test("crosses a year boundary and a leap day", () => {
@@ -306,6 +310,76 @@ describe("predict: safe days", () => {
 
   test("no periods at all is no-data", () => {
     expect(predict(active([]), "2026-04-02").safeDays.reason).toBe("no-data");
+  });
+});
+
+describe("recentCycleEntries", () => {
+  test("is the run of usable gaps that ends at the latest start, oldest first", () => {
+    expect(recentCycleEntries(startsFrom("2026-01-01", [28, 30, 27]))).toEqual(cycleEntries(startsFrom("2026-01-01", [28, 30, 27])));
+    expect(recentCycleEntries(startsFrom("2026-01-01", [28, 28, 80, 26, 27])).map(entry => entry.length)).toEqual([26, 27]);
+  });
+
+  test("stops at a gap under 15 or over 60 days, the edges 15 and 60 are kept", () => {
+    expect(recentCycleEntries(startsFrom("2026-01-01", [28, 14, 28, 29])).map(entry => entry.length)).toEqual([28, 29]);
+    expect(recentCycleEntries(startsFrom("2026-01-01", [28, 61, 15, 60])).map(entry => entry.length)).toEqual([15, 60]);
+  });
+
+  test("is empty when the latest gap is unusable, and for none or one period", () => {
+    expect(recentCycleEntries(startsFrom("2026-01-01", [28, 28, 28, 90]))).toEqual([]);
+    expect(recentCycleEntries([])).toEqual([]);
+    expect(recentCycleEntries([{ start: "2026-01-01" }])).toEqual([]);
+  });
+
+  test("does not change its input", () => {
+    const periods = [{ start: "2026-02-01" }, { start: "2026-01-01" }];
+    expect(recentCycleEntries(periods)).toEqual([{ start: "2026-01-01", length: 31 }]);
+    expect(periods[0].start).toBe("2026-02-01");
+  });
+});
+
+describe("predict: a break in the history resets the safe days", () => {
+  test("six regular cycles long ago and one new start today give no safe days", () => {
+    const old = startsFrom("2021-03-01", [28, 28, 28, 28, 28, 28]);
+    const result = predict(active([...old, { start: "2026-06-10" }]), "2026-06-10");
+    expect(result.safeDays).toEqual({ kind: null, fertile: null, cycleDays: null, reason: "not-enough-cycles" });
+    expect(result.cycleCount).toBe(0);
+    expect(result.cycleLength).toBe(28);
+    expect(result.nextStart).toBe("2026-07-08");
+  });
+
+  test("a gap of 80 days after six regular cycles starts the history again", () => {
+    const old = startsFrom("2025-01-01", [28, 28, 28, 28, 28, 28]);
+    const afterBreak = [{ start: addDays(lastOf(old), 80) }];
+    const today = addDays(afterBreak[0].start, 3);
+    expect(predict(active([...old, ...afterBreak]), today).safeDays.reason).toBe("not-enough-cycles");
+    const three = startsFrom(afterBreak[0].start, [28, 28, 28]);
+    const resumed = predict(active([...old, ...three]), addDays(lastOf(three), 3));
+    expect(resumed.cycleCount).toBe(3);
+    expect(resumed.safeDays.kind).toBe("standard-days");
+    const two = startsFrom(afterBreak[0].start, [28, 28]);
+    expect(predict(active([...old, ...two]), addDays(lastOf(two), 3)).safeDays.reason).toBe("not-enough-cycles");
+  });
+
+  test("an unusable short gap (under 15 days) also breaks the run", () => {
+    const periods = startsFrom("2025-01-01", [28, 28, 28, 28, 28, 28, 10, 28, 28]);
+    const result = predict(active(periods), addDays(lastOf(periods), 3));
+    expect(result.cycleCount).toBe(2);
+    expect(result.safeDays.reason).toBe("not-enough-cycles");
+  });
+
+  test("3 to 5 and 6 or more consecutive recent cycles still work", () => {
+    const three = startsFrom("2026-01-01", [28, 28, 28]);
+    expect(predict(active(three), addDays(lastOf(three), 3)).safeDays).toMatchObject({ kind: "standard-days", cycleDays: { first: 8, last: 19 } });
+    const six = startsFrom("2025-06-01", [27, 28, 29, 30, 28, 28]);
+    expect(predict(active(six), addDays(lastOf(six), 3)).safeDays).toMatchObject({ kind: "ogino", cycleDays: { first: 9, last: 19 } });
+    const brokenThenSix = [{ start: "2020-01-01" }, ...startsFrom("2025-06-01", [27, 28, 29, 30, 28, 28])];
+    expect(predict(active(brokenThenSix), addDays(lastOf(six), 3)).safeDays).toMatchObject({ kind: "ogino", cycleDays: { first: 9, last: 19 } });
+  });
+
+  test("an old regular history that is now stale or late gives no safe days", () => {
+    const periods = startsFrom("2025-01-01", [28, 28, 28, 28, 28, 28]);
+    expect(predict(active(periods), addDays(lastOf(periods), 40)).safeDays.reason).toBe("late");
+    expect(predict(active(periods), addDays(lastOf(periods), 200)).safeDays.reason).toBe("no-data");
   });
 });
 

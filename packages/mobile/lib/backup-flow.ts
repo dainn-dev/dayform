@@ -1,5 +1,6 @@
 import type { CategoriesState } from "./categories";
-import type { CycleState } from "./cycle";
+import { hasCycleData, type CycleState } from "./cycle";
+import { AUTH_DENIED_MESSAGE } from "./cycle-lock-guard";
 import { mergeBackup, serializeBackup, type BackupFailure, type MergeMode } from "./backup";
 import type { Task } from "./planner";
 import { utf8Length } from "./text-size";
@@ -30,13 +31,13 @@ export type ImportPlan =
   | { ok: false; reason: PlanFailure };
 /** `categories` is set when the file carried a categories object; it is applied after the tasks, in the same mode. */
 export type ParsedTasks = { tasks: readonly Task[]; rejected: number; categories?: CategoriesState; cycle?: CycleState };
-export type ImportFailure = PlanFailure | "save-failed" | "safety-copy-failed" | "list-changed";
+export type ImportFailure = PlanFailure | "save-failed" | "safety-copy-failed" | "list-changed" | "auth-denied";
 /**
  * `categories` / `cycle` are only set when the file had them and the caller could apply them. `cycle` is the private
  * period tracker: it is applied last, and a failure there never undoes the tasks or the categories.
  */
 export type ImportOutcome =
-  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed"; cycle?: "applied" | "failed" }
+  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed"; cycle?: "applied" | "failed"; cycleOnly?: true }
   | { ok: false; reason: ImportFailure };
 /** Where (and when) the safety copy taken before a replace is written. */
 export type SafetyCopyTarget = {
@@ -51,6 +52,12 @@ export type SafetyCopyTarget = {
 export type ImportTarget = SafetyCopyTarget & {
   importCategories?: (incoming: CategoriesState, mode: MergeMode) => Promise<{ ok: boolean }>;
   importCycle?: (incoming: CycleState, mode: MergeMode) => Promise<{ ok: boolean }>;
+  /**
+   * Asked once, before anything is read or written, when the import would write tracker data (the file has some and
+   * `importCycle` is given). Resolves true when the user may go on (verified, or no check is needed); false or a
+   * throw refuses the import with `auth-denied`.
+   */
+  authorize?: () => Promise<boolean>;
 };
 export type ImportMutate = (
   update: (tasks: Task[]) => Task[],
@@ -151,8 +158,16 @@ async function runReplace(mutate: ImportMutate, parsed: ParsedTasks, safety: Saf
   if (!read || current === null) return { ok: false, reason: "save-failed" };
   const plan = planImport(current, parsed, "replace");
   if (!plan.ok) return { ok: false, reason: plan.reason };
-  if (current.length > 0 && !(await writeSafetyCopy(safety, current))) return { ok: false, reason: "safety-copy-failed" };
+  if (worthSafetyCopy(current, parsed, safety) && !(await writeSafetyCopy(safety, current))) return { ok: false, reason: "safety-copy-failed" };
   return commitImport(mutate, parsed, "replace", current);
+}
+
+/**
+ * Tasks to lose, or a tracker with data that the file is about to overwrite: either needs a copy. An empty list
+ * next to an untouched tracker has nothing to protect.
+ */
+function worthSafetyCopy(current: readonly Task[], parsed: ParsedTasks, safety: SafetyCopyTarget): boolean {
+  return current.length > 0 || (parsed.cycle !== undefined && safety.cycle !== undefined && hasCycleData(safety.cycle));
 }
 
 async function applyOptional<T>(
@@ -168,11 +183,46 @@ async function applyOptional<T>(
   }
 }
 
+const NO_TASKS_SUMMARY: ImportSummary = { found: 0, skipped: 0, added: 0, updated: 0, unchanged: 0, removed: 0, resulting: 0 };
+
+type CycleOnlyTarget = SafetyCopyTarget & { importCycle: NonNullable<ImportTarget["importCycle"]> };
+
 /**
- * Commits an import through `mutate`, reporting why nothing was written when it could not be. The file's
- * categories and then its tracker data (when it has any and the matching hook is given) are applied only after the
- * tasks were saved, so a refused import never changes them; each step is independent: if one fails the outcome
- * says so and the others stay applied.
+ * A file or copy that holds tracker data and no task goes straight to the tracker: no task is read or written.
+ * A replace overwrites the tracker, so the current data is first saved as a compact backup (no tasks, only the
+ * tracker) under a backup key; that copy restores through this same path. A failed copy refuses the replace.
+ */
+export async function runCycleOnlyImport(incoming: CycleState, mode: MergeMode, target: CycleOnlyTarget): Promise<ImportOutcome> {
+  if (mode === "replace" && target.cycle !== undefined && hasCycleData(target.cycle)) {
+    const text = serializeBackup([], target.now, { compact: true, cycle: target.cycle });
+    try {
+      await target.storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
+    } catch {
+      return { ok: false, reason: "safety-copy-failed" };
+    }
+  }
+  try {
+    if ((await target.importCycle(incoming, mode)).ok) return { ok: true, summary: NO_TASKS_SUMMARY, cycle: "applied", cycleOnly: true };
+  } catch {
+    // Reported as a failed save below.
+  }
+  return { ok: false, reason: "save-failed" };
+}
+
+async function authorized(authorize: (() => Promise<boolean>) | undefined): Promise<boolean> {
+  if (authorize === undefined) return true;
+  try {
+    return await authorize();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Commits an import through `mutate`, reporting why nothing was written when it could not be. When the import would
+ * write tracker data, `target.authorize` is asked first. The file's categories and then its tracker data (when it
+ * has any and the matching hook is given) are applied only after the tasks were saved, so a refused import never
+ * changes them; each step is independent: if one fails the outcome says so and the others stay applied.
  */
 export async function runImport(
   mutate: ImportMutate,
@@ -180,14 +230,32 @@ export async function runImport(
   mode: MergeMode,
   target: ImportTarget,
 ): Promise<ImportOutcome> {
+  const { importCycle } = target;
+  const incomingCycle = importCycle === undefined ? undefined : parsed.cycle;
+  if (incomingCycle !== undefined && !(await authorized(target.authorize))) return { ok: false, reason: "auth-denied" };
+  if (incomingCycle !== undefined && importCycle !== undefined && parsed.tasks.length === 0) {
+    return runCycleOnlyImport(incomingCycle, mode, { ...target, importCycle });
+  }
   const outcome = mode === "replace" ? await runReplace(mutate, parsed, target) : await commitImport(mutate, parsed, mode, null);
   if (!outcome.ok) return outcome;
   const categories = await applyOptional(parsed.categories, target.importCategories, mode);
-  const cycle = await applyOptional(parsed.cycle, target.importCycle, mode);
+  const cycle = await applyOptional(parsed.cycle, importCycle, mode);
   return { ...outcome, ...(categories === null ? {} : { categories }), ...(cycle === null ? {} : { cycle }) };
 }
 
-// The strings below are translation keys (lib/i18n/backup.ts); keep them in sync.
+// The strings below are translation keys (lib/i18n/backup.ts, lib/i18n/cycle-privacy.ts); keep them in sync.
+
+/** Translation key: shown in the import panel while the file carries tracker data. */
+export const IMPORT_HAS_TRACKER_NOTE = "This file also has period tracker data.";
+
+/** The confirmation before a replace import. It names the tracker whenever the file carries tracker data. */
+export function replaceImportQuestion(parsed: Pick<ParsedTasks, "tasks" | "cycle">): string {
+  if (parsed.cycle === undefined) return "Replace all your current tasks?";
+  return parsed.tasks.length === 0
+    ? "Replace your current period tracker history?"
+    : "Replace all your current tasks and your period tracker history?";
+}
+
 
 export function importErrorMessage(reason: ImportFailure): string {
   switch (reason) {
@@ -197,13 +265,17 @@ export function importErrorMessage(reason: ImportFailure): string {
     case "save-failed": return "Could not save the imported tasks. Please try again.";
     case "safety-copy-failed": return "Could not save a safety copy of your current tasks, so nothing was replaced.";
     case "list-changed": return "Your tasks changed while restoring, so nothing was replaced. Please try again.";
+    case "auth-denied": return AUTH_DENIED_MESSAGE;
   }
 }
 
-/** `null` when exporting makes sense; otherwise why not (never report success for an empty list). */
-export function exportBlockedMessage(loading: boolean, taskCount: number): string | null {
+/**
+ * `null` when exporting makes sense; otherwise why not (never report success for an empty list). A tracker with data
+ * counts as something to export: a user who only tracks periods can still back up.
+ */
+export function exportBlockedMessage(loading: boolean, taskCount: number, hasTrackerData = false): string | null {
   if (loading) return "Your tasks are still loading. Try again in a moment.";
-  return taskCount === 0 ? "There are no tasks to export." : null;
+  return taskCount === 0 && !hasTrackerData ? "There are no tasks to export." : null;
 }
 
 export function exportErrorMessage(reason: ExportFailure): string {

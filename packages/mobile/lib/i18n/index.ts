@@ -6,6 +6,7 @@ import { vi as categories } from "./categories";
 import { vi as categoriesUi } from "./categories-ui";
 import { vi as categoryUsage } from "./category-usage";
 import { vi as cycleNotify } from "./cycle-notify";
+import { vi as cyclePrivacy } from "./cycle-privacy";
 import { vi as cycleUi } from "./cycle-ui";
 import { vi as errors } from "./errors";
 import { vi as gestures } from "./gestures";
@@ -43,6 +44,7 @@ export const extraTranslations: Record<string, string> = {
   ...categoriesUi,
   ...categoryUsage,
   ...cycleNotify,
+  ...cyclePrivacy,
   ...cycleUi,
   ...errors,
   ...gestures,

@@ -10,7 +10,7 @@ import { CycleButton } from "./CycleButton";
 export const DISCLAIMER_POINTS: readonly string[] = [
   tx("Your cycle data stays on this device and is never sent anywhere."),
   tx("Predictions are estimates calculated from the dates you enter."),
-  tx("The safe days estimate uses a calendar method. It is not a contraceptive and it can be wrong."),
+  tx("The lower-risk days estimate uses a calendar method. It is not a contraceptive and it can be wrong."),
   tx("Do not rely on it to prevent pregnancy."),
   tx("It is shown only when there is enough regular data."),
 ];

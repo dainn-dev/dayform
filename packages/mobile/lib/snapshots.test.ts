@@ -14,7 +14,7 @@ import {
 import { parseBackup } from "./backup";
 import { TASKS_STORAGE_KEY } from "./task-storage";
 import { DEFAULT_CYCLE_STATE, MAX_PERIODS, type CycleState } from "./cycle";
-import type { Task } from "./planner";
+import { addDays, dateKey, type Task } from "./planner";
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
   return {
@@ -451,10 +451,23 @@ describe("snapshots include the period tracker", () => {
     expect(data.get(key("2026-03-20"))).toContain("2026-09-02");
   });
 
-  test("tracker data does not bypass the empty-list rule or the size cap", async () => {
-    const empty = fakeStorage();
-    expect(await takeSnapshot(empty.storage, [], NOW, undefined, cycle)).toEqual({ kind: "skipped", reason: "empty" });
-    expect(empty.writes).toEqual([]);
+  test("a user with tracker data and no tasks still gets a snapshot", async () => {
+    const { storage, data } = fakeStorage();
+    expect(await takeSnapshot(storage, [], NOW, undefined, cycle)).toMatchObject({ kind: "written", key: key("2026-03-20") });
+    const parsed = parseBackup(data.get(key("2026-03-20")) ?? "");
+    expect(parsed.ok && parsed.tasks).toEqual([]);
+    expect(parsed.ok && parsed.cycle).toEqual(cycle);
+  });
+
+  test("no tasks and an off, empty or missing tracker is still an empty list: nothing is snapshotted", async () => {
+    for (const value of [DEFAULT_CYCLE_STATE, undefined]) {
+      const empty = fakeStorage();
+      expect(await takeSnapshot(empty.storage, [], NOW, undefined, value)).toEqual({ kind: "skipped", reason: "empty" });
+      expect(empty.writes).toEqual([]);
+    }
+  });
+
+  test("tracker data does not bypass the size cap", async () => {
     const big = fakeStorage();
     const bulky = [task("a", { notes: "x".repeat(MAX_SNAPSHOT_BYTES) })];
     expect(await takeSnapshot(big.storage, bulky, NOW, undefined, cycle)).toEqual({ kind: "skipped", reason: "too-large" });
@@ -462,10 +475,8 @@ describe("snapshots include the period tracker", () => {
   });
 
   test("a full tracker (the maximum number of periods) still fits next to a normal list", async () => {
-    const periods = Array.from({ length: MAX_PERIODS }, (_, i) => {
-      const day = new Date(Date.UTC(2017, 0, 1) + i * 30 * 86_400_000);
-      return { start: day.toISOString().slice(0, 10) };
-    });
+    // Relative to today, because the parser drops periods older than ten years.
+    const periods = Array.from({ length: MAX_PERIODS }, (_, i) => ({ start: addDays(dateKey(new Date()), -(MAX_PERIODS - 1 - i) * 15) }));
     const { storage, data } = fakeStorage();
     const result = await takeSnapshot(storage, [task("a")], NOW, undefined, { ...cycle, periods });
     expect(result.kind).toBe("written");

@@ -8,6 +8,11 @@ import { addDays, dateKey, weekDays, weekStartOf, type WeekStart } from "./plann
  * period > fertile > safe-estimate. Only a logged period is ever shown for a past day. The last logged cycle is
  * projected forward at most MAX_PROJECTED_CYCLES times, because the error of an average grows with every cycle.
  * Nothing is projected while the period is late, paused, disabled or the history is stale (see predict()).
+ *
+ * "safe-estimate" appears ONLY in the current cycle (from the last logged start up to the predicted next start):
+ * the calendar methods count from the ACTUAL start of a period, and a projected future cycle begins on a predicted
+ * start that may come days late, which would turn days labelled safe into fertile ones. Projected cycles therefore
+ * show only the predicted period and fertile days (the general window plus the method range, the cautious union).
  */
 export const MAX_PROJECTED_CYCLES = 2;
 const DAYS_PER_WEEK = 7;
@@ -54,7 +59,7 @@ function projectedKind(plan: Plan, date: string): CalendarKind {
   const day = offset - cycle * plan.cycleLength;
   if (day < plan.periodLength && (cycle >= 1 || plan.lastPeriodOpen)) return "predicted-period";
   if (within(day, plan.fertile) || (plan.method !== null && within(day, plan.method))) return "fertile";
-  return plan.method === null ? "none" : "safe-estimate";
+  return plan.method !== null && cycle === 0 ? "safe-estimate" : "none";
 }
 
 const isLogged = (periods: readonly Period[], date: string): boolean =>

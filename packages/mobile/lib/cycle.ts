@@ -137,14 +137,21 @@ export function updateLock(state: CycleState, patch: Partial<CycleLock>): CycleR
   return ok(rebuild(state, { lock: { enabled, timeoutSec } }));
 }
 
+function replaceData(current: CycleState, incoming: CycleState): CycleState {
+  const next = rebuild(current, { periods: incoming.periods, defaults: incoming.defaults, reminders: incoming.reminders });
+  return JSON.stringify(next) === JSON.stringify(current) ? current : next;
+}
+
 // --- Backup ----------------------------------------------------------------------------------------------------
 
 /**
- * Applies a backup's tracker data. `replace` takes it as it is. `merge` keeps every current setting and only adds
- * the periods that neither duplicate nor overlap one already there (the newest 240 are kept).
+ * Applies a backup's tracker data. Neither mode lets a file touch the switches: the current `lock`, `acknowledged`,
+ * `enabled`, `paused` and `showOnTimeline` always stay, so a file can never turn the lock off, skip the disclaimer
+ * or switch tracking on. `replace` takes the file's periods, defaults and reminders; `merge` keeps every current
+ * setting and only adds the periods that neither duplicate nor overlap one already there (the newest 240 are kept).
  */
 export function mergeCycleState(current: CycleState, incoming: CycleState, mode: "merge" | "replace"): CycleState {
-  if (mode === "replace") return incoming;
+  if (mode === "replace") return replaceData(current, incoming);
   const merged: Period[] = [...current.periods];
   for (const period of incoming.periods) {
     if (!merged.some(existing => periodsOverlap(existing, period))) merged.push(period);

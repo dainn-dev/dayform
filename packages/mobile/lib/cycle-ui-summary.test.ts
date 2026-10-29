@@ -81,6 +81,24 @@ describe("safeDaysView", () => {
     if (view.visible) expect(text(view.method)).toBe("Method: [Standard Days method]");
   });
 
+  test("describes the other days as lower-risk by estimate, never as safe", () => {
+    const state = on(every28("2026-03-01", 7));
+    const view = safeDaysView(predict(state, "2026-03-10").safeDays, formatDate, identity);
+    expect(view.visible).toBe(true);
+    if (view.visible) {
+      expect(text(view.others)).toContain("lower-risk");
+      expect(text(view.others)).toContain("not a guarantee");
+      expect(view.others.text.toLowerCase()).not.toContain("safe");
+    }
+  });
+
+  test("no reason sentence calls any day safe", () => {
+    for (const reason of ["not-enough-cycles", "irregular", "paused", "disabled", "no-data", "late", "ok"] as const) {
+      const view = safeDaysView({ kind: null, fertile: null, cycleDays: null, reason }, formatDate, identity);
+      if (!view.visible) expect(view.reason.text.toLowerCase()).not.toContain("safe");
+    }
+  });
+
   test("every non-ok reason has a sentence", () => {
     for (const reason of ["not-enough-cycles", "irregular", "paused", "disabled", "no-data", "late", "ok"] as const) {
       const view = safeDaysView({ kind: null, fertile: null, cycleDays: null, reason }, formatDate, identity);

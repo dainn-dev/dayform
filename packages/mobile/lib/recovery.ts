@@ -1,12 +1,12 @@
-import { MAX_BACKUP_BYTES, parseBackup, serializeBackup, type BackupFailure, type MergeMode } from "./backup";
+import { MAX_BACKUP_BYTES, parseBackup, type BackupFailure, type MergeMode } from "./backup";
 import { runImport, type ImportMutate, type ImportOutcome, type ImportSummary, type ImportTarget } from "./backup-flow";
 import type { CategoriesState } from "./categories";
-import { hasCycleData, parseCycleText, type CycleState } from "./cycle";
+import { parseCycleText, type CycleState } from "./cycle";
 import { CYCLE_CORRUPT_PREFIX } from "./cycle-store";
 import type { Task } from "./planner";
 import { SNAPSHOT_KEY_PREFIX, snapshotDateFromKey } from "./snapshots";
 import { utf8Length } from "./text-size";
-import { BACKUP_KEY_PREFIX, CORRUPT_KEY_PREFIX, contentKey } from "./task-storage";
+import { BACKUP_KEY_PREFIX, CORRUPT_KEY_PREFIX } from "./task-storage";
 
 /**
  * Recovery copies: `loadTasks` keeps unparseable data (`backup`) and invalid records (`corrupt`) under
@@ -170,44 +170,14 @@ export async function deleteRecoveryItems(storage: RecoveryStorage, keys: readon
   return results;
 }
 
-const NO_TASKS_SUMMARY: ImportSummary = { found: 0, skipped: 0, added: 0, updated: 0, unchanged: 0, removed: 0, resulting: 0 };
-
-type CycleHooks = Pick<ImportTarget, "cycle" | "importCycle">;
-
-/**
- * A replace overwrites the tracker, so the current data is first saved as a compact backup (no tasks, only the
- * tracker) under a backup key; that copy restores through this same path. A failed copy refuses the replace.
- */
-async function restoreCycleOnly(
-  storage: RecoveryStorage,
-  incoming: CycleState,
-  mode: MergeMode,
-  now: Date,
-  hooks: CycleHooks & { importCycle: NonNullable<ImportTarget["importCycle"]> },
-): Promise<RecoveryRestoreOutcome> {
-  if (mode === "replace" && hooks.cycle !== undefined && hasCycleData(hooks.cycle)) {
-    const text = serializeBackup([], now, { compact: true, cycle: hooks.cycle });
-    try {
-      await storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
-    } catch {
-      return { ok: false, reason: "safety-copy-failed" };
-    }
-  }
-  try {
-    if ((await hooks.importCycle(incoming, mode)).ok) return { ok: true, summary: NO_TASKS_SUMMARY, cycle: "applied", cycleOnly: true };
-  } catch {
-    // Reported as a failed save below.
-  }
-  return { ok: false, reason: "save-failed" };
-}
-
 /**
  * Restores a copy through `planImport` + `store.mutate` (via `runImport`), so the store's limits and
  * invariants apply exactly as for a file import (including the safety copy before a replace). The main key
  * is never written here, and the copy itself is left in place. `categories` / `importCategories` and
  * `cycle` / `importCycle` carry the current data (for the safety copy) and the way to apply the copy's own
  * categories / tracker data, when it has any. A copy that holds tracker data and no task goes straight to the
- * tracker (`restoreCycleOnly`): no task is read or written.
+ * tracker (`runCycleOnlyImport`): no task is read or written. `authorize` is asked before anything is written when
+ * the copy carries tracker data.
  */
 export async function restoreRecoveryItem(
   storage: RecoveryStorage,
@@ -215,13 +185,9 @@ export async function restoreRecoveryItem(
   key: string,
   mode: MergeMode,
   now: Date,
-  hooks: Pick<ImportTarget, "categories" | "importCategories" | "cycle" | "importCycle"> = {},
+  hooks: Pick<ImportTarget, "categories" | "importCategories" | "cycle" | "importCycle" | "authorize"> = {},
 ): Promise<RecoveryRestoreOutcome> {
   const preview = await previewRecoveryItem(storage, key);
   if (!preview.ok) return preview;
-  const { importCycle } = hooks;
-  if (preview.tasks.length === 0 && preview.cycle !== undefined && importCycle !== undefined) {
-    return restoreCycleOnly(storage, preview.cycle, mode, now, { cycle: hooks.cycle, importCycle });
-  }
   return runImport(mutate, preview, mode, { storage, now, ...hooks });
 }

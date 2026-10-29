@@ -50,13 +50,13 @@ export function summaryOf(prediction: Prediction, state: CycleState, formatDate:
 }
 
 const REASON_SENTENCE: Readonly<Record<SafeDaysReason, string>> = {
-  "ok": tx("Safe days are not available right now."),
-  "not-enough-cycles": tx("Safe days are shown only with enough regular data. Keep logging each period and they may appear here."),
-  "irregular": tx("Your logged cycles vary too much for a calendar estimate, so no safe days are shown."),
-  "paused": tx("Tracking is paused, so no safe days are shown."),
-  "disabled": tx("Tracking is off, so no safe days are shown."),
-  "no-data": tx("Log the day your last period started to begin. Safe days are shown only with enough regular data."),
-  "late": tx("Your period is late, so no safe days are shown until you log it."),
+  "ok": tx("Lower-risk days are not available right now."),
+  "not-enough-cycles": tx("Lower-risk days are shown only with enough regular data. Keep logging each period and they may appear here."),
+  "irregular": tx("Your logged cycles vary too much for a calendar estimate, so no lower-risk days are shown."),
+  "paused": tx("Tracking is paused, so no lower-risk days are shown."),
+  "disabled": tx("Tracking is off, so no lower-risk days are shown."),
+  "no-data": tx("Log the day your last period started to begin. Lower-risk days are shown only with enough regular data."),
+  "late": tx("Your period is late, so no lower-risk days are shown until you log it."),
 };
 
 const METHOD_NAME = {
@@ -68,7 +68,7 @@ export type SafeDaysView =
   | { visible: false; reason: Fill }
   | { visible: true; method: Fill; fertileRange: Fill; others: Fill };
 
-/** The "Safe days (estimate)" block. It is visible only when the prediction produced a method; `t` translates the method name. */
+/** The "Lower-risk days (estimate)" block. It is visible only when the prediction produced a method; `t` translates the method name. */
 export function safeDaysView(safe: SafeDays, formatDate: FormatDate, t: Translate): SafeDaysView {
   if (safe.kind === null || safe.fertile === null || safe.cycleDays === null) {
     return { visible: false, reason: fill(REASON_SENTENCE[safe.reason]) };
@@ -80,6 +80,6 @@ export function safeDaysView(safe: SafeDays, formatDate: FormatDate, t: Translat
       from: formatDate(safe.fertile.start), to: formatDate(safe.fertile.end),
       first: String(safe.cycleDays.first), last: String(safe.cycleDays.last),
     }),
-    others: fill(tx("The other days of this cycle are shown as safe days (estimate).")),
+    others: fill(tx("Other days of this cycle are marked lower-risk by the calendar estimate. This is not a guarantee.")),
   };
 }

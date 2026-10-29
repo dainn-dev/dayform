@@ -13,8 +13,8 @@ export const vi: Record<string, string> = {
   "Before you start": "Trước khi bắt đầu",
   "Your cycle data stays on this device and is never sent anywhere.": "Dữ liệu chu kỳ của bạn chỉ nằm trên thiết bị này và không bao giờ được gửi đi đâu.",
   "Predictions are estimates calculated from the dates you enter.": "Dự đoán chỉ là ước tính, được tính từ các ngày bạn nhập.",
-  "The safe days estimate uses a calendar method. It is not a contraceptive and it can be wrong.":
-    "Ước tính ngày an toàn dùng phương pháp tính theo lịch. Đây không phải biện pháp tránh thai và có thể sai.",
+  "The lower-risk days estimate uses a calendar method. It is not a contraceptive and it can be wrong.":
+    "Ước tính ngày nguy cơ thấp hơn dùng phương pháp tính theo lịch. Đây không phải biện pháp tránh thai và có thể sai.",
   "Do not rely on it to prevent pregnancy.": "Đừng dựa vào đó để tránh thai.",
   "It is shown only when there is enough regular data.": "Chỉ hiển thị khi có đủ dữ liệu đều đặn.",
   "I understand, turn on": "Tôi hiểu, bật theo dõi",
@@ -52,23 +52,24 @@ export const vi: Record<string, string> = {
   "Next period expected tomorrow": "Kỳ tiếp theo dự kiến ngày mai",
   "Next period expected {date}": "Kỳ tiếp theo dự kiến {date}",
   "Most likely between {from} and {to}": "Nhiều khả năng từ {from} đến {to}",
-  "Safe days (estimate)": "Ngày an toàn (ước tính)",
+  "Lower-risk days (estimate)": "Ngày nguy cơ thấp hơn (ước tính)",
   "This is an estimate, not contraception. It can be wrong. Do not rely on it to prevent pregnancy.":
     "Đây chỉ là ước tính, không phải biện pháp tránh thai. Có thể sai. Đừng dựa vào đó để tránh thai.",
   "Method: {method}": "Phương pháp: {method}",
   "Standard Days method": "Phương pháp ngày cố định",
   "Ogino-Knaus (rhythm) method": "Phương pháp Ogino-Knaus (tính theo lịch)",
   "Fertile days this cycle: {from} to {to} (cycle days {first} to {last})": "Ngày dễ thụ thai chu kỳ này: {from} đến {to} (ngày {first} đến {last} của chu kỳ)",
-  "The other days of this cycle are shown as safe days (estimate).": "Các ngày còn lại của chu kỳ này được hiển thị là ngày an toàn (ước tính).",
-  "Safe days are not available right now.": "Hiện chưa có ngày an toàn.",
-  "Safe days are shown only with enough regular data. Keep logging each period and they may appear here.":
-    "Ngày an toàn chỉ hiển thị khi có đủ dữ liệu đều đặn. Hãy tiếp tục ghi từng kỳ, chúng có thể xuất hiện ở đây.",
-  "Your logged cycles vary too much for a calendar estimate, so no safe days are shown.": "Các chu kỳ bạn ghi chênh lệch quá nhiều để tính theo lịch, nên không hiển thị ngày an toàn.",
-  "Tracking is paused, so no safe days are shown.": "Đang tạm dừng theo dõi nên không hiển thị ngày an toàn.",
-  "Tracking is off, so no safe days are shown.": "Theo dõi đang tắt nên không hiển thị ngày an toàn.",
-  "Log the day your last period started to begin. Safe days are shown only with enough regular data.":
-    "Hãy ghi ngày kỳ gần nhất bắt đầu. Ngày an toàn chỉ hiển thị khi có đủ dữ liệu đều đặn.",
-  "Your period is late, so no safe days are shown until you log it.": "Kỳ của bạn đang trễ nên không hiển thị ngày an toàn cho đến khi bạn ghi lại.",
+  "Other days of this cycle are marked lower-risk by the calendar estimate. This is not a guarantee.":
+    "Các ngày còn lại của chu kỳ này được đánh dấu là nguy cơ thấp hơn theo ước tính lịch. Điều này không được đảm bảo.",
+  "Lower-risk days are not available right now.": "Hiện chưa có ngày nguy cơ thấp hơn.",
+  "Lower-risk days are shown only with enough regular data. Keep logging each period and they may appear here.":
+    "Ngày nguy cơ thấp hơn chỉ hiển thị khi có đủ dữ liệu đều đặn. Hãy tiếp tục ghi từng kỳ, chúng có thể xuất hiện ở đây.",
+  "Your logged cycles vary too much for a calendar estimate, so no lower-risk days are shown.": "Các chu kỳ bạn ghi chênh lệch quá nhiều để tính theo lịch, nên không hiển thị ngày nguy cơ thấp hơn.",
+  "Tracking is paused, so no lower-risk days are shown.": "Đang tạm dừng theo dõi nên không hiển thị ngày nguy cơ thấp hơn.",
+  "Tracking is off, so no lower-risk days are shown.": "Theo dõi đang tắt nên không hiển thị ngày nguy cơ thấp hơn.",
+  "Log the day your last period started to begin. Lower-risk days are shown only with enough regular data.":
+    "Hãy ghi ngày kỳ gần nhất bắt đầu. Ngày nguy cơ thấp hơn chỉ hiển thị khi có đủ dữ liệu đều đặn.",
+  "Your period is late, so no lower-risk days are shown until you log it.": "Kỳ của bạn đang trễ nên không hiển thị ngày nguy cơ thấp hơn cho đến khi bạn ghi lại.",
 
   // Calendar, kinds, legend
   "Calendar": "Lịch",
@@ -76,6 +77,8 @@ export const vi: Record<string, string> = {
   "Period": "Kỳ kinh",
   "Expected period": "Kỳ dự kiến",
   "Fertile days (estimate)": "Ngày dễ thụ thai (ước tính)",
+  "Lower-risk days (low confidence)": "Ngày nguy cơ thấp hơn (độ tin cậy thấp)",
+  "Calendar estimate only. Not a way to prevent pregnancy.": "Chỉ là ước tính theo lịch. Không phải cách để tránh thai.",
   "{date}": "{date}",
   "{date}, today": "{date}, hôm nay",
   "{date}, {kind}": "{date}, {kind}",

@@ -2,12 +2,13 @@ import { describe, test, expect } from "bun:test";
 import {
   DEFAULT_CYCLE_STATE,
   MAX_PERIODS,
+  addPeriod,
   cycleStateSchema,
   parseCycleState,
   parseCycleText,
   type CycleState,
 } from "./cycle";
-import { addDays } from "./planner";
+import { addDays, dateKey } from "./planner";
 
 const FULL: CycleState = {
   enabled: true, acknowledged: true, paused: false,
@@ -101,6 +102,51 @@ describe("parseCycleState", () => {
   test("a huge array is bounded before it is judged", () => {
     const periods = Array.from({ length: 5000 }, () => ({ start: "2026-05-20" }));
     expect(parseCycleState({ periods }).periods).toEqual([{ start: "2026-05-20" }]);
+  });
+});
+
+describe("parseCycleState: future and ancient periods", () => {
+  const TODAY = "2026-06-10";
+  const periodsOf = (starts: string[], today = TODAY) => parseCycleState({ periods: starts.map(start => ({ start })) }, today).periods;
+
+  test("a period that starts after today is dropped, today itself is kept", () => {
+    expect(periodsOf(["2026-06-09", "2026-06-10", "2026-06-11", "2030-01-01"])).toEqual([{ start: "2026-06-09" }, { start: "2026-06-10" }]);
+  });
+
+  test("a crafted future period cannot block logging a real one", () => {
+    const parsed = parseCycleState({ periods: [{ start: "2026-06-12", end: "2026-06-20" }] }, TODAY);
+    expect(addPeriod(parsed, { start: "2026-06-10" }, TODAY).ok).toBe(true);
+  });
+
+  test("a period older than 10 years is dropped, exactly 10 years back is kept", () => {
+    expect(periodsOf(["2016-06-09", "2016-06-10", "2010-01-01"])).toEqual([{ start: "2016-06-10" }]);
+  });
+
+  test("the leap-day cutoff uses February 28 in a year without a 29th", () => {
+    expect(periodsOf(["2014-02-27", "2014-02-28", "2024-02-29"], "2024-02-29")).toEqual([{ start: "2014-02-28" }, { start: "2024-02-29" }]);
+    expect(periodsOf(["2016-02-28", "2016-02-29"], "2026-02-28")).toEqual([{ start: "2016-02-28" }, { start: "2016-02-29" }]);
+    expect(periodsOf(["2016-02-27", "2016-02-28"], "2026-02-28")).toEqual([{ start: "2016-02-28" }]);
+  });
+
+  test("the limits use the device's local date when no day is given", () => {
+    const local = dateKey(new Date());
+    const parsed = parseCycleState({ periods: [{ start: local }, { start: addDays(local, 2) }] });
+    expect(parsed.periods).toEqual([{ start: local }]);
+    expect(cycleStateSchema.parse({ periods: [{ start: addDays(local, 1) }] }).periods).toEqual([]);
+  });
+
+  test("a state the app itself wrote reads back unchanged and not lossy", () => {
+    const first = addPeriod(DEFAULT_CYCLE_STATE, { start: "2026-05-01", end: "2026-05-05" }, TODAY);
+    if (!first.ok) throw new Error(first.reason);
+    const second = addPeriod(first.state, { start: TODAY }, TODAY);
+    if (!second.ok) throw new Error(second.reason);
+    expect(parseCycleText(JSON.stringify(second.state), TODAY)).toEqual({ valid: true, lossy: false, state: second.state });
+  });
+
+  test("a file with a future period is lossy so a copy of the original is kept", () => {
+    const parsed = parseCycleText(JSON.stringify({ ...FULL, periods: [{ start: "2026-05-20" }, { start: "2031-01-01" }] }), TODAY);
+    expect(parsed.lossy).toBe(true);
+    expect(parsed.state.periods).toEqual([{ start: "2026-05-20" }]);
   });
 });
 

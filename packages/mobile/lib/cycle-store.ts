@@ -57,6 +57,8 @@ export type CycleStore = {
   setShowOnTimeline(show: boolean): Promise<CycleActionResult>;
   /** Applies the tracker data of a backup (`merge` keeps current settings, `replace` takes the file's). */
   importState(incoming: CycleState, mode: "merge" | "replace"): Promise<CycleActionResult>;
+  /** Deletes everything the tracker holds: every setting goes back to its default. Not a restore: no file can do this. */
+  reset(): Promise<CycleActionResult>;
   dispose(): void;
 };
 
@@ -164,6 +166,7 @@ export function createCycleStore(storage: KeyValueStorage): CycleStore {
     updateLock: patch => apply(state => updateLock(state, patch)),
     setShowOnTimeline: show => apply(state => setShowOnTimeline(state, show)),
     importState: (incoming, mode) => apply(state => ({ ok: true, state: mergeCycleState(state, incoming, mode) })),
+    reset: () => apply(() => ({ ok: true, state: DEFAULT_CYCLE_STATE })),
     dispose() { token += 1; },
   };
 }

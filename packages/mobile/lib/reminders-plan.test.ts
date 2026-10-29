@@ -6,9 +6,13 @@ import {
   CYCLE_ID_PREFIX,
   DEFAULT_REMINDER_LIMIT,
   REMINDER_ID_PREFIX,
+  reconcileReminders,
+  type ReminderScheduler,
   SUMMARY_ID_PREFIX,
 } from "./reminders";
-import { IOS_PENDING_LIMIT, cycleActive, planAllReminders, taskReminderLimit, type CycleSync } from "./reminders-plan";
+import {
+  IOS_PENDING_LIMIT, cycleActive, cycleGroupScheduler, planAllReminders, planCycleGroup, syncScope, taskReminderLimit, type CycleSync,
+} from "./reminders-plan";
 import { DEFAULT_SETTINGS } from "./settings";
 import { SUMMARY_DAYS } from "./summary-notification";
 
@@ -118,5 +122,100 @@ describe("planAllReminders", () => {
     const { planned } = run(sync(), manyTasks(1));
     expect(planned.filter(item => item.kind === "cycle").every(item => item.body === "Dayform: personal reminder")).toBe(true);
     expect(planned.find(item => item.id.startsWith(REMINDER_ID_PREFIX))!.title).toBe("Task 0");
+  });
+});
+
+describe("syncScope", () => {
+  const known = sync();
+  test("everything syncs when the tasks and the settings are trustworthy", () => {
+    expect(syncScope({ tasksReady: true, settingsReady: true, cycle: known })).toBe("all");
+    expect(syncScope({ tasksReady: true, settingsReady: true, cycle: sync({ ready: false }) })).toBe("all");
+  });
+
+  test("an unhealthy task store still lets the tracker group sync, as long as the tracker itself was read", () => {
+    expect(syncScope({ tasksReady: false, settingsReady: true, cycle: known })).toBe("cycle");
+    expect(syncScope({ tasksReady: false, settingsReady: false, cycle: known })).toBe("cycle");
+    expect(syncScope({ tasksReady: true, settingsReady: false, cycle: known })).toBe("cycle");
+  });
+
+  test("nothing syncs when the task store is unhealthy and the tracker is unknown or unreadable", () => {
+    expect(syncScope({ tasksReady: false, settingsReady: true, cycle: sync({ ready: false }) })).toBe("none");
+    expect(syncScope({ tasksReady: false, settingsReady: true, cycle: sync({ locked: true }) })).toBe("none");
+  });
+});
+
+describe("planCycleGroup", () => {
+  const run = (cycle: CycleSync, settingsReady = true, settings = notifications()) =>
+    planCycleGroup({ language: "en", notifications: settings, cycle, settingsReady, now: NOW });
+
+  test("an active tracker plans its reminders and no task or summary", () => {
+    const { planned, keepCycle } = run(sync());
+    expect(keepCycle).toBe(false);
+    expect(planned.length).toBeGreaterThan(0);
+    expect(planned.every(item => item.id.startsWith(CYCLE_ID_PREFIX))).toBe(true);
+  });
+
+  test("an off, paused or empty tracker plans nothing and lets the old ones be cancelled", () => {
+    for (const cycle of [OFF, sync({}, tracker({ paused: true })), sync({}, tracker({ periods: [] }))]) {
+      expect(run(cycle)).toEqual({ planned: [], keepCycle: false });
+    }
+  });
+
+  test("an unknown tracker keeps what is scheduled", () => {
+    for (const cycle of [sync({ ready: false }), sync({ locked: true })]) expect(run(cycle)).toEqual({ planned: [], keepCycle: true });
+  });
+
+  test("an off tracker is cancelled even before the settings are read, an active one waits for them", () => {
+    expect(run(OFF, false)).toEqual({ planned: [], keepCycle: false });
+    expect(run(sync(), false)).toEqual({ planned: [], keepCycle: true });
+  });
+
+  test("applies the quiet hours and the same plan as planAllReminders", () => {
+    const quiet = notifications({ quietEnabled: true, quietFrom: "08:00", quietTo: "10:00" });
+    const alone = run(sync(), true, quiet).planned;
+    const together = planAllReminders({ tasks: [], language: "en", notifications: quiet, cycle: sync(), now: NOW }).planned;
+    expect(alone).toEqual(together);
+  });
+});
+
+describe("cycleGroupScheduler", () => {
+  function base(ids: string[]) {
+    const log: string[] = [];
+    const scheduler: ReminderScheduler = {
+      async listScheduledIds() { return ids; },
+      async schedule(reminder) { log.push(`schedule ${reminder.id}`); },
+      async cancel(cancelIds) { log.push(`cancel ${cancelIds.join(",")}`); },
+    };
+    return { scheduler, log };
+  }
+  const ids = [`${CYCLE_ID_PREFIX}a`, `${REMINDER_ID_PREFIX}t`, `${SUMMARY_ID_PREFIX}s`, "dayform:snooze:x"];
+
+  test("only shows the tracker notifications, so a reconcile can never touch the others", async () => {
+    const { scheduler, log } = base(ids);
+    const result = await reconcileReminders(cycleGroupScheduler(scheduler), []);
+    expect(result.cancelled).toBe(1);
+    expect(log).toEqual([`cancel ${CYCLE_ID_PREFIX}a`]);
+  });
+
+  test("schedules and cancels through the base scheduler", async () => {
+    const { scheduler, log } = base(ids);
+    const wrapped = cycleGroupScheduler(scheduler);
+    await wrapped.schedule({ id: `${CYCLE_ID_PREFIX}b`, taskId: "", fireAt: NOW, title: "t", body: "b", kind: "cycle" });
+    await wrapped.cancel(["x"]);
+    expect(log).toEqual([`schedule ${CYCLE_ID_PREFIX}b`, "cancel x"]);
+  });
+
+  test("with the task store unhealthy, turning the tracker off cancels its notifications and leaves the rest", async () => {
+    const { scheduler, log } = base(ids);
+    const { planned, keepCycle } = planCycleGroup({ language: "en", notifications: notifications(), cycle: OFF, settingsReady: true, now: NOW });
+    await reconcileReminders(cycleGroupScheduler(scheduler), planned, undefined, { keepCycle });
+    expect(log).toEqual([`cancel ${CYCLE_ID_PREFIX}a`]);
+  });
+
+  test("an unknown tracker cancels nothing", async () => {
+    const { scheduler, log } = base(ids);
+    const { planned, keepCycle } = planCycleGroup({ language: "en", notifications: notifications(), cycle: sync({ locked: true }), settingsReady: true, now: NOW });
+    await reconcileReminders(cycleGroupScheduler(scheduler), planned, undefined, { keepCycle });
+    expect(log).toEqual([]);
   });
 });
