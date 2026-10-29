@@ -65,6 +65,11 @@ describe("stripCycleFromCopy", () => {
     expect(stripCycleFromCopy(text)).toEqual({ kind: "rewrite", text: JSON.stringify({ format: "dayform-backup", version: 1, tasks: [{ junk: 1 }] }) });
   });
 
+  test("an envelope version this code does not know is kept untouched", () => {
+    const newer = JSON.stringify({ format: "dayform-backup", version: 2, items: [{ a: 1 }], cycle: {} });
+    expect(stripCycleFromCopy(newer)).toEqual({ kind: "keep" });
+  });
+
   test("a copy that would be left with nothing is removed", () => {
     expect(stripCycleFromCopy(compact([], CYCLE))).toEqual({ kind: "remove" });
     const tasksless = JSON.stringify({ format: "dayform-backup", version: 1, tasks: "bad", cycle: {} });

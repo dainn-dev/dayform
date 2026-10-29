@@ -54,8 +54,8 @@ export function SnapshotScheduler(): null {
     };
   }, []);
 
-  // A backup file with tracker data is deleted right after sharing; this removes one an earlier run left behind
-  // (for example when the app was killed while the share sheet was open).
+  // An exported backup stays in the cache after sharing (the receiving app may read it lazily); this removes the
+  // ones earlier runs left behind, so a file with tracker data does not outlive the next app start.
   useEffect(() => { deleteStaleBackups(); }, []);
 
   useEffect(() => {

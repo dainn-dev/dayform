@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { hasCycleData } from "../../lib/cycle";
 import { useCycle } from "../../lib/cycle-context";
-import { authenticate } from "../../lib/cycle-lock-expo";
+import { authenticate, probeLock } from "../../lib/cycle-lock-expo";
+import { continueAllowed } from "../../lib/cycle-lock-result";
 import { AUTH_PROMPT_MESSAGE, authAllows, needsCycleAuth } from "../../lib/cycle-lock-guard";
 import { readUnlockedAt } from "../../lib/cycle-lock-session";
 import { useLanguage } from "../../lib/language";
@@ -24,6 +25,9 @@ export function useCycleAuth(): () => Promise<boolean> {
     });
     if (!needed) return true;
     const result = await authenticate({ message: t(AUTH_PROMPT_MESSAGE), cancelLabel: t("Cancel") });
-    return authAllows(result.status);
+    if (!authAllows(result.status)) return false;
+    // "No lock on this phone" is trusted only after a fresh probe says so, like the cycle screen's "continue" path:
+    // an error code alone must never open the tracker on a phone that does have a lock.
+    return result.status !== "unavailable" || continueAllowed(await probeLock());
   }, [hasData, lockEnabled, timeoutSec, t]);
 }

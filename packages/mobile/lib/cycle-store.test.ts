@@ -288,6 +288,14 @@ describe("reset", () => {
     expect(JSON.parse(data.get(CYCLE_KEY)!)).toEqual(DEFAULT_CYCLE_STATE);
   });
 
+  test("overwrites unreadable stored text even though the in-memory state is already the defaults", async () => {
+    const raw = '{"periods":[{"start":"2026-01-01"},';
+    const { store, data } = await loaded({ [CYCLE_KEY]: raw });
+    expect(store.getState().state).toBe(DEFAULT_CYCLE_STATE);
+    expect(await store.reset()).toEqual({ ok: true });
+    expect(JSON.parse(data.get(CYCLE_KEY)!)).toEqual(DEFAULT_CYCLE_STATE);
+  });
+
   test("is refused while the stored value could not be read safely", async () => {
     const { store } = await loaded({}, { failGet: true });
     expect(await store.reset()).toEqual({ ok: false, reason: "locked" });

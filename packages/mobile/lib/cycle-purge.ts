@@ -1,4 +1,4 @@
-import { BACKUP_FORMAT } from "./backup";
+import { BACKUP_FORMAT, BACKUP_VERSION } from "./backup";
 import { parseJson } from "./json";
 import { classifyRecoveryKey } from "./recovery";
 import { CYCLE_ID_PREFIX, type ReminderScheduler } from "./reminders";
@@ -40,7 +40,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  */
 export function stripCycleFromCopy(text: string): StripResult {
   const json = parseJson(text);
-  if (!json.ok || !isRecord(json.value) || json.value.format !== BACKUP_FORMAT || !("cycle" in json.value)) return { kind: "keep" };
+  // Only the envelope version this code knows: a newer one may keep its tasks elsewhere and must not be cut down.
+  if (!json.ok || !isRecord(json.value) || json.value.format !== BACKUP_FORMAT || json.value.version !== BACKUP_VERSION || !("cycle" in json.value)) return { kind: "keep" };
   const { cycle: _cycle, containsHealthData: _marker, notice: _notice, ...rest } = json.value;
   const hasTasks = Array.isArray(rest.tasks) && rest.tasks.length > 0;
   if (!hasTasks && !isRecord(rest.categories)) return { kind: "remove" };

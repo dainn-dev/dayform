@@ -36,9 +36,9 @@ function removeQuietly(file: File): void {
 }
 
 /**
- * Deletes backups left in the cache by earlier exports: before writing a new one, after one that held tracker data
- * was shared, when the tracker is deleted and once when the app starts (an earlier run may have been killed while
- * the share sheet was open). Never throws.
+ * Deletes backups left in the cache by earlier exports: before writing a new one, when the tracker is deleted and
+ * once when the app starts. A shared file is deliberately kept until then (the receiving app may read it lazily),
+ * so a backup with tracker data can stay in the app-private cache until the next start or export. Never throws.
  */
 export function deleteStaleBackups(): void {
   try {

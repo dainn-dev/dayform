@@ -129,13 +129,15 @@ export function createCycleStore(storage: KeyValueStorage): CycleStore {
   }
 
   /** The change is computed inside the serial queue from the last committed state; memory changes only after the write succeeded. */
-  async function apply(change: (state: CycleState) => CycleResult): Promise<CycleActionResult> {
+  async function apply(change: (state: CycleState) => CycleResult, force = false): Promise<CycleActionResult> {
     await ready.promise;
     return enqueue(async (): Promise<CycleActionResult> => {
       if (current.locked) return { ok: false, reason: "locked" };
       const result = change(current.state);
       if (!result.ok) return result;
-      if (result.state === current.state) return { ok: true };
+      // `force` writes even when the state object is unchanged: after unreadable stored text the in-memory state IS the
+      // defaults object, yet the main key still holds that text (see `reset`).
+      if (!force && result.state === current.state) return { ok: true };
       try {
         await storage.setItem(CYCLE_KEY, JSON.stringify(result.state));
       } catch {
@@ -166,7 +168,7 @@ export function createCycleStore(storage: KeyValueStorage): CycleStore {
     updateLock: patch => apply(state => updateLock(state, patch)),
     setShowOnTimeline: show => apply(state => setShowOnTimeline(state, show)),
     importState: (incoming, mode) => apply(state => ({ ok: true, state: mergeCycleState(state, incoming, mode) })),
-    reset: () => apply(() => ({ ok: true, state: DEFAULT_CYCLE_STATE })),
+    reset: () => apply(() => ({ ok: true, state: DEFAULT_CYCLE_STATE }), true),
     dispose() { token += 1; },
   };
 }

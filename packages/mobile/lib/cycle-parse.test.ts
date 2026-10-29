@@ -109,12 +109,14 @@ describe("parseCycleState: future and ancient periods", () => {
   const TODAY = "2026-06-10";
   const periodsOf = (starts: string[], today = TODAY) => parseCycleState({ periods: starts.map(start => ({ start })) }, today).periods;
 
-  test("a period that starts after today is dropped, today itself is kept", () => {
-    expect(periodsOf(["2026-06-09", "2026-06-10", "2026-06-11", "2030-01-01"])).toEqual([{ start: "2026-06-09" }, { start: "2026-06-10" }]);
+  test("a period more than one day after today is dropped; today and tomorrow (a day of travel slack) are kept", () => {
+    expect(periodsOf(["2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2030-01-01"])).toEqual([
+      { start: "2026-06-09" }, { start: "2026-06-10" }, { start: "2026-06-11" },
+    ]);
   });
 
   test("a crafted future period cannot block logging a real one", () => {
-    const parsed = parseCycleState({ periods: [{ start: "2026-06-12", end: "2026-06-20" }] }, TODAY);
+    const parsed = parseCycleState({ periods: [{ start: "2026-06-13", end: "2026-06-20" }] }, TODAY);
     expect(addPeriod(parsed, { start: "2026-06-10" }, TODAY).ok).toBe(true);
   });
 
@@ -130,9 +132,9 @@ describe("parseCycleState: future and ancient periods", () => {
 
   test("the limits use the device's local date when no day is given", () => {
     const local = dateKey(new Date());
-    const parsed = parseCycleState({ periods: [{ start: local }, { start: addDays(local, 2) }] });
+    const parsed = parseCycleState({ periods: [{ start: local }, { start: addDays(local, 3) }] });
     expect(parsed.periods).toEqual([{ start: local }]);
-    expect(cycleStateSchema.parse({ periods: [{ start: addDays(local, 1) }] }).periods).toEqual([]);
+    expect(cycleStateSchema.parse({ periods: [{ start: addDays(local, 2) }] }).periods).toEqual([]);
   });
 
   test("a state the app itself wrote reads back unchanged and not lossy", () => {

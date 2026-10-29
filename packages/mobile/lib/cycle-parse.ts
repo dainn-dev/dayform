@@ -26,7 +26,7 @@ import {
   type Period,
 } from "./cycle-model";
 import { parseJson } from "./json";
-import { dateKey } from "./planner";
+import { addDays, dateKey } from "./planner";
 
 /** The device's local calendar date; the default for the limits below. */
 const localToday = (): string => dateKey(new Date());
@@ -53,7 +53,9 @@ function cleanPeriods(items: unknown[], today: string): Period[] {
   for (const item of items.slice(-RAW_PERIOD_CAP)) {
     const parsed = periodSchema.safeParse(item);
     if (!parsed.success || periodSpanFailure(parsed.data) !== null) continue;
-    if (parsed.data.start > today || parsed.data.start < oldest) continue;
+    // One day of slack on read: after flying west the local date can be a day behind the one a period was logged on,
+    // and such a period must not vanish (adding a period stays strict: not after today).
+    if (parsed.data.start > addDays(today, 1) || parsed.data.start < oldest) continue;
     valid.push(makePeriod(parsed.data));
   }
   const kept: Period[] = [];
