@@ -19,7 +19,7 @@ export function FormActions({ saving, isEditing, confirmConflict, onSave, onDele
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return <>
-    <Pressable onPress={onSave} disabled={saving} style={s.save}><Text style={s.saveText}>{saving ? t("Saving...") : confirmConflict ? t("Save anyway") : isEditing ? t("Save changes") : t("Add task")}</Text><Ionicons name="arrow-forward" size={19} color={colors.onPrimary} /></Pressable>
+    <Pressable onPress={onSave} disabled={saving} accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }} style={s.save}><Text style={s.saveText}>{saving ? t("Saving...") : confirmConflict ? t("Save anyway") : isEditing ? t("Save changes") : t("Add task")}</Text><Ionicons name="arrow-forward" size={19} color={colors.onPrimary} /></Pressable>
     {isEditing && <Pressable onPress={onDelete} disabled={saving} accessibilityRole="button" accessibilityLabel={t("Delete task")} style={s.delete}><Ionicons name="trash-outline" size={17} color={colors.deleteText} /><Text style={s.deleteText}>{t("Delete task")}</Text></Pressable>}
   </>;
 }

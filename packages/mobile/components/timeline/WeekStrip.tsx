@@ -25,17 +25,18 @@ export function WeekStrip({ week, selected, today, tasks, onSelect, onShiftWeek 
 
   return <>
     <View style={s.weekHeader}>
-      <View><SectionEyebrow>{tr("YOUR WEEK")}</SectionEyebrow><Text style={s.month}>{monthTitle}</Text></View>
+      <View><SectionEyebrow>{tr("YOUR WEEK")}</SectionEyebrow><Text accessibilityRole="header" style={s.month}>{monthTitle}</Text></View>
       <View style={s.weekNav}>
-        <Pressable onPress={() => onShiftWeek(-7)} style={s.navButton} accessibilityLabel={tr("Previous week")}><Ionicons name="chevron-back" size={19} color={colors.foreground} /></Pressable>
-        <Pressable onPress={() => onShiftWeek(7)} style={s.navButton} accessibilityLabel={tr("Next week")}><Ionicons name="chevron-forward" size={19} color={colors.foreground} /></Pressable>
+        <Pressable onPress={() => onShiftWeek(-7)} style={s.navButton} accessibilityRole="button" accessibilityLabel={tr("Previous week")}><Ionicons name="chevron-back" size={19} color={colors.foreground} /></Pressable>
+        <Pressable onPress={() => onShiftWeek(7)} style={s.navButton} accessibilityRole="button" accessibilityLabel={tr("Next week")}><Ionicons name="chevron-forward" size={19} color={colors.foreground} /></Pressable>
       </View>
     </View>
     <View style={s.weekStrip}>{DAYS.map((day, i) => {
       const key = addDays(week, i), active = key === selected, isToday = key === today;
       const hasTasks = tasks.some(t => t.date === key && t.start);
       const dotColor = active ? colors.onPrimary : colors.primary;
-      return <Pressable key={key} onPress={() => onSelect(key)} accessibilityLabel={`${day} ${key}${isToday ? `, ${tr("Today")}` : ""}`} accessibilityState={{ selected: active }} style={[s.dayCell, active && s.dayActive]}>
+      const dayLabel = fromKey(key).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
+      return <Pressable key={key} onPress={() => onSelect(key)} accessibilityRole="button" accessibilityLabel={`${dayLabel}${isToday ? `, ${tr("Today")}` : ""}`} accessibilityState={{ selected: active }} style={[s.dayCell, active && s.dayActive]}>
         <Text style={[s.dayName, active && s.dayTextActive]}>{language === "vi" ? DAYS_VI[i] : day}</Text>
         <Text style={[s.dayNumber, active && s.dayTextActive]}>{fromKey(key).getDate()}</Text>
         <View style={[s.dayDot, hasTasks && { backgroundColor: dotColor }, isToday && !hasTasks && { borderWidth: 1.5, borderColor: dotColor }]} />
@@ -48,7 +49,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   weekHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 17 },
   month: { color: c.foreground, fontSize: 19, fontWeight: "800", letterSpacing: -0.4 },
   weekNav: { flexDirection: "row", gap: 7 },
-  navButton: { width: 33, height: 33, borderRadius: 12, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+  navButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
   weekStrip: { flexDirection: "row", gap: 4, marginBottom: 26 },
   dayCell: { flex: 1, minHeight: 76, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: c.card, gap: 5 },
   dayActive: { backgroundColor: c.primary, shadowColor: c.primary, shadowOpacity: 0.21, shadowRadius: 12, elevation: 4 },

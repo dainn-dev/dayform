@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from "react-native";
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
 import { useCategoryColors } from "../../hooks/use-category-colors";
@@ -7,7 +7,7 @@ import { useBlockDrag } from "../../hooks/use-block-drag";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import type { Task } from "../../lib/planner";
-import { SNAP_MINUTES } from "../../lib/timeline-gestures";
+import { formatMinutes, SNAP_MINUTES } from "../../lib/timeline-gestures";
 import { eventGeometry } from "./layout";
 import { EdgeHandle } from "./EdgeHandle";
 import type { TaskPatch } from "./drag-controller";
@@ -42,11 +42,17 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
   const place = { left: `${lane * width}%` as const, width: `${width}%` as const };
   const done = task.status === "done";
   const lifted = drag.phase !== "idle";
-  const label = `${task.title}, ${time(shown.start!)}, ${duration(shown.duration)}${conflict ? `, ${tr("⚠ Overlaps another task")}` : ""}`;
+  const label = `${task.title}${done ? `, ${tr("Completed")}` : ""}, ${time(shown.start!)}, ${duration(shown.duration)}${conflict ? `, ${tr("⚠ Overlaps another task")}` : ""}`;
 
+  /** Move by one step and tell the screen reader what happened, including a refusal at the window limit. */
+  const shiftAndAnnounce = async (delta: number) => {
+    const result = await drag.shift(delta);
+    if (result.kind === "moved") AccessibilityInfo.announceForAccessibility(`${tr("Moved to")} ${time(formatMinutes(result.start))}`);
+    else if (result.kind === "limit") AccessibilityInfo.announceForAccessibility(tr(delta < 0 ? "Cannot move earlier" : "Cannot move later"));
+  };
   const onAction = (event: AccessibilityActionEvent) => {
-    if (event.nativeEvent.actionName === MOVE_EARLIER) drag.shift(-SNAP_MINUTES);
-    if (event.nativeEvent.actionName === MOVE_LATER) drag.shift(SNAP_MINUTES);
+    if (event.nativeEvent.actionName === MOVE_EARLIER) void shiftAndAnnounce(-SNAP_MINUTES);
+    if (event.nativeEvent.actionName === MOVE_LATER) void shiftAndAnnounce(SNAP_MINUTES);
   };
 
   return <>
@@ -54,6 +60,7 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
       <Pressable
         {...drag.pressable}
         onPress={onPress}
+        accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint={tr("Hold and drag to move")}
         accessibilityActions={[

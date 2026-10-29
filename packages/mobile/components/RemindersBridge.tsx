@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useLanguage } from "../lib/language";
 import { useTasks } from "../lib/tasks-context";
@@ -13,7 +13,8 @@ import type { Task } from "../lib/planner";
 
 const DEBOUNCE_MS = 500;
 
-type SyncInput = { tasks: Task[]; language: ReminderLanguage };
+/** `canSync` is false until the tasks are trustworthy; syncing earlier would cancel every reminder. */
+type SyncInput = { tasks: Task[]; language: ReminderLanguage; canSync: boolean };
 
 async function syncReminders({ tasks, language }: SyncInput): Promise<string[]> {
   // Never prompts: the editor asks for permission when the user first picks a reminder.
@@ -23,45 +24,84 @@ async function syncReminders({ tasks, language }: SyncInput): Promise<string[]> 
   return (await reconcileReminders(createExpoScheduler(), planned)).errors;
 }
 
-/** Keeps scheduled local notifications in line with the tasks. Renders nothing. */
-export function RemindersBridge(): null {
-  const { tasks, loading } = useTasks();
-  const { language } = useLanguage();
-  const latest = useRef<SyncInput>({ tasks, language });
-  latest.current = { tasks, language };
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const running = useRef(false);
-  const again = useRef(false);
+function warnInDev(message: string): void {
+  if (__DEV__) console.warn(message);
+}
 
+type Syncer = { schedule(): void; dispose(): void };
+
+/** Debounced, single-flight sync that always reads the freshest input through `read`. */
+function createSyncer(read: () => SyncInput): Syncer {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running = false;
+  let again = false;
+  let disposed = false;
+
+  const run = async (): Promise<void> => {
+    if (disposed) return;
+    if (running) { again = true; return; }
+    const input = read();
+    if (!input.canSync) return;
+    running = true;
+    try {
+      const errors = await syncReminders(input);
+      if (errors.length) warnInDev(`Reminder sync had ${errors.length} error(s): ${errors[0]}`);
+    } catch (error) {
+      warnInDev(`Reminder sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      running = false;
+      if (again) { again = false; void run(); }
+    }
+  };
+
+  return {
+    schedule() {
+      if (disposed) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; void run(); }, DEBOUNCE_MS);
+    },
+    dispose() {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
+/**
+ * Keeps scheduled local notifications in line with the tasks. Renders nothing. It never syncs while
+ * the tasks are loading or writes are blocked (locked/read-only): the list is then empty or partial,
+ * and reconciling against it would cancel the user's reminders.
+ */
+export function RemindersBridge(): null {
+  const { tasks, loading, writesBlocked } = useTasks();
+  const { language } = useLanguage();
+  const canSync = !loading && !writesBlocked;
+  const latest = useRef<SyncInput>({ tasks, language, canSync });
+  const syncer = useRef<Syncer | null>(null);
+
+  useLayoutEffect(() => {
+    latest.current = { tasks, language, canSync };
+  }, [tasks, language, canSync]);
+
+  // Mount-only: handler, syncer and the foreground subscription stay stable across task changes.
   useEffect(() => {
     installReminderHandler();
-    const run = async (): Promise<void> => {
-      if (running.current) { again.current = true; return; }
-      running.current = true;
-      try {
-        const errors = await syncReminders(latest.current);
-        if (__DEV__ && errors.length) console.warn(`Reminder sync had ${errors.length} error(s): ${errors[0]}`);
-      } catch (error) {
-        if (__DEV__) console.warn(`Reminder sync failed: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        running.current = false;
-        if (again.current) { again.current = false; void run(); }
-      }
-    };
-    const schedule = (): void => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => { timer.current = null; void run(); }, DEBOUNCE_MS);
-    };
-    if (!loading) schedule();
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active" && !loading) schedule();
+    const created = createSyncer(() => latest.current);
+    syncer.current = created;
+    const subscription = AppState.addEventListener("change", state => {
+      if (state === "active") created.schedule();
     });
     return () => {
       subscription.remove();
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = null;
+      created.dispose();
+      syncer.current = null;
     };
-  }, [tasks, language, loading]);
+  }, []);
+
+  useEffect(() => {
+    if (canSync) syncer.current?.schedule();
+  }, [tasks, language, canSync]);
 
   return null;
 }

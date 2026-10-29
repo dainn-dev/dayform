@@ -4,7 +4,7 @@ export const END = 22 * 60;
 export const SCALE = 1.07;
 /** Minimum rendered height of an event block, in px. */
 export const MIN_EVENT_PX = 38;
-/** Minimum visual duration in minutes, used for lane assignment. */
+/** Minimum visual duration in minutes (the minimum block height in minutes), used for lane assignment. */
 export const MIN_VISUAL_MINUTES = Math.ceil(MIN_EVENT_PX / SCALE);
 
 /** Hour labels run 06:00..22:00 inclusive; clickable hour slots run 06:00..21:00. */

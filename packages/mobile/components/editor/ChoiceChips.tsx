@@ -11,7 +11,7 @@ type Props<V extends string | number | null> = {
   onChange: (value: V) => void;
 };
 
-/** A wrapping row of single-select chips, styled like the category chips. */
+/** A wrapping row of single-select chips (44px touch targets). */
 export function ChoiceChips<V extends string | number | null>({ choices, value, onChange }: Props<V>) {
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -27,7 +27,7 @@ export function ChoiceChips<V extends string | number | null>({ choices, value, 
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 15, paddingVertical: 11, backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.inputBorder },
+  chip: { minHeight: 44, justifyContent: "center", paddingHorizontal: 15, paddingVertical: 11, backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.inputBorder },
   chipActive: { backgroundColor: c.primaryTint, borderColor: c.primaryBorder },
   chipText: { color: c.foreground, fontSize: 12, fontWeight: "700" },
 });

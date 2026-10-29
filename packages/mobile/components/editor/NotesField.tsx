@@ -12,6 +12,6 @@ export function NotesField({ value, onChange }: Props) {
   const s = useFieldStyles();
   return <>
     <Text style={s.label}>{t("NOTES · OPTIONAL")}</Text>
-    <TextInput value={value} onChangeText={onChange} placeholder={t("Add a little context...")} placeholderTextColor={colors.placeholder} multiline style={[s.input, { minHeight: 92, textAlignVertical: "top" }]} />
+    <TextInput value={value} onChangeText={onChange} placeholder={t("Add a little context...")} placeholderTextColor={colors.placeholder} multiline accessibilityLabel={t("Notes")} style={[s.input, { minHeight: 92, textAlignVertical: "top" }]} />
   </>;
 }

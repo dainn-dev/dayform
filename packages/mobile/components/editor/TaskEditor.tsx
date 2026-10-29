@@ -1,5 +1,5 @@
 import React, { useMemo, useState, type ReactNode } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
@@ -54,25 +54,24 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const [repeat, setRepeat] = useState<Repeat | null>(task?.repeat ?? null);
   const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat } });
 
-  const updateSchedule = (value: boolean) => { setScheduled(value); actions.resetConfirmations(); };
-  const updateDate = (value: string) => { setDate(value); actions.resetConfirmations(); };
-  const updateTime = (value: string) => { setTime(value); actions.resetConfirmations(); };
-  return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+  /** A field that affects the overlap check or the scope choice: editing it drops a stale "Save anyway". */
+  const resetting = <V,>(set: (value: V) => void) => (value: V) => { set(value); actions.resetConfirmations(); };
+  return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
     <SafeAreaView style={s.root} edges={["top", "bottom", "left", "right"]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={s.top}>
           <View><Text style={s.eyebrow}>{t("YOUR PLANNER")}</Text><Text style={s.heading}>{task ? t("Edit task") : t("New task")}</Text></View>
-          <Pressable onPress={onClose} accessibilityLabel={t("Close task editor")} style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
+          <Pressable onPress={onClose} accessibilityLabel={t("Close task editor")} accessibilityRole="button" style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
         </View>
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={Keyboard.dismiss}>
           <TitleField value={title} onChange={setTitle} />
-          <DurationStatusRow duration={duration} onDurationChange={setDuration} status={status} onStatusChange={setStatus} />
+          <DurationStatusRow duration={duration} onDurationChange={resetting(setDuration)} status={status} onStatusChange={setStatus} />
           <CategoryChips value={category} onChange={setCategory} />
-          <ScheduleToggle value={scheduled} onChange={updateSchedule} />
-          {scheduled && <ScheduleFields date={date} time={time} onDateChange={updateDate} onTimeChange={updateTime} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}
+          <ScheduleToggle value={scheduled} onChange={resetting(setScheduled)} />
+          {scheduled && <ScheduleFields date={date} time={time} onDateChange={resetting(setDate)} onTimeChange={resetting(setTime)} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}
           {/* Reminders need a notification-capable platform; a backlog task can neither remind nor repeat. */}
           {scheduled && Platform.OS !== "web" && <ReminderField value={remind} onChange={setRemind} />}
-          {scheduled && <RepeatField value={repeat} onChange={setRepeat} />}
+          {scheduled && <RepeatField value={repeat} onChange={resetting(setRepeat)} />}
           {extraFields}
           <NotesField value={notes} onChange={setNotes} />
           <FormMessages validation={actions.validation} error={error} />
@@ -80,7 +79,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
           <FormActions saving={actions.saving} isEditing={Boolean(task)} confirmConflict={actions.confirmConflict} onSave={actions.save} onDelete={actions.deleteTask} />
         </ScrollView>
       </KeyboardAvoidingView>
-      <ScopeDialog visible={actions.dialog !== null} mode={actions.dialog?.mode ?? "edit"} onChoose={actions.chooseScope} onCancel={actions.cancelDialog} />
+      <ScopeDialog visible={actions.dialog.visible} mode={actions.dialog.mode} scopes={actions.dialogScopes} disabled={actions.saving} onChoose={actions.chooseScope} onCancel={actions.cancelDialog} />
     </SafeAreaView>
   </Modal>;
 }
@@ -90,6 +89,6 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 2, color: c.primary, marginBottom: 5 },
   heading: { fontSize: 28, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
-  close: { width: 42, height: 42, borderRadius: 21, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 24, paddingBottom: 32 },
 });

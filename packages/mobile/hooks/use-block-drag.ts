@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { GestureResponderHandlers } from "react-native";
-import { createDragController, type DragHost, type TaskPatch } from "../components/timeline/drag-controller";
+import { createDragController, type DragHost, type ShiftResult, type TaskPatch } from "../components/timeline/drag-controller";
 import { SCALE } from "../components/timeline/constants";
 import { minutes, type Task } from "../lib/planner";
 import { formatMinutes, LONG_PRESS_MS, previewBlock, type Block, type DragState } from "../lib/timeline-gestures";
@@ -26,7 +26,7 @@ export interface BlockDrag {
   /** Props for the block's inner Pressable. */
   pressable: { delayLongPress: number; onLongPress: () => void; onPressIn: () => void; onPressOut: () => void };
   /** Accessibility alternative to dragging: move by a number of minutes. */
-  shift: (deltaMinutes: number) => void;
+  shift: (deltaMinutes: number) => Promise<ShiftResult>;
 }
 
 const IDLE: DragState = { phase: "idle" };
@@ -49,7 +49,8 @@ export function useBlockDrag(args: UseBlockDragArgs): BlockDrag {
   const [drag, setDrag] = useState<DragState>(IDLE);
   const [pending, setPending] = useState<Block | null>(null);
   const latest = useRef(latestOf(args));
-  useEffect(() => {
+  // Layout effect: responder callbacks must see the new props before the next touch event, not after paint.
+  useLayoutEffect(() => {
     latest.current = latestOf(args);
   });
   const [controller] = useState(() => createDragController({ latest: () => latest.current, setDrag, setPending }));

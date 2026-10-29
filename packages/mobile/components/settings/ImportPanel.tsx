@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "../../hooks/use-colors";
-import { planImport, TOO_MANY_TASKS_MESSAGE, type ImportSummary } from "../../lib/backup-flow";
+import { countItem, formatNotice, importErrorMessage, planImport, type ImportSummary } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
 import { useTasks } from "../../lib/tasks-context";
 import type { ThemeColors } from "../../constants/theme";
@@ -10,20 +10,23 @@ import type { BackupActions } from "./use-backup-actions";
 type Translate = (text: string) => string;
 const SEPARATOR = "  ·  ";
 
-function countsLine(summary: ImportSummary, t: Translate): string {
-  const parts = [
-    `${summary.found} ${t("tasks found")}`,
-    ...(summary.skipped > 0 ? [`${summary.skipped} ${t("tasks skipped")}`] : []),
-  ];
-  return parts.join(SEPARATOR);
+function countsLine(found: number, skipped: number, t: Translate): string {
+  const items = [countItem(found, "task found", "tasks found")];
+  if (skipped > 0) items.push(countItem(skipped, "task skipped", "tasks skipped"));
+  return items.map(item => formatNotice([item], t)).join(SEPARATOR);
+}
+
+/** "Label: count" keeps a natural word order in every language. */
+function labelled(label: string, count: number, t: Translate): string {
+  return `${t(label)}: ${count}`;
 }
 
 function detailLine(summary: ImportSummary, t: Translate): string {
   const parts = [
-    `${summary.added} ${t("added")}`,
-    `${summary.updated} ${t("updated")}`,
-    `${summary.unchanged} ${t("unchanged")}`,
-    ...(summary.removed > 0 ? [`${summary.removed} ${t("removed")}`] : []),
+    labelled("Added", summary.added, t),
+    labelled("Updated", summary.updated, t),
+    labelled("Unchanged", summary.unchanged, t),
+    ...(summary.removed > 0 ? [labelled("Removed", summary.removed, t)] : []),
   ];
   return parts.join(SEPARATOR);
 }
@@ -40,15 +43,15 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
 
   const merge = planImport(tasks, stage.parsed, "merge");
   const replace = planImport(tasks, stage.parsed, "replace");
-  const headline = merge.ok ? merge.summary : replace.ok ? replace.summary : null;
   const mergeBlocked = busy || !merge.ok;
   const replaceBlocked = busy || !replace.ok;
 
   return <View style={s.panel}>
-    {headline && <Text style={s.headline}>{countsLine(headline, t)}</Text>}
+    <Text style={s.headline}>{countsLine(stage.parsed.tasks.length, stage.parsed.rejected, t)}</Text>
     {stage.kind === "confirm-replace" ? <>
       <Text style={s.question}>{t("Replace all your current tasks?")}</Text>
-      {replace.ok && <Text style={s.detail}>{detailLine(replace.summary, t)}</Text>}
+      {replace.ok ? <Text style={s.detail}>{detailLine(replace.summary, t)}</Text>
+        : <Text accessibilityRole="alert" style={s.error}>{t(importErrorMessage(replace.reason))}</Text>}
       <View style={s.row}>
         <Pressable disabled={replaceBlocked} onPress={() => { void importWith("replace"); }} accessibilityRole="button"
           style={[s.button, s.danger, replaceBlocked && s.disabled]}><Text style={s.dangerText}>{t("Yes, replace")}</Text></Pressable>
@@ -57,7 +60,7 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
     </> : <>
       <Text style={s.question}>{t("How do you want to import them?")}</Text>
       {merge.ok ? <Text style={s.detail}>{detailLine(merge.summary, t)}</Text>
-        : <Text accessibilityRole="alert" style={s.error}>{t(TOO_MANY_TASKS_MESSAGE)}</Text>}
+        : <Text accessibilityRole="alert" style={s.error}>{t(importErrorMessage(merge.reason))}</Text>}
       <View style={s.row}>
         <Pressable disabled={mergeBlocked} onPress={() => { void importWith("merge"); }} accessibilityRole="button"
           style={[s.button, s.primary, mergeBlocked && s.disabled]}><Text style={s.primaryText}>{t("Merge with current tasks")}</Text></Pressable>

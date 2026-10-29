@@ -5,7 +5,7 @@ import { useColors } from "../../hooks/use-colors";
 /** Small uppercase label that sits above a section title. */
 export function SectionEyebrow({ children }: { children: string }) {
   const colors = useColors();
-  return <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>{children}</Text>;
+  return <Text accessibilityRole="header" style={[styles.eyebrow, { color: colors.mutedForeground }]}>{children}</Text>;
 }
 
 const styles = StyleSheet.create({

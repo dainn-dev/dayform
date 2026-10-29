@@ -7,7 +7,7 @@ import { useLanguage } from "../../lib/language";
 import { overlaps, type Task } from "../../lib/planner";
 import { layoutLanes } from "../../lib/timeline-layout";
 import { EventBlock } from "./EventBlock";
-import { FIRST_HOUR, GUTTER, HOURS, MIN_EVENT_PX, SCALE, SLOT_HOURS, TIMELINE_HEIGHT } from "./constants";
+import { FIRST_HOUR, GUTTER, HOURS, MIN_VISUAL_MINUTES, SCALE, SLOT_HOURS, TIMELINE_HEIGHT } from "./constants";
 import { hourLabel, nowOffset } from "./layout";
 import type { TaskPatch } from "./drag-controller";
 
@@ -16,7 +16,8 @@ type Props = {
   visible: Task[];
   /** Every scheduled task of the day, used only for the empty state. */
   scheduledCount: number;
-  showNow: boolean;
+  /** The current time when the shown day is today (the now line), else null. */
+  now: Date | null;
   onAddAt: (time: string) => void;
   onEdit: (task: Task) => void;
   /** Persist a dragged/resized block (this occurrence only); resolves false when saving failed. */
@@ -26,17 +27,18 @@ type Props = {
 };
 
 /** Hour grid, tappable hour slots, now line, event layer and empty state for one day. */
-export function Timeline({ visible, scheduledCount, showNow, onAddAt, onEdit, onMove, onLockChange }: Props) {
+export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove, onLockChange }: Props) {
   const { t: tr } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const lanes = layoutLanes(visible, Math.ceil(MIN_EVENT_PX / SCALE));
-  const now = showNow ? nowOffset(new Date()) : null;
+  const lanes = layoutLanes(visible, MIN_VISUAL_MINUTES);
+  const nowY = now ? nowOffset(now) : null;
 
   return <View style={s.timeline}>
     {HOURS.map(hour => <View key={hour} style={[s.hour, { top: (hour - FIRST_HOUR) * 60 * SCALE }]}><Text style={s.hourLabel}>{hourLabel(hour)}</Text><View style={s.hourLine} /></View>)}
-    {SLOT_HOURS.map(hour => <Pressable key={hour} onPress={() => onAddAt(hourLabel(hour))} accessibilityLabel={`${tr("Add task at")} ${hour}:00`} style={[s.hourHit, { top: (hour - FIRST_HOUR) * 60 * SCALE }]} />)}
-    {now !== null && <View pointerEvents="none" style={[s.nowLine, { top: now }]}><View style={s.nowCircle} /><View style={s.nowRule} /></View>}
+    {/* Touch-only: 16 empty TalkBack stops are noise; screen readers use the Add buttons. */}
+    {SLOT_HOURS.map(hour => <Pressable key={hour} onPress={() => onAddAt(hourLabel(hour))} accessible={false} importantForAccessibility="no" style={[s.hourHit, { top: (hour - FIRST_HOUR) * 60 * SCALE }]} />)}
+    {nowY !== null && <View pointerEvents="none" style={[s.nowLine, { top: nowY }]}><View style={s.nowCircle} /><View style={s.nowRule} /></View>}
     <View pointerEvents="box-none" style={s.eventLayer}>{visible.map(task => {
       const { lane, lanes: laneCount } = lanes[task.id];
       const conflict = visible.some(p => overlaps(task, p));

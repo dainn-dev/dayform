@@ -7,6 +7,7 @@ import { useTasks } from "@/lib/tasks-context";
 /**
  * Keeps recurring tasks materialised a few weeks ahead: after the tasks load, and whenever the app
  * returns to the foreground, new occurrences are appended through the store's serial write path.
+ * The writes are silent: a background top-up must not raise or clear user-facing errors.
  * Renders nothing.
  */
 export function SeriesExtender(): null {
@@ -15,10 +16,13 @@ export function SeriesExtender(): null {
   useEffect(() => {
     if (loading) return undefined;
     const extend = (): void => {
-      void mutate(current => {
-        const next = extendSeries(current, dateKey(new Date()));
-        return next.length === current.length ? current : next;
-      });
+      void mutate(
+        current => {
+          const next = extendSeries(current, dateKey(new Date()));
+          return next.length === current.length ? current : next;
+        },
+        { silent: true },
+      );
     };
     extend();
     const subscription = AppState.addEventListener("change", state => {

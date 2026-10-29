@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { StyleSheet, View, type DimensionValue, type GestureResponderHandlers } from "react-native";
 import { useColors } from "../../hooks/use-colors";
+import { handleHitTop } from "../../lib/timeline-gestures";
+import { TIMELINE_HEIGHT } from "./constants";
 import type { ThemeColors } from "../../constants/theme";
 
 /** Touch target of a resize handle (px); the visible grip is smaller. */
@@ -23,14 +25,16 @@ type Props = {
 export function EdgeHandle({ edge, blockTop, blockHeight, place, handlers, label }: Props) {
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  // Where the block edge falls inside the hit area: 10px from its top for the top handle, 18px for the bottom one.
-  const edgeInHit = edge === "top" ? OUTSIDE_PX : HANDLE_HIT_PX - OUTSIDE_PX;
   const edgeY = edge === "top" ? blockTop : blockTop + blockHeight;
+  // The whole touch area stays inside the timeline (Android drops touches outside a parent's bounds),
+  // so at 06:00 / 22:00 it shifts inward and the grip is drawn on the block edge within it.
+  const top = handleHitTop(edge, edgeY, HANDLE_HIT_PX, OUTSIDE_PX, TIMELINE_HEIGHT);
+  const gripPad = Math.min(Math.max(edgeY - top - GRIP_HEIGHT / 2, 0), HANDLE_HIT_PX - GRIP_HEIGHT);
   return <View
     {...handlers}
     accessible
     accessibilityLabel={label}
-    style={[s.hit, place, { top: edgeY - edgeInHit, paddingTop: edgeInHit - GRIP_HEIGHT / 2 }]}
+    style={[s.hit, place, { top, paddingTop: gripPad }]}
   >
     <View style={s.grip} />
   </View>;

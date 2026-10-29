@@ -28,6 +28,9 @@ export interface DragHost {
   setPending(block: Block | null): void;
 }
 
+/** Outcome of an accessibility move: done, refused at the window limit, or the save failed. */
+export type ShiftResult = { readonly kind: "moved"; readonly start: number } | { readonly kind: "limit" } | { readonly kind: "failed" };
+
 export interface DragController {
   readonly body: PanResponderInstance;
   readonly top: PanResponderInstance;
@@ -35,7 +38,7 @@ export interface DragController {
   longPress(): void;
   pressIn(): void;
   pressOut(): void;
-  shift(deltaMinutes: number): void;
+  shift(deltaMinutes: number): Promise<ShiftResult>;
   dispose(): void;
 }
 
@@ -57,8 +60,10 @@ function haptic(kind: "arm" | "tick"): void {
 }
 
 /**
- * Framework-free glue between PanResponder events and `dragReducer`. All mutable gesture
- * state lives in this closure (never in React render), so responder callbacks cannot go stale.
+ * Glue between PanResponder events and the pure `dragReducer` (it touches react-native and
+ * expo-haptics, so it is not unit-tested; the logic worth testing lives in lib/timeline-gestures).
+ * All mutable gesture state lives in this closure (never in React render), so responder
+ * callbacks cannot go stale.
  */
 export function createDragController(host: DragHost): DragController {
   let state: DragState = IDLE;
@@ -79,9 +84,10 @@ export function createDragController(host: DragHost): DragController {
     host.latest().onLockChange?.(next);
   }
 
-  function commit(block: Block) {
+  /** Resolves true when saved. onCommit reports a failed save by resolving false (the store shows the error); a rejection is treated the same way instead of escaping unhandled. */
+  function commit(block: Block): Promise<boolean> {
     host.setPending(block);
-    void host.latest().onCommit(toTaskPatch(block)).finally(() => host.setPending(null));
+    return host.latest().onCommit(toTaskPatch(block)).catch(() => false).finally(() => host.setPending(null));
   }
 
   function send(event: DragEvent) {
@@ -95,7 +101,7 @@ export function createDragController(host: DragHost): DragController {
     if (prev.phase === "idle" && state.phase === "armed") haptic("arm");
     if (state.phase === "dragging" && moved) haptic("tick");
     if (state.phase === "idle") clearTimer();
-    if (result.commit) commit(result.commit);
+    if (result.commit) void commit(result.commit);
     syncLock();
   }
 
@@ -167,10 +173,11 @@ export function createDragController(host: DragHost): DragController {
       if (state.phase === "armed" && !grip) scheduleDisarm();
       syncLock();
     },
-    shift: deltaMinutes => {
+    shift: async deltaMinutes => {
       const { task, block } = host.latest();
       const start = minutes(shiftStart(task.start!, task.duration, deltaMinutes));
-      if (start !== block.start) commit({ start, duration: block.duration });
+      if (start === block.start) return { kind: "limit" };
+      return (await commit({ start, duration: block.duration })) ? { kind: "moved", start } : { kind: "failed" };
     },
     dispose: () => {
       clearTimer();

@@ -49,6 +49,7 @@ const light = {
   inputBorder: "#EDF0F5",
   /** Card / panel / button shadows. */
   shadowSoft: "#515B83",
+  scrim: "rgba(14, 17, 36, 0.45)",
   shadowPanel: "#59627E",
   fabShadow: "#6868EC",
   /** "Live" indicators: the dot beside DAILY TIMELINE and the now line. */
@@ -133,6 +134,7 @@ const dark: ThemeColors = {
   statDivider: "#242841",
   inputBorder: "#2A2F4C",
   shadowSoft: "#000000",
+  scrim: "rgba(0, 0, 0, 0.6)",
   shadowPanel: "#000000",
   fabShadow: "#8A8AF4",
   live: "#5FD3B3",

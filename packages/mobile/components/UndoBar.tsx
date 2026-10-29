@@ -1,33 +1,56 @@
-import React, { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language";
+import { undoBarBottom, undoTimeout } from "@/lib/shell-layout";
 import { useTasks } from "@/lib/tasks-context";
 
-/** How long the snackbar stays before the undo opportunity expires. */
-export const UNDO_TIMEOUT_MS = 6000;
-const BAR_BOTTOM = 90;
 const BAR_MARGIN = 16;
 const MIN_TOUCH_TARGET = 44;
+
+/** Tracks whether TalkBack / VoiceOver is on; false until the first answer arrives. */
+function useScreenReaderEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isScreenReaderEnabled()
+      .then(value => { if (active) setEnabled(value); })
+      .catch(() => { /* Treat an unreadable setting as "off": the default window still applies. */ });
+    const subscription = AccessibilityInfo.addEventListener("screenReaderChanged", setEnabled);
+    return () => { active = false; subscription.remove(); };
+  }, []);
+  return enabled;
+}
 
 /** Snackbar offering to restore the last deleted task. Renders nothing otherwise. */
 export function UndoBar() {
   const { lastRemoved, undoRemove, clearUndo } = useTasks();
   const { t } = useLanguage();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const screenReader = useScreenReaderEnabled();
+  const visible = lastRemoved !== null;
+
+  // Live regions on a freshly mounted node are unreliable on Android, so announce explicitly.
+  useEffect(() => {
+    if (visible) AccessibilityInfo.announceForAccessibility(t("Task deleted"));
+  }, [visible, lastRemoved, t]);
 
   useEffect(() => {
-    if (lastRemoved === null) return undefined;
-    const timer = setTimeout(clearUndo, UNDO_TIMEOUT_MS);
+    if (!visible) return undefined;
+    const timer = setTimeout(clearUndo, undoTimeout(screenReader));
     return () => clearTimeout(timer);
-  }, [lastRemoved, clearUndo]);
+  }, [visible, lastRemoved, clearUndo, screenReader]);
 
-  if (lastRemoved === null) return null;
+  if (!visible) return null;
 
   return (
     <View
-      accessibilityLiveRegion="polite"
-      style={[styles.bar, { backgroundColor: colors.card, borderColor: colors.border, shadowColor: colors.shadowSoft }]}
+      style={[
+        styles.bar,
+        { bottom: undoBarBottom(insets.bottom), backgroundColor: colors.card, borderColor: colors.border, shadowColor: colors.shadowSoft },
+      ]}
     >
       <Text style={[styles.message, { color: colors.foreground }]} numberOfLines={1}>
         {t("Task deleted")}
@@ -50,7 +73,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: BAR_MARGIN,
     right: BAR_MARGIN,
-    bottom: BAR_BOTTOM,
     minHeight: MIN_TOUCH_TARGET + 8,
     flexDirection: "row",
     alignItems: "center",

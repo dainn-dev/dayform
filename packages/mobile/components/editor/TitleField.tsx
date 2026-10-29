@@ -12,6 +12,6 @@ export function TitleField({ value, onChange }: Props) {
   const s = useFieldStyles();
   return <>
     <Text style={s.label}>{t("TASK NAME")}</Text>
-    <TextInput value={value} onChangeText={onChange} placeholder={t("What needs to get done?")} placeholderTextColor={colors.placeholder} style={s.input} maxLength={100} />
+    <TextInput value={value} onChangeText={onChange} placeholder={t("What needs to get done?")} placeholderTextColor={colors.placeholder} style={s.input} maxLength={100} returnKeyType="done" accessibilityLabel={t("Task name")} />
   </>;
 }

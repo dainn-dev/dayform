@@ -20,7 +20,7 @@ export function RepeatField({ value, onChange }: Props) {
   const f = useFieldStyles();
   const choices = REPEAT_CHOICES.map(choice => ({ ...choice, label: t(choice.label) }));
   return <>
-    <Text style={f.label}>{t("Repeat")}</Text>
+    <Text style={f.label}>{t("REPEAT")}</Text>
     <ChoiceChips choices={choices} value={value} onChange={onChange} />
   </>;
 }

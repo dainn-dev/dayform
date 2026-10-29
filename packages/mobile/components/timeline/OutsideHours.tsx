@@ -15,7 +15,7 @@ export function OutsideHours({ outside, scheduled, onEdit, onToggle }: Props) {
   const s = useMemo(() => makeStyles(colors), [colors]);
   if (!outside.length) return null;
   return <View style={s.outside}>
-    <Text style={s.outsideHeading}>{tr("Outside visible hours")}</Text>
+    <Text accessibilityRole="header" style={s.outsideHeading}>{tr("Outside visible hours")}</Text>
     {outside.map(t => <View key={t.id} style={{ marginTop: 9 }}><TaskCard task={t} onPress={() => onEdit(t)} onToggle={() => onToggle(t)} conflict={scheduled.some(p => overlaps(t, p))} /></View>)}
   </View>;
 }

@@ -12,7 +12,7 @@ export function ScheduleToggle({ value, onChange }: Props) {
   const s = useMemo(() => makeStyles(colors), [colors]);
   return <View style={s.scheduleRow}>
     <View style={{ flex: 1, paddingRight: 8 }}><Text style={s.scheduleTitle}>{t("Schedule this task")}</Text><Text style={s.helper}>{t("Otherwise, keep it in your backlog")}</Text></View>
-    <Switch value={value} onValueChange={onChange} trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }} thumbColor={value ? colors.primary : colors.card} />
+    <Switch accessibilityLabel={t("Schedule this task")} value={value} onValueChange={onChange} trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }} thumbColor={value ? colors.primary : colors.card} />
   </View>;
 }
 

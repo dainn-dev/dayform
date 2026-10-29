@@ -4,6 +4,7 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { reminderOptions } from "../../lib/planner";
+import { fillPlaceholder, reminderLabelKey } from "../../lib/reminder-label";
 import { ensureReminderChannel, requestReminderPermission } from "../../lib/reminders-expo";
 import { ChoiceChips, type Choice } from "./ChoiceChips";
 import { useFieldStyles } from "./field-styles";
@@ -11,20 +12,16 @@ import { useFieldStyles } from "./field-styles";
 type Props = { value: number | null; onChange: (value: number | null) => void };
 
 const PERMISSION_HINT = "Notifications are turned off. Turn them on in system settings to get reminders.";
-const MINUTES_PER_HOUR = 60;
-
-function reminderLabel(minutesBefore: number): string {
-  if (minutesBefore === 0) return "At start time";
-  if (minutesBefore === MINUTES_PER_HOUR) return "1 hour before";
-  return `${minutesBefore} min before`;
-}
-
 /** The presets, plus the task's current value when it is a custom one (so it stays visible). */
-function choicesFor(current: number | null): Choice<number | null>[] {
+function choicesFor(current: number | null, translate: (text: string) => string): Choice<number | null>[] {
   const minutesList: number[] = [...reminderOptions];
   if (current !== null && !minutesList.includes(current)) minutesList.push(current);
   minutesList.sort((a, b) => a - b);
-  return [{ value: null, label: "No reminder" }, ...minutesList.map(value => ({ value, label: reminderLabel(value) }))];
+  const labelOf = (minutesBefore: number) => {
+    const { key, n } = reminderLabelKey(minutesBefore);
+    return fillPlaceholder(translate(key), n);
+  };
+  return [{ value: null, label: translate("No reminder") }, ...minutesList.map(value => ({ value, label: labelOf(value) }))];
 }
 
 /**
@@ -48,9 +45,9 @@ export function ReminderField({ value, onChange }: Props) {
       setPermissionDenied(true);
     }
   };
-  const choices = choicesFor(value).map(choice => ({ ...choice, label: t(choice.label) }));
+  const choices = choicesFor(value, t);
   return <>
-    <Text style={f.label}>{t("Reminder")}</Text>
+    <Text style={f.label}>{t("REMINDER")}</Text>
     <ChoiceChips choices={choices} value={value} onChange={next => { void select(next); }} />
     {permissionDenied && value !== null && <Text accessibilityRole="alert" style={s.hint}>{t(PERMISSION_HINT)}</Text>}
   </>;
