@@ -67,8 +67,10 @@ yarn-error.*
 ios
 android
 
-# scripts (local-only provisioning)
-scripts/
+# scripts (local-only provisioning); only the root release scripts are tracked
+/scripts/*
+!/scripts/release-notes.sh
+!/scripts/release-local.sh
 !packages/mobile/scripts/
 packages/mobile/scripts/*
 !packages/mobile/scripts/generate-ios-certs.py
