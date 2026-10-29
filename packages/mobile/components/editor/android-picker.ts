@@ -6,18 +6,21 @@ type Options = {
   /** Current 'YYYY-MM-DD' or 'HH:mm' value; an invalid one opens the picker on `now`. */
   value: string;
   is24Hour: boolean;
+  /** Date mode only: the earliest selectable day, as 'YYYY-MM-DD'. */
+  minimumDate?: string;
   onSelect: (value: string) => void;
   onError: () => void;
 };
 
 /** Opens the native Android dialog. Selecting reports the new string value; dismissing changes nothing. */
-export function openAndroidPicker({ mode, value, is24Hour, onSelect, onError }: Options): void {
+export function openAndroidPicker({ mode, value, is24Hour, minimumDate, onSelect, onError }: Options): void {
   const now = new Date();
   const initial = mode === "date" ? dateToPicker(value, now) : timeToPicker(value, now);
   DateTimePickerAndroid.open({
     mode,
     value: initial,
     is24Hour,
+    minimumDate: minimumDate === undefined ? undefined : dateToPicker(minimumDate, now),
     onValueChange: (_event, picked) => onSelect(mode === "date" ? pickerToDate(picked) : pickerToTime(picked)),
     onError: () => onError(),
   });

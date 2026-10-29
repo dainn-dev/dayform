@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { parseBackup, type MergeMode } from "../../lib/backup";
 import { exportBackupFile, pickBackupText } from "../../lib/backup-expo";
 import {
@@ -88,7 +89,7 @@ export function useBackupActions(): BackupActions {
     if (stage.kind === "idle") return;
     setBusy(true);
     try {
-      const outcome = await runImport(mutate, stage.parsed, mode);
+      const outcome = await runImport(mutate, stage.parsed, mode, { storage: AsyncStorage, now: new Date() });
       setStage(IDLE);
       if (!outcome.ok) setNotice(failure(importErrorMessage(outcome.reason)));
       else setNotice(importedNotice(outcome.summary.added + outcome.summary.updated, outcome.summary.skipped));

@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../../lib/language";
@@ -10,20 +10,23 @@ import { TaskCard } from "../../components/TaskCard";
 import { useTasks } from "../../lib/tasks-context";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
-import { dateKey, fromKey, Task } from "../../lib/planner";
+import { dateKey, fromKey, Task, type Category } from "../../lib/planner";
+import { filterTasks } from "../../lib/search";
+import { SearchBar } from "../../components/tasks/SearchBar";
+import { CategoryFilter } from "../../components/tasks/CategoryFilter";
 import { buildExploreSections, conflictIds, taskStats, type ExploreFilter } from "../../lib/explore-groups";
 
 const FILTERS: readonly ExploreFilter[] = ["all", "active", "done"];
 const MIN_TOUCH_TARGET = 44;
 
 type ExploreSection = { key: "backlog" | "scheduled"; data: Task[] };
-type RowProps = { task: Task; conflict: boolean; dateLabel: string | null; backlog: boolean; onEdit: (task: Task) => void; onToggle: (id: string) => void; labelStyle: object; wrapStyle: object };
+type RowProps = { task: Task; conflict: boolean; dateLabel: string | null; backlog: boolean; highlight: string; onEdit: (task: Task) => void; onToggle: (id: string) => void; labelStyle: StyleProp<TextStyle>; wrapStyle: StyleProp<ViewStyle> };
 
 /** One task row. Memoised so toggling or filtering does not re-render every card in the list. */
-const TaskRow = memo(function TaskRow({ task, conflict, dateLabel, backlog, onEdit, onToggle, labelStyle, wrapStyle }: RowProps) {
+const TaskRow = memo(function TaskRow({ task, conflict, dateLabel, backlog, highlight, onEdit, onToggle, labelStyle, wrapStyle }: RowProps) {
   return <View style={wrapStyle}>
     {dateLabel && <Text style={labelStyle}>{dateLabel}</Text>}
-    <TaskCard task={task} conflict={conflict} onPress={() => onEdit(task)} onToggle={() => onToggle(task.id)} onSchedule={backlog ? () => onEdit(task) : undefined} />
+    <TaskCard task={task} conflict={conflict} highlight={highlight} onPress={() => onEdit(task)} onToggle={() => onToggle(task.id)} onSchedule={backlog ? () => onEdit(task) : undefined} />
   </View>;
 });
 
@@ -34,25 +37,36 @@ export default function TasksScreen() {
   const { tasks, loading, error, clearError, mutate } = useTasks();
   const [editing, setEditing] = useState<Task | null | undefined>(undefined);
   const [filter, setFilter] = useState<ExploreFilter>("all");
+  const [query, setQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<readonly Category[]>([]);
+  const searching = query.trim() !== "" || selectedCategories.length > 0;
   const stats = useMemo(() => taskStats(tasks), [tasks]);
   const conflicts = useMemo(() => conflictIds(tasks), [tasks]);
+  const visibleTasks = useMemo(() => filterTasks(tasks, { query, categories: selectedCategories, status: filter }), [tasks, query, selectedCategories, filter]);
   const sections = useMemo<ExploreSection[]>(() => {
     if (loading) return [];
-    const { backlog, scheduled } = buildExploreSections(tasks, filter);
-    return [{ key: "backlog", data: backlog }, { key: "scheduled", data: scheduled }];
-  }, [tasks, filter, loading]);
+    const { backlog, scheduled } = buildExploreSections(visibleTasks, "all");
+    const all: ExploreSection[] = [{ key: "backlog", data: backlog }, { key: "scheduled", data: scheduled }];
+    // While searching, a section without matches is noise (its empty-state copy talks about adding tasks).
+    return searching ? all.filter(section => section.data.length > 0) : all;
+  }, [visibleTasks, loading, searching]);
   // The new list is derived from the committed one inside the store, never from a render-time task snapshot.
   const toggle = useCallback((id: string) => {
     void mutate(list => list.map(item => item.id === id ? { ...item, status: item.status === "done" ? "todo" : "done" } : item));
   }, [mutate]);
+  const toggleCategory = useCallback((category: Category) => {
+    setSelectedCategories(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category]);
+  }, []);
   const edit = useCallback((task: Task) => setEditing(task), []);
+  // One formatter per locale: building it per row per render is slow on long lists.
+  const dateFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short", month: "short", day: "numeric" }), [locale]);
   const filterLabels: Record<ExploreFilter, string> = { all: t("All tasks"), active: t("Active"), done: t("Completed") };
 
   const renderItem = ({ item, section }: { item: Task; section: ExploreSection }) => {
     const dateLabel = section.key === "scheduled" && item.date
-      ? fromKey(item.date).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()
+      ? dateFormat.format(fromKey(item.date)).toUpperCase()
       : null;
-    return <TaskRow task={item} conflict={conflicts.has(item.id)} dateLabel={dateLabel} backlog={section.key === "backlog"} onEdit={edit} onToggle={toggle} labelStyle={s.dateLabel} wrapStyle={s.cardWrap} />;
+    return <TaskRow task={item} conflict={conflicts.has(item.id)} dateLabel={dateLabel} backlog={section.key === "backlog"} highlight={query} onEdit={edit} onToggle={toggle} labelStyle={s.dateLabel} wrapStyle={s.cardWrap} />;
   };
   const renderSectionHeader = ({ section }: { section: ExploreSection }) => {
     const isBacklog = section.key === "backlog";
@@ -66,10 +80,18 @@ export default function TasksScreen() {
     <Text style={s.emptyText}>{section.key === "backlog" ? t("Nothing waiting here. Add a task whenever inspiration strikes.") : t("No scheduled tasks in this view yet.")}</Text>
   </View>;
 
+  const resultCountLabel = `${visibleTasks.length} ${t(visibleTasks.length === 1 ? "result" : "results")}`;
+  const noMatches = <View style={s.noMatches}>
+    <Ionicons name="search-outline" size={26} color={colors.mutedForeground} />
+    <Text accessibilityRole="header" style={s.noMatchesTitle}>{t("No tasks match your search")}</Text>
+    <Text style={s.emptyText}>{t("Try different words or clear the filters.")}</Text>
+  </View>;
+
   const header = <View>
     <View style={s.topRow}><Text accessibilityRole="header" style={s.kicker}>{t("THE BIG PICTURE")}</Text><LanguageSwitch /></View>
     <Text accessibilityRole="header" style={s.title}>{t("Your tasks")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
     <Text style={s.subtitle}>{t("Every little thing, all in one place.")}</Text>
+    <SearchBar value={query} onChange={setQuery} />
     <View style={s.stats}>
       <View><Text style={s.statNumber}>{stats.todo}</Text><Text style={s.statLabel}>{t("TO DO")}</Text></View><View style={s.statDivider} />
       <View><Text style={s.statNumber}>{stats.scheduled}</Text><Text style={s.statLabel}>{t("SCHEDULED")}</Text></View><View style={s.statDivider} />
@@ -78,6 +100,8 @@ export default function TasksScreen() {
     <View style={s.filters}>{FILTERS.map(value => <Pressable key={value} onPress={() => setFilter(value)} accessibilityRole="button" accessibilityState={{ selected: filter === value }} style={[s.filter, filter === value && s.filterActive]}>
       <Text style={[s.filterText, filter === value && s.filterTextActive]}>{filterLabels[value]}</Text>
     </Pressable>)}</View>
+    <CategoryFilter selected={selectedCategories} onToggle={toggleCategory} />
+    {searching && !loading && <Text accessibilityLiveRegion="polite" style={s.resultCount}>{resultCountLabel}</Text>}
     {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.error}><Text style={{ color: colors.errorMessage }}>{t(error)}  ×</Text></Pressable>}
     {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />}
   </View>;
@@ -86,8 +110,8 @@ export default function TasksScreen() {
     <SectionList<Task, ExploreSection>
       sections={sections} keyExtractor={item => item.id} stickySectionHeadersEnabled={false}
       renderItem={renderItem} renderSectionHeader={renderSectionHeader} renderSectionFooter={renderSectionFooter}
-      ListHeaderComponent={header} ListFooterComponent={<SettingsSection />}
-      contentContainerStyle={s.content} showsVerticalScrollIndicator={false}
+      ListHeaderComponent={header} ListEmptyComponent={searching && !loading ? noMatches : null} ListFooterComponent={<SettingsSection />}
+      contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
       initialNumToRender={12} windowSize={7} maxToRenderPerBatch={10}
     />
     <Pressable onPress={() => setEditing(null)} accessibilityRole="button" accessibilityLabel={t("Create a new task")} style={s.fab}><Ionicons name="add" size={30} color={colors.onPrimary} /></Pressable>
@@ -111,6 +135,9 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   filterActive: { backgroundColor: c.primary },
   filterText: { color: c.mutedForeground, fontSize: 12, fontWeight: "700" },
   filterTextActive: { color: c.onPrimary },
+  resultCount: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 14, marginLeft: 4 },
+  noMatches: { alignItems: "center", gap: 8, padding: 26, marginTop: 20, backgroundColor: c.card, borderRadius: 17 },
+  noMatchesTitle: { color: c.foreground, fontSize: 15, fontWeight: "800", textAlign: "center" },
   groupHeading: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 26, marginBottom: 14 },
   groupIcon: { width: 35, height: 35, borderRadius: 12, backgroundColor: c.primaryTint, justifyContent: "center", alignItems: "center" },
   groupTitle: { fontSize: 19, fontWeight: "800", color: c.foreground },

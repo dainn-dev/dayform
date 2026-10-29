@@ -17,6 +17,8 @@ export type EditorValues = {
   notes: string;
   remind: number | null;
   repeat: Repeat | null;
+  /** Inclusive end date of the repeat ('YYYY-MM-DD'); null = never ends. */
+  repeatUntil: string | null;
 };
 
 /** `mode` stays put while the dialog fades out, so its title does not flicker. */
@@ -75,13 +77,16 @@ export function useEditorActions({ task = null, values, onClose }: Options) {
       setValidation("");
       return;
     }
-    await finish(() => mutate(plan.update));
+    // Editing "this and following" / "all" of a series can rewrite or delete many rows (a new rule or end
+    // date drops the rows that no longer fit), so those saves can be undone; single-task saves stay quiet.
+    const touchesMany = task?.seriesId != null && chosen !== "this";
+    await finish(() => mutate(plan.update, touchesMany ? { undo: "bulk" } : undefined));
   };
 
   const commitDelete = async (chosen: EditScope) => {
     if (!task) return;
     const plan = planDelete(task, chosen);
-    await finish(() => (plan.kind === "remove" ? remove(plan.id) : mutate(plan.update)));
+    await finish(() => (plan.kind === "remove" ? remove(plan.id) : mutate(plan.update, { undo: "delete" })));
   };
 
   const openDialog = (mode: "edit" | "delete") => setDialog({ mode, visible: true });
@@ -114,7 +119,8 @@ export function useEditorActions({ task = null, values, onClose }: Options) {
   const resetConfirmations = () => { setConfirmConflict(false); setScope(null); };
 
   const scopeRepeat = dialog.mode === "delete" ? task?.repeat ?? null : values.repeat;
-  const dialogScopes = task ? allowedScopes(task, { repeat: scopeRepeat }) : ONLY_THIS;
+  const scopeUntil = dialog.mode === "delete" ? task?.repeatUntil ?? null : values.repeatUntil;
+  const dialogScopes = task ? allowedScopes(task, { repeat: scopeRepeat, repeatUntil: scopeUntil }) : ONLY_THIS;
 
   return {
     save, deleteTask, chooseScope, resetConfirmations, saving, validation, setValidation, confirmConflict,

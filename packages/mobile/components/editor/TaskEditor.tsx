@@ -52,10 +52,13 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const [notes, setNotes] = useState(task?.notes ?? "");
   const [remind, setRemind] = useState<number | null>(task?.remind ?? null);
   const [repeat, setRepeat] = useState<Repeat | null>(task?.repeat ?? null);
-  const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat } });
+  const [repeatUntil, setRepeatUntil] = useState<string | null>(task?.repeatUntil ?? null);
+  const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil } });
 
   /** A field that affects the overlap check or the scope choice: editing it drops a stale "Save anyway". */
   const resetting = <V,>(set: (value: V) => void) => (value: V) => { set(value); actions.resetConfirmations(); };
+  /** Removing the rule also removes its end date, so it cannot come back with a later rule. */
+  const changeRepeat = (next: Repeat | null) => { setRepeat(next); if (next === null) setRepeatUntil(null); actions.resetConfirmations(); };
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
     <SafeAreaView style={s.root} edges={["top", "bottom", "left", "right"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -71,7 +74,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
           {scheduled && <ScheduleFields date={date} time={time} onDateChange={resetting(setDate)} onTimeChange={resetting(setTime)} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}
           {/* Reminders need a notification-capable platform; a backlog task can neither remind nor repeat. */}
           {scheduled && Platform.OS !== "web" && <ReminderField value={remind} onChange={setRemind} />}
-          {scheduled && <RepeatField value={repeat} onChange={resetting(setRepeat)} />}
+          {scheduled && <RepeatField value={repeat} onChange={changeRepeat} until={repeatUntil} onUntilChange={resetting(setRepeatUntil)} taskDate={date} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}
           {extraFields}
           <NotesField value={notes} onChange={setNotes} />
           <FormMessages validation={actions.validation} error={error} />

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useLanguage } from "../../lib/language";
 import { TaskEditor } from "../../components/editor/TaskEditor";
 import { TaskCard } from "../../components/TaskCard";
@@ -18,6 +18,8 @@ import { useColors } from "../../hooks/use-colors";
 import { useNow } from "../../hooks/use-now";
 import type { ThemeColors } from "../../constants/theme";
 import { carryOverCandidates, carryOverUpdate } from "../../lib/carry-over";
+import { keepUntilValid } from "../../lib/recurrence";
+import { findEditTarget } from "../../lib/notification-actions";
 import { useTasks } from "../../lib/tasks-context";
 import { addDays, dateKey, minutes, mondayOf, Task } from "../../lib/planner";
 
@@ -43,6 +45,19 @@ export default function PlannerScreen() {
   const [slot, setSlot] = useState<string | null>(null);
   const [scrollLocked, setScrollLocked] = useState(false);
   const { tasks, loading, error, clearError, mutate } = useTasks();
+  // A tapped reminder opens its task: `?edit=<id>` (validated by findEditTarget), cleared once consumed.
+  // An editor that is already open is never replaced (its unsaved edits would be lost): the param waits
+  // until the editor closes.
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  useEffect(() => {
+    if (edit === undefined || loading || editing !== undefined) return;
+    const target = findEditTarget(tasks, edit);
+    if (target) {
+      if (target.date) { setSelected(target.date); setWeek(mondayOf(target.date)); }
+      setEditing(target);
+    }
+    router.setParams({ edit: undefined });
+  }, [edit, loading, tasks, editing]);
   const scheduled = useMemo(() => tasks.filter(t => t.date === selected && t.start).sort((a, b) => minutes(a.start!) - minutes(b.start!)), [tasks, selected]);
   const backlog = tasks.filter(t => !t.start);
   const { visible, outside } = partitionVisible(scheduled);
@@ -52,14 +67,15 @@ export default function PlannerScreen() {
   // Patch the stored task inside the serial queue, never a render-time snapshot: a task deleted or edited
   // in the meantime is not resurrected or overwritten (a missing id is a no-op).
   const patchTask = (id: string, patch: (stored: Task) => Partial<Task>) =>
-    mutate(list => list.map(x => (x.id === id ? { ...x, ...patch(x) } : x)));
+    // keepUntilValid: dragging a repeating task past its end date lifts the end date so the record stays valid.
+    mutate(list => list.map(x => (x.id === id ? keepUntilValid({ ...x, ...patch(x) }) : x)));
   const toggle = (t: Task) => patchTask(t.id, x => ({ status: x.status === "done" ? "todo" : "done" }));
   // Drag/resize saves this occurrence only: every occurrence of a series is its own task.
   const moveBlock = (t: Task, patch: TaskPatch) => patchTask(t.id, () => patch);
   const chooseToday = () => { setSelected(today); setWeek(mondayOf(today)); };
   // Unfinished tasks of a past day can be moved to today with one tap; the view then follows them.
   const carryOver = useMemo(() => carryOverCandidates(tasks, selected, today), [tasks, selected, today]);
-  const moveToToday = async () => { if (await mutate(carryOverUpdate(selected, today))) chooseToday(); };
+  const moveToToday = async () => { if (await mutate(carryOverUpdate(selected, today), { undo: "bulk" })) chooseToday(); };
 
   return <SafeAreaView edges={["top", "left", "right"]} style={s.root}>
     <ScrollView scrollEnabled={!scrollLocked} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>

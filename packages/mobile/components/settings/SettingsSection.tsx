@@ -3,10 +3,13 @@ import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "../../hooks/use-colors";
 import { useLanguage } from "../../lib/language";
 import type { ThemeColors } from "../../constants/theme";
+import { UpdateSection } from "../update/UpdateSection";
+import { ArchiveSection } from "./ArchiveSection";
 import { BackupSection } from "./BackupSection";
+import { RecoverySection } from "./RecoverySection";
 import { ThemeSwitch } from "./ThemeSwitch";
 
-/** Settings block at the bottom of the Tasks tab: appearance and backup. */
+/** Settings block at the bottom of the Tasks tab: appearance, updates, backup, archive and data recovery. */
 export function SettingsSection() {
   const { t } = useLanguage();
   const colors = useColors();
@@ -18,8 +21,20 @@ export function SettingsSection() {
       <ThemeSwitch />
     </View>
     <View style={s.card}>
+      <Text style={s.label}>{t("Updates")}</Text>
+      <UpdateSection />
+    </View>
+    <View style={s.card}>
       <Text style={s.label}>{t("Backup")}</Text>
       <BackupSection />
+    </View>
+    <View style={s.card}>
+      <Text style={s.label}>{t("Archive")}</Text>
+      <ArchiveSection />
+    </View>
+    <View style={s.card}>
+      <Text style={s.label}>{t("Data recovery")}</Text>
+      <RecoverySection />
     </View>
   </View>;
 }

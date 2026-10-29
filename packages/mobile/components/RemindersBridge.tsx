@@ -21,7 +21,9 @@ async function syncReminders({ tasks, language }: SyncInput): Promise<string[]> 
   if ((await getReminderPermission()) !== "granted") return [];
   await ensureReminderChannel(language);
   const planned = planReminders(tasks, new Date(), { language });
-  return (await reconcileReminders(createExpoScheduler(), planned)).errors;
+  // Snoozed notifications of deleted or finished tasks must not fire either.
+  const liveTaskIds = new Set(tasks.filter((task) => task.status !== "done").map((task) => task.id));
+  return (await reconcileReminders(createExpoScheduler(), planned, liveTaskIds)).errors;
 }
 
 function warnInDev(message: string): void {

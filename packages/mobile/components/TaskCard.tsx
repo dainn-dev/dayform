@@ -7,14 +7,15 @@ import { withAlpha } from "../lib/color-tint";
 import { useColors } from "../hooks/use-colors";
 import { useCategoryColors } from "../hooks/use-category-colors";
 import type { ThemeColors } from "../constants/theme";
+import { HighlightedText } from "./tasks/HighlightedText";
 
 const ICON_TINT_ALPHA = 0.13;
 const TOUCH_TARGET = 44;
 const STATUS_TEXT: Record<Status, string> = { todo: "To do", in_progress: "Doing", done: "Done" };
 
-type Props = { task: Task; onPress: () => void; onToggle: () => void; onSchedule?: () => void; conflict?: boolean; compact?: boolean };
+type Props = { task: Task; onPress: () => void; onToggle: () => void; onSchedule?: () => void; conflict?: boolean; compact?: boolean; highlight?: string };
 
-export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compact }: Props) {
+export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compact, highlight }: Props) {
   const { t, duration, time } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -43,7 +44,7 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
     style={[s.card, { backgroundColor: color.bg }, compact && { marginBottom: 10 }]}>
     <View style={[s.icon, { backgroundColor: withAlpha(color.accent, ICON_TINT_ALPHA) }]}><Ionicons name={color.icon} size={21} color={color.accent} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
-      <Text numberOfLines={1} style={[s.title, done && s.done]}>{task.title}</Text>
+      <HighlightedText numberOfLines={1} style={[s.title, done && s.done]} text={task.title} query={highlight ?? ""} />
       <Text style={s.meta}>{task.start ? `${time(task.start)}  ·  ` : ""}{duration(task.duration)}  ·  {t(task.category)}</Text>
       {conflict && <Text style={s.conflict}>{t("⚠ Overlaps another task")}</Text>}
     </View>
