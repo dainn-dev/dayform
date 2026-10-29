@@ -13,8 +13,11 @@ import {
   type NoticeItem,
   type ParsedTasks,
   withCategoriesNote,
+  withCycleNote,
 } from "../../lib/backup-flow";
 import { useCategories } from "../../lib/categories-context";
+import { hasCycleData } from "../../lib/cycle";
+import { useCycle } from "../../lib/cycle-context";
 import { useTasks } from "../../lib/tasks-context";
 
 /** `parts` are English translation keys (with optional counts); the UI translates them when rendering. */
@@ -30,6 +33,8 @@ export type BackupActions = {
   stage: ImportStage;
   notice: Notice | null;
   busy: boolean;
+  /** The next export will contain the period tracker (health data): the screen must say so. */
+  includesHealthData: boolean;
   exportTasks: () => Promise<void>;
   startImport: () => Promise<void>;
   importWith: (mode: MergeMode) => Promise<void>;
@@ -39,16 +44,24 @@ export type BackupActions = {
 
 const failure = (message: string): Notice => ({ tone: "error", parts: [{ key: message }] });
 
-function importedNotice(imported: number, skipped: number, categories?: "applied" | "failed"): Notice {
+function importedNotice(
+  imported: number,
+  skipped: number,
+  extras: { categories?: "applied" | "failed"; cycle?: "applied" | "failed" },
+): Notice {
   const parts = [countItem(imported, "task imported", "tasks imported")];
   if (skipped > 0) parts.push(countItem(skipped, "task skipped", "tasks skipped"));
-  return { tone: "success", parts: withCategoriesNote(parts, { categories }) };
+  return { tone: "success", parts: withCycleNote(withCategoriesNote(parts, extras), extras) };
 }
 
 /** State machine behind BackupSection: export, pick + parse, preview, merge or confirmed replace. */
 export function useBackupActions(): BackupActions {
   const { tasks, loading, mutate } = useTasks();
   const { state: categoriesState, importState } = useCategories();
+  const { state: cycleState, ready: cycleReady, locked: cycleLocked, importState: importCycle } = useCycle();
+  // Until the tracker is read (or if it could not be) the defaults would stand in for it, so it is left out.
+  const cycle = cycleReady && !cycleLocked ? cycleState : undefined;
+  const includesHealthData = cycle !== undefined && hasCycleData(cycle);
   const [stage, setStage] = useState<ImportStage>(IDLE);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,12 +75,12 @@ export function useBackupActions(): BackupActions {
     }
     setBusy(true);
     try {
-      const result = await exportBackupFile(tasks, categoriesState);
+      const result = await exportBackupFile(tasks, categoriesState, cycle);
       setNotice(result.ok ? { tone: "success", parts: [{ key: "Backup exported" }] } : failure(exportErrorMessage(result.reason)));
     } finally {
       setBusy(false);
     }
-  }, [tasks, loading, categoriesState]);
+  }, [tasks, loading, categoriesState, cycle]);
 
   const startImport = useCallback(async () => {
     setBusy(true);
@@ -94,14 +107,15 @@ export function useBackupActions(): BackupActions {
     try {
       const outcome = await runImport(mutate, stage.parsed, mode, {
         storage: AsyncStorage, now: new Date(), categories: categoriesState, importCategories: importState,
+        cycle, importCycle,
       });
       setStage(IDLE);
       if (!outcome.ok) setNotice(failure(importErrorMessage(outcome.reason)));
-      else setNotice(importedNotice(outcome.summary.added + outcome.summary.updated, outcome.summary.skipped, outcome.categories));
+      else setNotice(importedNotice(outcome.summary.added + outcome.summary.updated, outcome.summary.skipped, outcome));
     } finally {
       setBusy(false);
     }
-  }, [stage, mutate, categoriesState, importState]);
+  }, [stage, mutate, categoriesState, importState, cycle, importCycle]);
 
   const askToReplace = useCallback(() => {
     setStage(current => (current.kind === "preview" ? { kind: "confirm-replace", parsed: current.parsed } : current));
@@ -109,5 +123,5 @@ export function useBackupActions(): BackupActions {
 
   const cancel = useCallback(() => setStage(IDLE), []);
 
-  return { stage, notice, busy, exportTasks, startImport, importWith, askToReplace, cancel };
+  return { stage, notice, busy, includesHealthData, exportTasks, startImport, importWith, askToReplace, cancel };
 }

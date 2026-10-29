@@ -1,4 +1,5 @@
 import type { CategoriesState } from "./categories";
+import type { CycleState } from "./cycle";
 import { mergeBackup, serializeBackup, type BackupFailure, type MergeMode } from "./backup";
 import type { Task } from "./planner";
 import { utf8Length } from "./text-size";
@@ -28,11 +29,14 @@ export type ImportPlan =
   | { ok: true; update: (tasks: Task[]) => Task[]; summary: ImportSummary }
   | { ok: false; reason: PlanFailure };
 /** `categories` is set when the file carried a categories object; it is applied after the tasks, in the same mode. */
-export type ParsedTasks = { tasks: readonly Task[]; rejected: number; categories?: CategoriesState };
+export type ParsedTasks = { tasks: readonly Task[]; rejected: number; categories?: CategoriesState; cycle?: CycleState };
 export type ImportFailure = PlanFailure | "save-failed" | "safety-copy-failed" | "list-changed";
-/** `categories` is only set when the file had categories and the caller could apply them. */
+/**
+ * `categories` / `cycle` are only set when the file had them and the caller could apply them. `cycle` is the private
+ * period tracker: it is applied last, and a failure there never undoes the tasks or the categories.
+ */
 export type ImportOutcome =
-  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed" }
+  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed"; cycle?: "applied" | "failed" }
   | { ok: false; reason: ImportFailure };
 /** Where (and when) the safety copy taken before a replace is written. */
 export type SafetyCopyTarget = {
@@ -40,10 +44,13 @@ export type SafetyCopyTarget = {
   now: Date;
   /** The current categories, saved in the copy too (only when customised) so a restore can bring them back. */
   categories?: CategoriesState;
+  /** The current tracker data, saved in the copy too (only when it holds any) so a restore can bring it back. */
+  cycle?: CycleState;
 };
-/** What `runImport` needs besides the task store: the safety-copy target and, optionally, how to apply categories. */
+/** What `runImport` needs besides the task store: the safety-copy target and, optionally, how to apply categories and tracker data. */
 export type ImportTarget = SafetyCopyTarget & {
   importCategories?: (incoming: CategoriesState, mode: MergeMode) => Promise<{ ok: boolean }>;
+  importCycle?: (incoming: CycleState, mode: MergeMode) => Promise<{ ok: boolean }>;
 };
 export type ImportMutate = (
   update: (tasks: Task[]) => Task[],
@@ -120,7 +127,7 @@ async function commitImport(
 
 /** Writes the list as a compact backup under a content-addressed recovery key (same scheme as loadTasks). */
 async function writeSafetyCopy(target: SafetyCopyTarget, tasks: readonly Task[]): Promise<boolean> {
-  const text = serializeBackup(tasks, target.now, { compact: true, categories: target.categories });
+  const text = serializeBackup(tasks, target.now, { compact: true, categories: target.categories, cycle: target.cycle });
   try {
     await target.storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
     return true;
@@ -148,10 +155,14 @@ async function runReplace(mutate: ImportMutate, parsed: ParsedTasks, safety: Saf
   return commitImport(mutate, parsed, "replace", current);
 }
 
-async function applyCategories(target: ImportTarget, parsed: ParsedTasks, mode: MergeMode): Promise<"applied" | "failed" | null> {
-  if (parsed.categories === undefined || target.importCategories === undefined) return null;
+async function applyOptional<T>(
+  incoming: T | undefined,
+  apply: ((incoming: T, mode: MergeMode) => Promise<{ ok: boolean }>) | undefined,
+  mode: MergeMode,
+): Promise<"applied" | "failed" | null> {
+  if (incoming === undefined || apply === undefined) return null;
   try {
-    return (await target.importCategories(parsed.categories, mode)).ok ? "applied" : "failed";
+    return (await apply(incoming, mode)).ok ? "applied" : "failed";
   } catch {
     return "failed";
   }
@@ -159,8 +170,9 @@ async function applyCategories(target: ImportTarget, parsed: ParsedTasks, mode: 
 
 /**
  * Commits an import through `mutate`, reporting why nothing was written when it could not be. The file's
- * categories (when it has any and `importCategories` is given) are applied only after the tasks were saved,
- * so a refused import never changes them; if only that step fails the outcome says so.
+ * categories and then its tracker data (when it has any and the matching hook is given) are applied only after the
+ * tasks were saved, so a refused import never changes them; each step is independent: if one fails the outcome
+ * says so and the others stay applied.
  */
 export async function runImport(
   mutate: ImportMutate,
@@ -170,8 +182,9 @@ export async function runImport(
 ): Promise<ImportOutcome> {
   const outcome = mode === "replace" ? await runReplace(mutate, parsed, target) : await commitImport(mutate, parsed, mode, null);
   if (!outcome.ok) return outcome;
-  const categories = await applyCategories(target, parsed, mode);
-  return categories === null ? outcome : { ...outcome, categories };
+  const categories = await applyOptional(parsed.categories, target.importCategories, mode);
+  const cycle = await applyOptional(parsed.cycle, target.importCycle, mode);
+  return { ...outcome, ...(categories === null ? {} : { categories }), ...(cycle === null ? {} : { cycle }) };
 }
 
 // The strings below are translation keys (lib/i18n/backup.ts); keep them in sync.
@@ -230,6 +243,17 @@ export const CATEGORIES_NOT_RESTORED = "Categories could not be restored";
 /** `parts` plus a note when the outcome says the file's categories failed to apply; unchanged otherwise. */
 export function withCategoriesNote(parts: readonly NoticeItem[], outcome: { categories?: "applied" | "failed" }): NoticeItem[] {
   return outcome.categories === "failed" ? [...parts, { key: CATEGORIES_NOT_RESTORED }] : [...parts];
+}
+
+/** Translation key (lib/i18n/cycle-notify.ts) shown next to Export while the file would contain the period tracker. */
+export const HEALTH_DATA_WARNING = "This file includes health data (period tracker) and is not encrypted. Share it only with people you trust.";
+
+/** Translation key (lib/i18n/cycle-notify.ts) shown after an import whose tracker data could not be saved. */
+export const CYCLE_NOT_RESTORED = "Personal data could not be restored";
+
+/** `parts` plus a note when the outcome says the file's tracker data failed to apply; unchanged otherwise. */
+export function withCycleNote(parts: readonly NoticeItem[], outcome: { cycle?: "applied" | "failed" }): NoticeItem[] {
+  return outcome.cycle === "failed" ? [...parts, { key: CYCLE_NOT_RESTORED }] : [...parts];
 }
 
 /** One key per grammatical number, so no translation key ever contains an interpolated value. */

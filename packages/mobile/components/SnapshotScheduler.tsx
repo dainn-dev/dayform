@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { snapshotStatus } from "../lib/snapshot-status";
 import { useCategories } from "../lib/categories-context";
+import { useCycle } from "../lib/cycle-context";
 import { createSnapshotRunner, type SnapshotInput, type SnapshotRunner } from "../lib/snapshots";
 import { useTasks } from "../lib/tasks-context";
 
@@ -19,15 +20,18 @@ const FIRST_SNAPSHOT_DELAY_MS = 5_000;
 export function SnapshotScheduler(): null {
   const { tasks, loading, writesBlocked } = useTasks();
   const { state: categoriesState, ready: categoriesReady } = useCategories();
+  const { state: cycleState, ready: cycleReady, locked: cycleLocked } = useCycle();
   const canSnapshot = !loading && !writesBlocked;
   // Until the categories are read the defaults would stand in for them, so they are left out of the copy.
   const categories = categoriesReady ? categoriesState : undefined;
-  const latest = useRef<SnapshotInput>({ tasks, canSnapshot, categories });
+  // The period tracker (health data) is included once it was read safely; unreadable or still loading means left out.
+  const cycle = cycleReady && !cycleLocked ? cycleState : undefined;
+  const latest = useRef<SnapshotInput>({ tasks, canSnapshot, categories, cycle });
   const runner = useRef<SnapshotRunner | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, canSnapshot, categories };
-  }, [tasks, canSnapshot, categories]);
+    latest.current = { tasks, canSnapshot, categories, cycle };
+  }, [tasks, canSnapshot, categories, cycle]);
 
   // Mount-only: the runner and the foreground subscription stay stable across task changes.
   useEffect(() => {

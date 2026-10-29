@@ -7,6 +7,7 @@ import {
   SNOOZE_ACTION_ID,
   SNOOZE_MINUTES,
 } from "./notification-actions";
+import { CHANNEL_NAME as CYCLE_CHANNEL_NAME, localizeCycle } from "./i18n/cycle-notify";
 import type { PlannedReminder, ReminderLanguage, ReminderScheduler } from "./reminders";
 
 export type ReminderPermission = "granted" | "denied" | "undetermined";
@@ -15,6 +16,9 @@ export type ReminderPermission = "granted" | "denied" | "undetermined";
 export const REMINDER_CHANNEL_ID = "reminders-v2";
 /** Earlier channel id: its lock-screen visibility cannot be changed once created, so it is replaced. */
 export const LEGACY_REMINDER_CHANNEL_ID = "reminders";
+
+/** Android channel of the period-tracker reminders: a neutral name, content hidden on the lock screen. */
+export const CYCLE_CHANNEL_ID = "cycle-v1";
 
 const CHANNEL_NAMES: Record<ReminderLanguage, string> = { en: "Reminders", vi: "Nhắc nhở" };
 
@@ -55,6 +59,23 @@ export async function ensureReminderChannel(language: ReminderLanguage): Promise
 }
 
 /**
+ * Creates (or updates) the channel of the period-tracker reminders: neutral name ("Personal reminders"), default
+ * importance (no heads-up banner), lock-screen visibility PRIVATE (the lock screen shows only that a notification
+ * exists, never its content) and no vibration pattern or lights beyond the system default.
+ * Rejects with the native error if the channel cannot be created.
+ */
+export async function ensureCycleChannel(language: ReminderLanguage): Promise<void> {
+  if (isWeb || Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync(CYCLE_CHANNEL_ID, {
+    name: localizeCycle(language, CYCLE_CHANNEL_NAME),
+    importance: Notifications.AndroidImportance.DEFAULT,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+    enableVibrate: false,
+    showBadge: false,
+  });
+}
+
+/**
  * Registers the category that gives reminders their "Done" and "Snooze" buttons. Both open the app:
  * on Android an action that opens no UI cannot run JS while the app is killed. Safe to call repeatedly
  * (it replaces the category, which is how a language or snooze-length change updates the button titles).
@@ -84,11 +105,12 @@ export async function requestReminderPermission(): Promise<ReminderPermission> {
 }
 
 /**
- * Task reminders carry the task id (never the title) and the Done/Snooze category. Summaries are plain:
- * no data and no category, so a tap only opens the app.
+ * Task reminders carry the task id (never the title) and the Done/Snooze category. Summaries and period-tracker
+ * reminders are plain: no data and no category, so a tap only opens the app (and no handler can read what the
+ * notification was about).
  */
-function contentFor(reminder: PlannedReminder): Notifications.NotificationContentInput {
-  if (reminder.kind === "summary") return { title: reminder.title, body: reminder.body };
+export function contentFor(reminder: PlannedReminder): Notifications.NotificationContentInput {
+  if (reminder.kind === "summary" || reminder.kind === "cycle") return { title: reminder.title, body: reminder.body };
   return {
     title: reminder.title,
     body: reminder.body,
@@ -112,7 +134,7 @@ export function createExpoScheduler(): ReminderScheduler {
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: reminder.fireAt,
-          channelId: REMINDER_CHANNEL_ID,
+          channelId: reminder.kind === "cycle" ? CYCLE_CHANNEL_ID : REMINDER_CHANNEL_ID,
         },
       });
     },

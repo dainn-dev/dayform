@@ -6,6 +6,8 @@ import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { fromKey, weekDays, type Task } from "../../lib/planner";
 import { weekdayShort } from "../../lib/weekdays";
+import { withMarkLabel } from "../../lib/cycle-ui-kinds";
+import { CycleMark, useCycleMarks } from "../cycle/CycleMark";
 import { SectionEyebrow } from "../ui/SectionEyebrow";
 
 type Props = {
@@ -22,6 +24,7 @@ export function WeekStrip({ week, selected, today, tasks, onSelect, onShiftWeek 
   const { t: tr, language, locale } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const cycleMarks = useCycleMarks(week, today);
   const monthTitle = fromKey(week).toLocaleDateString(locale, { month: "long", year: "numeric" });
 
   return <>
@@ -37,10 +40,11 @@ export function WeekStrip({ week, selected, today, tasks, onSelect, onShiftWeek 
       const hasTasks = tasks.some(t => t.date === key && t.start);
       const dotColor = active ? colors.onPrimary : colors.primary;
       const dayLabel = fromKey(key).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
-      return <Pressable key={key} onPress={() => onSelect(key)} accessibilityRole="button" accessibilityLabel={`${dayLabel}${isToday ? `, ${tr("Today")}` : ""}`} accessibilityState={{ selected: active }} style={[s.dayCell, active && s.dayActive]}>
+      return <Pressable key={key} onPress={() => onSelect(key)} accessibilityRole="button" accessibilityLabel={withMarkLabel(tr, `${dayLabel}${isToday ? `, ${tr("Today")}` : ""}`, cycleMarks[key] ?? "none")} accessibilityState={{ selected: active }} style={[s.dayCell, active && s.dayActive]}>
         <Text style={[s.dayName, active && s.dayTextActive]}>{weekdayShort(key, language)}</Text>
         <Text style={[s.dayNumber, active && s.dayTextActive]}>{fromKey(key).getDate()}</Text>
         <View style={[s.dayDot, hasTasks && { backgroundColor: dotColor }, isToday && !hasTasks && { borderWidth: 1.5, borderColor: dotColor }]} />
+        <CycleMark kind={cycleMarks[key]} color={active ? colors.onPrimary : undefined} />
       </Pressable>;
     })}</View>
   </>;

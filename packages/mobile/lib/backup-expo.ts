@@ -3,6 +3,7 @@ import { File, Paths } from "expo-file-system";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
 import type { CategoriesState } from "./categories";
+import type { CycleState } from "./cycle";
 import type { Task } from "./planner";
 import { MAX_BACKUP_BYTES, backupFileName, serializeBackup } from "./backup";
 
@@ -45,12 +46,12 @@ function deleteStaleBackups(): void {
   }
 }
 
-function writeBackupFile(tasks: readonly Task[], categories: CategoriesState | undefined): string | null {
+function writeBackupFile(tasks: readonly Task[], categories: CategoriesState | undefined, cycle: CycleState | undefined): string | null {
   try {
     deleteStaleBackups();
     const file = new File(Paths.cache, backupFileName(new Date()));
     file.create({ overwrite: true });
-    file.write(serializeBackup(tasks, new Date(), { categories }));
+    file.write(serializeBackup(tasks, new Date(), { categories, cycle }));
     return file.uri;
   } catch {
     return null;
@@ -68,13 +69,17 @@ async function canShare(): Promise<boolean> {
 /**
  * Writes the backup JSON to the cache directory, then opens the system share sheet. The file is kept
  * after sharing (the receiving app may read it lazily) and removed by the next export. `categories` is written
- * into the file only when it holds customisations.
+ * into the file only when it holds customisations, `cycle` (health data) only when the tracker is on or has periods.
  * `shareAsync` resolves whether or not the user picked a target and rejects only on a real failure,
  * so a dismissed sheet is a success here.
  */
-export async function exportBackupFile(tasks: readonly Task[], categories?: CategoriesState): Promise<ExportResult> {
+export async function exportBackupFile(
+  tasks: readonly Task[],
+  categories?: CategoriesState,
+  cycle?: CycleState,
+): Promise<ExportResult> {
   if (Platform.OS === "web") return { ok: false, reason: "unsupported-platform" };
-  const uri = writeBackupFile(tasks, categories);
+  const uri = writeBackupFile(tasks, categories, cycle);
   if (uri === null) return { ok: false, reason: "write-failed" };
   if (!(await canShare())) return { ok: false, reason: "sharing-unavailable" };
   try {

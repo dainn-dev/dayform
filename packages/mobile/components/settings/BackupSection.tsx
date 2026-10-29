@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
-import { formatNotice } from "../../lib/backup-flow";
+import { HEALTH_DATA_WARNING, formatNotice } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
 import type { ThemeColors } from "../../constants/theme";
 import { ImportPanel } from "./ImportPanel";
@@ -13,12 +13,13 @@ export function BackupSection() {
   const { t } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const { stage, notice, busy, exportTasks, startImport, importWith, askToReplace, cancel } = useBackupActions();
+  const { stage, notice, busy, includesHealthData, exportTasks, startImport, importWith, askToReplace, cancel } = useBackupActions();
   const importBlocked = busy || stage.kind !== "idle";
 
   return <View>
     <Text style={s.hint}>{t("Your tasks stay on this device. Export a copy to keep it safe or move it elsewhere.")}</Text>
     <Text style={s.note}>{t("The backup file is not encrypted. Keep it somewhere safe.")}</Text>
+    {includesHealthData && <Text style={s.healthNote}>{t(HEALTH_DATA_WARNING)}</Text>}
     <View style={s.row}>
       <Pressable disabled={busy} onPress={() => { void exportTasks(); }} accessibilityRole="button" style={[s.button, busy && s.disabled]}>
         <Ionicons name="share-outline" size={18} color={colors.primary} /><Text style={s.buttonText}>{t("Export tasks")}</Text>
@@ -36,6 +37,7 @@ export function BackupSection() {
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
   note: { color: c.mutedForeground, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  healthNote: { color: c.errorMessage, fontSize: 12, lineHeight: 18, fontWeight: "700", marginTop: 6 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
   button: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: c.primaryTint },
   buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },

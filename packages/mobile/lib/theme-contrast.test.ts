@@ -24,7 +24,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-type ColorKey = Exclude<keyof ThemeColors, "category">;
+type ColorKey = Exclude<keyof ThemeColors, "category" | "cycle">;
 type Check = { name: string; fg: string; bg: string; min: number };
 
 const PAIRS: Array<[ColorKey, ColorKey, number]> = [
@@ -171,6 +171,40 @@ describe("custom category color slots (both schemes)", () => {
       const accents = COLOR_SLOTS.map(slot => Colors[scheme].category[slot].accent);
       expect(new Set(accents).size).toBe(COLOR_SLOTS.length);
     }
+  });
+});
+
+const CYCLE_KINDS = ["period", "predicted", "fertile", "safe"] as const;
+
+describe("cycle tracker colors (both schemes)", () => {
+  for (const scheme of ["light", "dark"] as const) {
+    const palette = Colors[scheme];
+    for (const kind of CYCLE_KINDS) {
+      const { bg, accent } = palette.cycle[kind];
+      test(`${scheme} ${kind}: accent on tint >= ${ACCENT_RATIO}:1`, () => {
+        expect(contrast(accent, bg)).toBeGreaterThanOrEqual(ACCENT_RATIO);
+      });
+      test(`${scheme} ${kind}: title on tint >= ${BODY_TEXT_RATIO}:1`, () => {
+        expect(contrast(palette.foreground, bg)).toBeGreaterThanOrEqual(BODY_TEXT_RATIO);
+      });
+      test(`${scheme} ${kind}: accent on card >= ${ACCENT_RATIO}:1`, () => {
+        expect(contrast(accent, palette.card)).toBeGreaterThanOrEqual(ACCENT_RATIO);
+      });
+    }
+  }
+
+  test("the kinds are visually distinct within a scheme and are not category slots", () => {
+    for (const scheme of ["light", "dark"] as const) {
+      const palette = Colors[scheme];
+      const accents = CYCLE_KINDS.map(kind => palette.cycle[kind].accent);
+      expect(new Set(accents).size).toBe(CYCLE_KINDS.length);
+      const slotAccents = new Set(Object.values(palette.category).map(slot => slot.accent));
+      for (const accent of accents) expect(slotAccents.has(accent)).toBe(false);
+    }
+  });
+
+  test("both schemes define the same kinds", () => {
+    expect(Object.keys(Colors.light.cycle).sort()).toEqual(Object.keys(Colors.dark.cycle).sort());
   });
 });
 

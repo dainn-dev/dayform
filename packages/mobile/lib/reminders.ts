@@ -13,8 +13,11 @@ export type PlannedReminder = {
   fireAt: Date;
   title: string;
   body: string;
-  /** "summary" notifications are daily digests: no task data, no action buttons. Missing means "task". */
-  kind?: "task" | "summary";
+  /**
+   * "summary" notifications are daily digests: no task data, no action buttons. "cycle" notifications belong to the
+   * private period tracker: neutral text, no data, no buttons. Missing means "task".
+   */
+  kind?: "task" | "summary" | "cycle";
 };
 
 export type ReminderScheduler = {
@@ -40,6 +43,8 @@ export const REMINDER_ID_PREFIX = "dayform:task:";
 export const SNOOZE_ID_PREFIX = "dayform:snooze:";
 /** Morning-summary notifications (`dayform:summary:<YYYY-MM-DD>:<hash>`) are reconciled like task reminders. */
 export const SUMMARY_ID_PREFIX = "dayform:summary:";
+/** Period-tracker notifications (`dayform:cycle:<kind>:<YYYY-MM-DD>:<hash>`) are reconciled like the summaries. */
+export const CYCLE_ID_PREFIX = "dayform:cycle:";
 /** iOS keeps at most 64 pending local notifications; stay below it. */
 export const DEFAULT_REMINDER_LIMIT = 50;
 
@@ -160,14 +165,24 @@ function staleSnoozes(existing: readonly string[], liveTaskIds: ReadonlySet<stri
   });
 }
 
+export type ReconcileOptions = {
+  /**
+   * Leave the scheduled `dayform:cycle:*` notifications alone (they are neither cancelled nor replaced). Set while the
+   * tracker's state is unknown (still loading, or unreadable): an empty plan then means "I do not know", not "none".
+   */
+  keepCycle?: boolean;
+};
+
 /**
  * Makes the scheduled notifications match `planned`. When `liveTaskIds` (tasks that exist and are not
- * done) is given, snoozed notifications of any other task are cancelled too.
+ * done) is given, snoozed notifications of any other task are cancelled too. Every `dayform:cycle:*` id that is not
+ * in `planned` is cancelled (feature off, paused, data deleted) unless `options.keepCycle` is set.
  */
 export async function reconcileReminders(
   scheduler: ReminderScheduler,
   planned: readonly PlannedReminder[],
   liveTaskIds?: ReadonlySet<string>,
+  options: ReconcileOptions = {},
 ): Promise<ReconcileResult> {
   const errors: string[] = [];
   let existing: string[];
@@ -176,9 +191,12 @@ export async function reconcileReminders(
   } catch (error) {
     return { scheduled: 0, cancelled: 0, errors: [errorMessage(error)] };
   }
-  const ours = existing.filter((id) => id.startsWith(REMINDER_ID_PREFIX) || id.startsWith(SUMMARY_ID_PREFIX));
+  const owned = (id: string): boolean =>
+    id.startsWith(REMINDER_ID_PREFIX) || id.startsWith(SUMMARY_ID_PREFIX) ||
+    (options.keepCycle !== true && id.startsWith(CYCLE_ID_PREFIX));
+  const ours = existing.filter(owned);
   const wanted = new Set(planned.map((r) => r.id));
-  const present = new Set(ours);
+  const present = new Set(existing.filter((id) => owned(id) || id.startsWith(CYCLE_ID_PREFIX)));
   const stale = ours.filter((id) => !wanted.has(id));
   if (liveTaskIds) stale.push(...staleSnoozes(existing, liveTaskIds));
   const cancelled = await cancelStale(scheduler, stale, errors);

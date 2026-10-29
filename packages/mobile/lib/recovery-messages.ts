@@ -1,4 +1,13 @@
-import { countItem, importErrorMessage, type ImportFailure, type ImportSummary, type NoticeItem, type ParsedTasks, withCategoriesNote } from "./backup-flow";
+import {
+  countItem,
+  importErrorMessage,
+  withCategoriesNote,
+  withCycleNote,
+  type ImportFailure,
+  type ImportSummary,
+  type NoticeItem,
+  type ParsedTasks,
+} from "./backup-flow";
 import type { DeleteResult, PreviewFailure, RecoveryItem, RecoveryKind } from "./recovery";
 
 // The strings below are translation keys (lib/i18n/recovery.ts and lib/i18n/backup.ts); keep them in sync.
@@ -30,6 +39,8 @@ export function kindLabel(kind: RecoveryKind): string {
     case "backup": return "Copy of unreadable data";
     case "corrupt": return "Records that could not be read";
     case "snapshot": return "Automatic snapshot";
+    // Deliberately says nothing about what the data is: the list is visible in Settings.
+    case "cycle": return "Personal data that could not be read";
   }
 }
 
@@ -40,10 +51,23 @@ export function itemLine(item: RecoveryItem, t: (text: string) => string): strin
 
 /** Parts for what a previewed copy contains; translated at render with `formatNotice`. */
 export function previewSummaryParts(parsed: ParsedTasks): NoticeItem[] {
+  // A copy of the tracker alone has no tasks to count.
+  if (parsed.tasks.length === 0 && parsed.cycle !== undefined) return [{ key: INCLUDES_PERSONAL_DATA }];
   const parts = [countItem(parsed.tasks.length, "task in this copy", "tasks in this copy")];
   if (parsed.rejected > 0) parts.push(countItem(parsed.rejected, "task skipped", "tasks skipped"));
+  if (parsed.cycle !== undefined) parts.push({ key: INCLUDES_PERSONAL_DATA });
   return parts;
 }
+
+/** Translation key (lib/i18n/cycle-notify.ts): the copy also holds the user's tracker data, which is not named here. */
+export const INCLUDES_PERSONAL_DATA = "Includes personal data";
+/** Translation key: the question before a replace restore of a copy that holds only tracker data. */
+export const REPLACE_PERSONAL_DATA_QUESTION = "Replace all your current personal data with this copy?";
+/** Translation key: the notice after a restore that touched only the tracker. */
+export const PERSONAL_DATA_RESTORED = "Personal data restored";
+
+/** True when restoring this preview changes no task, only the tracker. */
+export const isPersonalDataOnly = (parsed: ParsedTasks): boolean => parsed.tasks.length === 0 && parsed.cycle !== undefined;
 
 /** Accessibility label of a row button: the action plus which copy it acts on. */
 export function itemActionLabel(action: string, item: RecoveryItem, t: (text: string) => string): string {
@@ -78,10 +102,16 @@ export function restoreErrorMessage(reason: RestoreFailure): string {
   }
 }
 
-export function restoredNotice(summary: ImportSummary, categories?: "applied" | "failed"): RecoveryNotice {
+/** `extras.cycleOnly` is a restore that changed no task (a copy of the tracker alone). */
+export function restoredNotice(
+  summary: ImportSummary,
+  categories?: "applied" | "failed",
+  extras: { cycle?: "applied" | "failed"; cycleOnly?: boolean } = {},
+): RecoveryNotice {
+  if (extras.cycleOnly === true) return { tone: "success", parts: [{ key: PERSONAL_DATA_RESTORED }] };
   const parts = [countItem(summary.added + summary.updated, "task restored", "tasks restored")];
   if (summary.skipped > 0) parts.push(countItem(summary.skipped, "task skipped", "tasks skipped"));
-  return { tone: "success", parts: withCategoriesNote(parts, { categories }) };
+  return { tone: "success", parts: withCycleNote(withCategoriesNote(parts, { categories }), extras) };
 }
 
 export function deleteNotice(results: readonly DeleteResult[]): RecoveryNotice {

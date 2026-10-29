@@ -1,5 +1,6 @@
 import { serializeBackup } from "./backup";
 import type { CategoriesState } from "./categories";
+import type { CycleState } from "./cycle";
 import { dateKey, fromKey, type Task } from "./planner";
 import { utf8Length } from "./text-size";
 
@@ -115,12 +116,15 @@ async function listKeys(storage: SnapshotStorage): Promise<readonly string[] | n
 /**
  * Writes `dayform.snapshot.<today>` when one is due, then prunes old ones. Never throws, never reads or
  * writes the main task key, and never snapshots an empty list (it could replace a good one with nothing).
+ * `cycle` (the private period tracker, health data) is part of the snapshot only when it holds data; it stays on
+ * the device like the tasks. The size cap applies to the whole text, tracker data included.
  */
 export async function takeSnapshot(
   storage: SnapshotStorage,
   tasks: readonly Task[],
   now: Date,
   categories?: CategoriesState,
+  cycle?: CycleState,
 ): Promise<SnapshotResult> {
   if (Number.isNaN(now.getTime())) return { kind: "failed", reason: "invalid-date" };
   if (tasks.length === 0) return { kind: "skipped", reason: "empty" };
@@ -130,7 +134,7 @@ export async function takeSnapshot(
   if (!shouldSnapshot(keys, today)) return { kind: "skipped", reason: "not-due" };
 
   if (tasks.length * MIN_TASK_JSON_BYTES > MAX_SNAPSHOT_BYTES) return { kind: "skipped", reason: "too-large" };
-  const text = serializeBackup(tasks, now, { compact: true, categories });
+  const text = serializeBackup(tasks, now, { compact: true, categories, cycle });
   if (utf8Length(text) > MAX_SNAPSHOT_BYTES) return { kind: "skipped", reason: "too-large" };
   const key = snapshotKey(today);
   try {
@@ -142,7 +146,13 @@ export async function takeSnapshot(
 }
 
 /** `categories` (when customised) is stored in the snapshot too, so a restore brings back custom category names. */
-export type SnapshotInput = { tasks: readonly Task[]; canSnapshot: boolean; categories?: CategoriesState };
+export type SnapshotInput = {
+  tasks: readonly Task[];
+  canSnapshot: boolean;
+  categories?: CategoriesState;
+  /** Left out until the tracker was read safely (the defaults must never stand in for it). */
+  cycle?: CycleState;
+};
 export type SnapshotRunner = {
   /** `null` when nothing was attempted (not trustworthy, already running, or disposed). */
   run(): Promise<SnapshotResult | null>;
@@ -166,7 +176,7 @@ export function createSnapshotRunner(options: {
       if (!input.canSnapshot) return null;
       running = true;
       try {
-        const result = await takeSnapshot(options.storage, input.tasks, options.now(), input.categories);
+        const result = await takeSnapshot(options.storage, input.tasks, options.now(), input.categories, input.cycle);
         options.onResult?.(result);
         return result;
       } finally {

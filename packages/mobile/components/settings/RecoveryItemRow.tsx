@@ -4,7 +4,16 @@ import { useColors } from "../../hooks/use-colors";
 import { formatNotice, planImport, type ImportPlan } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
 import type { RecoveryItem } from "../../lib/recovery";
-import { itemActionLabel, itemLine, kindLabel, previewSummaryParts, restoreErrorMessage, summaryLine } from "../../lib/recovery-messages";
+import {
+  REPLACE_PERSONAL_DATA_QUESTION,
+  isPersonalDataOnly,
+  itemActionLabel,
+  itemLine,
+  kindLabel,
+  previewSummaryParts,
+  restoreErrorMessage,
+  summaryLine,
+} from "../../lib/recovery-messages";
 import { useTasks } from "../../lib/tasks-context";
 import type { ThemeColors } from "../../constants/theme";
 import { RecoveryConfirm } from "./RecoveryConfirm";
@@ -29,8 +38,10 @@ export function RecoveryItemRow({ item, actions }: Props) {
   const previewHere = preview !== null && preview.key === item.key ? preview.result : null;
   const restorable = canRestore && !busy && !item.unreadable;
   const parsed = previewHere !== null && previewHere.ok ? previewHere.parsed : null;
-  const mergePlan = parsed === null ? null : planImport(tasks, parsed, "merge");
-  const replacePlan = parsed === null ? null : planImport(tasks, parsed, "replace");
+  // A copy of the tracker alone changes no task, so there is no task plan to show.
+  const planned = parsed !== null && !isPersonalDataOnly(parsed);
+  const mergePlan = planned ? planImport(tasks, parsed, "merge") : null;
+  const replacePlan = planned ? planImport(tasks, parsed, "replace") : null;
 
   const button = (label: string, onPress: () => void, enabled: boolean, destructive = false) =>
     <Pressable disabled={!enabled} onPress={onPress} accessibilityRole="button" accessibilityLabel={itemActionLabel(label, item, t)}
@@ -45,11 +56,11 @@ export function RecoveryItemRow({ item, actions }: Props) {
     {previewHere !== null && <View style={s.preview}>
       {previewHere.ok ? <>
         <Text style={s.meta}>{formatNotice(previewSummaryParts(previewHere.parsed), t)}</Text>
-        <Text style={s.meta}>{t("Restore (merge)")}: {planText(mergePlan, t)}</Text>
-        <Text style={s.meta}>{t("Restore (replace)")}: {planText(replacePlan, t)}</Text>
+        {planned && <Text style={s.meta}>{t("Restore (merge)")}: {planText(mergePlan, t)}</Text>}
+        {planned && <Text style={s.meta}>{t("Restore (replace)")}: {planText(replacePlan, t)}</Text>}
       </> : <Text accessibilityRole="alert" style={s.error}>{t(restoreErrorMessage(previewHere.reason))}</Text>}
     </View>}
-    {mine !== null && mine.kind === "replace" && <RecoveryConfirm question="Replace all your current tasks with this copy?"
+    {mine !== null && mine.kind === "replace" && <RecoveryConfirm question={item.kind === "cycle" ? REPLACE_PERSONAL_DATA_QUESTION : "Replace all your current tasks with this copy?"}
       yes="Yes, replace" busy={busy} onYes={() => { void restore(item.key, "replace"); }} onCancel={cancel} />}
     {mine !== null && mine.kind === "delete" && <RecoveryConfirm question="Delete this copy for good?"
       yes="Yes, delete" busy={busy} onYes={() => { void confirmDelete(); }} onCancel={cancel} />}

@@ -15,7 +15,12 @@ import {
   type SafetyCopyTarget,
   withCategoriesNote,
   CATEGORIES_NOT_RESTORED,
+  CYCLE_NOT_RESTORED,
+  withCycleNote,
+  HEALTH_DATA_WARNING,
 } from "./backup-flow";
+import { vi as cycleNotifyVi } from "./i18n/cycle-notify";
+import { DEFAULT_CYCLE_STATE, type CycleState } from "./cycle";
 import { BACKUP_KEY_PREFIX, MAX_RECORDS, contentKey } from "./task-storage";
 import { parseBackup, serializeBackup } from "./backup";
 import type { Task } from "./planner";
@@ -477,5 +482,116 @@ describe("withCategoriesNote", () => {
   test("does not mutate its input", () => {
     withCategoriesNote(parts, { categories: "failed" });
     expect(parts).toHaveLength(1);
+  });
+});
+
+describe("runImport applies the backup's period tracker data", () => {
+  const incoming: CycleState = { ...DEFAULT_CYCLE_STATE, enabled: true, periods: [{ start: "2026-09-02" }] };
+  const categories = { custom: [], hidden: ["Wellness"], renamed: {} };
+  const withCycle = (tasks: Task[]) => ({ tasks, rejected: 0, cycle: incoming });
+  const mutateInto = (box: { tasks: Task[] }) => async (update: (tasks: Task[]) => Task[]) => {
+    box.tasks = update(box.tasks);
+    return true;
+  };
+  function hook(result: { ok: boolean } = { ok: true }, order: string[] = [], name = "cycle") {
+    const calls: Array<[unknown, string]> = [];
+    return { calls, fn: async (value: unknown, mode: string) => { order.push(name); calls.push([value, mode]); return result; } };
+  }
+
+  test("merge and replace hand the data to the store with the same mode, after the tasks are saved", async () => {
+    for (const mode of ["merge", "replace"] as const) {
+      const box = { tasks: [task("a")] };
+      const h = hook();
+      const outcome = await runImport(mutateInto(box), withCycle([task("z")]), mode, { ...safety().target, importCycle: h.fn });
+      expect(okOutcome(outcome)).toMatchObject({ cycle: "applied" });
+      expect(h.calls).toEqual([[incoming, mode]]);
+    }
+  });
+
+  test("the order is tasks, then categories, then tracker data", async () => {
+    const order: string[] = [];
+    const cat = hook({ ok: true }, order, "categories");
+    const cyc = hook({ ok: true }, order, "cycle");
+    const box = { tasks: [] as Task[] };
+    const mutate = async (update: (tasks: Task[]) => Task[]) => { order.push("tasks"); box.tasks = update(box.tasks); return true; };
+    await runImport(mutate, { tasks: [task("z")], rejected: 0, categories, cycle: incoming }, "merge", {
+      ...safety().target, importCategories: cat.fn, importCycle: cyc.fn,
+    });
+    expect(order).toEqual(["tasks", "categories", "cycle"]);
+  });
+
+  test("a file without tracker data, or a caller without the hook, leaves the tracker alone", async () => {
+    const h = hook();
+    const without = await runImport(mutateInto({ tasks: [] }), parsed([task("z")]), "merge", { ...safety().target, importCycle: h.fn });
+    expect(okOutcome(without).cycle).toBeUndefined();
+    expect(h.calls).toEqual([]);
+    const noHook = await runImport(mutateInto({ tasks: [] }), withCycle([task("z")]), "merge", safety().target);
+    expect(okOutcome(noHook).cycle).toBeUndefined();
+  });
+
+  test("tracker data is not applied when the tasks were refused", async () => {
+    const h = hook();
+    const outcome = await runImport(mutateInto({ tasks: [] }), withCycle([]), "merge", { ...safety().target, importCycle: h.fn });
+    expect(outcome).toEqual({ ok: false, reason: "no-valid-tasks" });
+    expect(h.calls).toEqual([]);
+  });
+
+  test("a failed or throwing tracker save is reported and never rolls back tasks or categories", async () => {
+    for (const importCycle of [hook({ ok: false }).fn, async () => { throw new Error("disk"); }]) {
+      const box = { tasks: [] as Task[] };
+      const cat = hook();
+      const outcome = await runImport(mutateInto(box), { tasks: [task("z")], rejected: 0, categories, cycle: incoming }, "merge", {
+        ...safety().target, importCategories: cat.fn, importCycle,
+      });
+      expect(okOutcome(outcome)).toMatchObject({ categories: "applied", cycle: "failed" });
+      expect(box.tasks).toHaveLength(1);
+    }
+  });
+
+  test("a failed categories step does not stop the tracker step", async () => {
+    const h = hook();
+    const outcome = await runImport(mutateInto({ tasks: [] }), { tasks: [task("z")], rejected: 0, categories, cycle: incoming }, "merge", {
+      ...safety().target, importCategories: async () => ({ ok: false }), importCycle: h.fn,
+    });
+    expect(okOutcome(outcome)).toMatchObject({ categories: "failed", cycle: "applied" });
+  });
+
+  test("the safety copy before a replace includes the current tracker data", async () => {
+    const current: CycleState = { ...DEFAULT_CYCLE_STATE, enabled: true, periods: [{ start: "2026-08-05" }, { start: "2026-09-02" }] };
+    const copy = safety();
+    const tasks = [task("a")];
+    const box = { tasks };
+    await runImport(mutateInto(box), parsed([task("z")]), "replace", { ...copy.target, cycle: current });
+    const text = serializeBackup(tasks, SAFETY_NOW, { compact: true, cycle: current });
+    expect(copy.data.get(contentKey(BACKUP_KEY_PREFIX, text))).toBe(text);
+    expect(parseBackup(text)).toEqual({ ok: true, tasks, rejected: 0, cycle: current });
+  });
+
+  test("a safety copy without tracker data (off and empty) carries none", async () => {
+    const copy = safety();
+    await runImport(mutateInto({ tasks: [task("a")] }), parsed([task("z")]), "replace", { ...copy.target, cycle: DEFAULT_CYCLE_STATE });
+    const [text] = [...copy.data.values()];
+    expect(text).not.toContain("cycle");
+  });
+});
+
+describe("withCycleNote", () => {
+  const parts = [countItem(2, "task imported", "tasks imported")];
+  test("adds the note only when the tracker data failed", () => {
+    expect(withCycleNote(parts, { cycle: "failed" })).toEqual([...parts, { key: CYCLE_NOT_RESTORED }]);
+    expect(withCycleNote(parts, { cycle: "applied" })).toEqual(parts);
+    expect(withCycleNote(parts, {})).toEqual(parts);
+  });
+  test("does not mutate its input", () => {
+    withCycleNote(parts, { cycle: "failed" });
+    expect(parts).toHaveLength(1);
+  });
+});
+
+describe("health data warning", () => {
+  test("is a translated key that says health data and not encrypted", () => {
+    expect(HEALTH_DATA_WARNING.toLowerCase()).toContain("health data");
+    expect(HEALTH_DATA_WARNING.toLowerCase()).toContain("not encrypted");
+    expect(cycleNotifyVi[HEALTH_DATA_WARNING]).toBeTruthy();
   });
 });

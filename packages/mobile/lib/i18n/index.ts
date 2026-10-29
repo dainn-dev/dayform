@@ -5,6 +5,8 @@ import { vi as carryOver } from "./carry-over";
 import { vi as categories } from "./categories";
 import { vi as categoriesUi } from "./categories-ui";
 import { vi as categoryUsage } from "./category-usage";
+import { vi as cycleNotify } from "./cycle-notify";
+import { vi as cycleUi } from "./cycle-ui";
 import { vi as errors } from "./errors";
 import { vi as gestures } from "./gestures";
 import { vi as greeting } from "./greeting";
@@ -40,6 +42,8 @@ export const extraTranslations: Record<string, string> = {
   ...categories,
   ...categoriesUi,
   ...categoryUsage,
+  ...cycleNotify,
+  ...cycleUi,
   ...errors,
   ...gestures,
   ...greeting,

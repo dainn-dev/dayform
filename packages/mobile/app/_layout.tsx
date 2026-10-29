@@ -14,6 +14,7 @@ import { UpdatePrompt } from "../components/update/UpdatePrompt";
 import { OtaProvider } from "../lib/ota-context";
 import { WidgetSync } from "../components/WidgetSync";
 import { CategoriesProvider, useCategories } from "../lib/categories-context";
+import { CycleProvider } from "../lib/cycle-context";
 import { SettingsProvider, useSettings } from "../lib/settings-context";
 import { TasksProvider } from "../lib/tasks-context";
 import { UpdateProvider } from "../lib/update-context";
@@ -70,6 +71,7 @@ export default function RootLayout() {
           <ThemeProvider>
             <LanguageProvider>
               <CategoriesProvider>
+              <CycleProvider>
               <TasksProvider>
                 <UpdateProvider>
                   <OtaProvider>
@@ -87,6 +89,7 @@ export default function RootLayout() {
                   </OtaProvider>
                 </UpdateProvider>
               </TasksProvider>
+              </CycleProvider>
               </CategoriesProvider>
             </LanguageProvider>
           </ThemeProvider>

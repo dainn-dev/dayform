@@ -398,3 +398,37 @@ describe("reconcileReminders summaries", () => {
     expect([...ids]).toEqual(["other:1"]);
   });
 });
+
+describe("reconcileReminders cycle group", () => {
+  const cycle = (id: string): PlannedReminder => ({ ...planned(id), taskId: "", kind: "cycle" });
+  test("schedules missing cycle reminders and cancels stale ones", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:cycle:before:2026-10-01:old"]);
+    const result = await reconcileReminders(scheduler, [cycle("dayform:cycle:before:2026-11-01:new")]);
+    expect(result).toEqual({ scheduled: 1, cancelled: 1, errors: [] });
+    expect([...ids]).toEqual(["dayform:cycle:before:2026-11-01:new"]);
+  });
+  test("keeps an unchanged cycle id without calling schedule or cancel", async () => {
+    const { scheduler, calls } = fakeScheduler(["dayform:cycle:late:2026-11-02:x"]);
+    await reconcileReminders(scheduler, [cycle("dayform:cycle:late:2026-11-02:x")]);
+    expect(calls).toEqual([{ op: "list" }]);
+  });
+  test("an empty plan cancels every cycle notification (switched off, paused or deleted) and nothing foreign", async () => {
+    const { scheduler, ids } = fakeScheduler([
+      "dayform:cycle:before:2026-11-01:a", "dayform:cycle:fertile:2026-10-20:b", "dayform:task:t:1", "other:cycle:1",
+    ]);
+    const result = await reconcileReminders(scheduler, []);
+    expect(result.cancelled).toBe(3);
+    expect([...ids]).toEqual(["other:cycle:1"]);
+  });
+  test("keepCycle leaves scheduled cycle notifications alone while the state is unknown", async () => {
+    const { scheduler, ids, calls } = fakeScheduler(["dayform:cycle:before:2026-11-01:a", "dayform:task:old:1"]);
+    await reconcileReminders(scheduler, [], undefined, { keepCycle: true });
+    expect([...ids]).toEqual(["dayform:cycle:before:2026-11-01:a"]);
+    expect(calls.filter((call) => call.op === "schedule")).toEqual([]);
+  });
+  test("keepCycle does not duplicate an already scheduled planned cycle id", async () => {
+    const { scheduler, calls } = fakeScheduler(["dayform:cycle:late:2026-11-02:x"]);
+    await reconcileReminders(scheduler, [cycle("dayform:cycle:late:2026-11-02:x")], undefined, { keepCycle: true });
+    expect(calls).toEqual([{ op: "list" }]);
+  });
+});

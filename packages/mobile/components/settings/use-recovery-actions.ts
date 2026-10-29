@@ -17,6 +17,7 @@ import {
   type RecoveryNotice,
 } from "../../lib/recovery-messages";
 import { useCategories } from "../../lib/categories-context";
+import { useCycle } from "../../lib/cycle-context";
 import { useTasks } from "../../lib/tasks-context";
 
 export type PendingAction =
@@ -52,6 +53,9 @@ const failure = (message: string): RecoveryNotice => ({ tone: "error", parts: [{
 export function useRecoveryActions(): RecoveryActions {
   const { loading, writesBlocked, mutate } = useTasks();
   const { state: categoriesState, importState } = useCategories();
+  const { state: cycleState, ready: cycleReady, locked: cycleLocked, importState: importCycle } = useCycle();
+  // Until the tracker is read (or if it could not be) the defaults would stand in for it, so no safety copy of it is made.
+  const cycle = cycleReady && !cycleLocked ? cycleState : undefined;
   const [expanded, setExpanded] = useState(false);
   const [items, setItems] = useState<RecoveryItem[] | null>(null);
   const [listFailed, setListFailed] = useState(false);
@@ -92,15 +96,15 @@ export function useRecoveryActions(): RecoveryActions {
     setPending(null);
     try {
       const outcome = await restoreRecoveryItem(AsyncStorage, mutate, key, mode, new Date(), {
-        categories: categoriesState, importCategories: importState,
+        categories: categoriesState, importCategories: importState, cycle, importCycle,
       });
-      setNotice(outcome.ok ? restoredNotice(outcome.summary, outcome.categories) : failure(restoreErrorMessage(outcome.reason)));
+      setNotice(outcome.ok ? restoredNotice(outcome.summary, outcome.categories, outcome) : failure(restoreErrorMessage(outcome.reason)));
       // A replace saves the current list as a new recovery copy, so the list is out of date now.
       await refresh();
     } finally {
       setBusy(false);
     }
-  }, [mutate, refresh, categoriesState, importState]);
+  }, [mutate, refresh, categoriesState, importState, cycle, importCycle]);
 
   const ask = useCallback(async (action: PendingAction) => {
     setNotice(null);

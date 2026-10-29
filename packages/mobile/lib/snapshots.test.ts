@@ -13,6 +13,7 @@ import {
 } from "./snapshots";
 import { parseBackup } from "./backup";
 import { TASKS_STORAGE_KEY } from "./task-storage";
+import { DEFAULT_CYCLE_STATE, MAX_PERIODS, type CycleState } from "./cycle";
 import type { Task } from "./planner";
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
@@ -418,5 +419,57 @@ describe("snapshots keep customised categories", () => {
     const runner = createSnapshotRunner({ storage, read: () => ({ tasks: [task("a")], canSnapshot: true, categories }), now: () => NOW });
     await runner.run();
     expect(data.get(key("2026-03-20"))).toContain("c_gym00000");
+  });
+});
+
+describe("snapshots include the period tracker", () => {
+  const cycle: CycleState = {
+    ...DEFAULT_CYCLE_STATE, enabled: true, acknowledged: true, periods: [{ start: "2026-08-05" }, { start: "2026-09-02" }],
+  };
+
+  test("a snapshot carries the tracker data and the health-data notice, and parses back", async () => {
+    const { storage, data } = fakeStorage();
+    await takeSnapshot(storage, [task("a")], NOW, undefined, cycle);
+    const text = data.get(key("2026-03-20")) ?? "";
+    expect(text).toContain("containsHealthData");
+    const parsed = parseBackup(text);
+    expect(parsed.ok && parsed.cycle).toEqual(cycle);
+  });
+
+  test("an off and empty tracker, or none, adds nothing", async () => {
+    for (const value of [DEFAULT_CYCLE_STATE, undefined]) {
+      const { storage, data } = fakeStorage();
+      await takeSnapshot(storage, [task("a")], NOW, undefined, value);
+      expect(data.get(key("2026-03-20"))).not.toContain("cycle");
+    }
+  });
+
+  test("the runner passes along the tracker it reads", async () => {
+    const { storage, data } = fakeStorage();
+    const runner = createSnapshotRunner({ storage, read: () => ({ tasks: [task("a")], canSnapshot: true, cycle }), now: () => NOW });
+    await runner.run();
+    expect(data.get(key("2026-03-20"))).toContain("2026-09-02");
+  });
+
+  test("tracker data does not bypass the empty-list rule or the size cap", async () => {
+    const empty = fakeStorage();
+    expect(await takeSnapshot(empty.storage, [], NOW, undefined, cycle)).toEqual({ kind: "skipped", reason: "empty" });
+    expect(empty.writes).toEqual([]);
+    const big = fakeStorage();
+    const bulky = [task("a", { notes: "x".repeat(MAX_SNAPSHOT_BYTES) })];
+    expect(await takeSnapshot(big.storage, bulky, NOW, undefined, cycle)).toEqual({ kind: "skipped", reason: "too-large" });
+    expect(big.writes).toEqual([]);
+  });
+
+  test("a full tracker (the maximum number of periods) still fits next to a normal list", async () => {
+    const periods = Array.from({ length: MAX_PERIODS }, (_, i) => {
+      const day = new Date(Date.UTC(2017, 0, 1) + i * 30 * 86_400_000);
+      return { start: day.toISOString().slice(0, 10) };
+    });
+    const { storage, data } = fakeStorage();
+    const result = await takeSnapshot(storage, [task("a")], NOW, undefined, { ...cycle, periods });
+    expect(result.kind).toBe("written");
+    const parsed = parseBackup(data.get(key("2026-03-20")) ?? "");
+    expect(parsed.ok && parsed.cycle?.periods).toHaveLength(MAX_PERIODS);
   });
 });

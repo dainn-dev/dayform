@@ -11,6 +11,8 @@ import {
 import { MAX_RECORDS, taskSchema } from "./task-storage";
 import type { Task } from "./planner";
 import { DEFAULT_CATEGORIES_STATE, type CategoriesState } from "./categories";
+import { DEFAULT_CYCLE_STATE, MAX_PERIODS, type CycleState } from "./cycle";
+import { HEALTH_DATA_NOTICE } from "./backup";
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
   return {
@@ -307,5 +309,102 @@ describe("backup categories", () => {
 
   test("the file size cap still applies when categories are present", () => {
     expect(parseBackup(envelope({ categories }) + " ".repeat(MAX_BACKUP_BYTES))).toEqual({ ok: false, reason: "too-large" });
+  });
+});
+
+describe("backup period tracker data", () => {
+  const cycle: CycleState = {
+    ...DEFAULT_CYCLE_STATE,
+    enabled: true,
+    acknowledged: true,
+    periods: [{ start: "2026-08-05", end: "2026-08-09" }, { start: "2026-09-02" }],
+    reminders: { ...DEFAULT_CYCLE_STATE.reminders, daysBefore: 2, notifyFertile: true, neutralText: false },
+  };
+
+  test("is exported only when the tracker is on or holds a period, with a health-data warning in the file", () => {
+    const value = JSON.parse(serializeBackup([task("a")], NOW, { cycle }));
+    expect(value.cycle).toEqual(cycle);
+    expect(value.containsHealthData).toBe(true);
+    expect(value.notice).toBe(HEALTH_DATA_NOTICE);
+    expect(HEALTH_DATA_NOTICE.toLowerCase()).toContain("health data");
+    expect(HEALTH_DATA_NOTICE.toLowerCase()).toContain("not encrypted");
+    const periodsOnly = { ...DEFAULT_CYCLE_STATE, periods: [{ start: "2026-09-02" }] };
+    expect("cycle" in JSON.parse(serializeBackup([task("a")], NOW, { cycle: periodsOnly }))).toBe(true);
+    for (const text of [
+      serializeBackup([task("a")], NOW, { cycle: DEFAULT_CYCLE_STATE }),
+      serializeBackup([task("a")], NOW),
+    ]) {
+      const plain = JSON.parse(text);
+      expect(["cycle", "containsHealthData", "notice"].some(key => key in plain)).toBe(false);
+    }
+  });
+
+  test("round trip through compact and pretty output, next to categories", () => {
+    const categories: CategoriesState = { custom: [], hidden: ["Wellness"], renamed: {} };
+    for (const compact of [true, false]) {
+      expect(parseBackup(serializeBackup([task("a")], NOW, { cycle, categories, compact }))).toEqual({
+        ok: true, tasks: [task("a")], rejected: 0, categories, cycle,
+      });
+    }
+  });
+
+  test("a file without a cycle field, a bare array or a non-object value carries none", () => {
+    const plain = parseBackup(serializeBackup([task("a")], NOW));
+    expect(plain).toEqual({ ok: true, tasks: [task("a")], rejected: 0 });
+    expect(plain.ok && "cycle" in plain).toBe(false);
+    expect(parseBackup(JSON.stringify([task("a")]))).toEqual({ ok: true, tasks: [task("a")], rejected: 0 });
+    for (const value of [null, 5, "x", [], true]) {
+      expect(parseBackup(envelope({ cycle: value }))).toEqual({ ok: true, tasks: [], rejected: 0 });
+    }
+  });
+
+  test("imported tracker data is validated with the stored-data limits", () => {
+    const result = parseBackup(envelope({
+      cycle: {
+        enabled: "yes",
+        acknowledged: true,
+        periods: [
+          { start: "2026-02-30" }, { start: "2026-09-02", end: "2026-09-04" }, { start: "2026-09-03" },
+          { start: "2026-08-05", end: "2026-09-30" }, 7, null, { start: "2026-10-01" },
+        ],
+        defaults: { cycleLength: 400, periodLength: 5 },
+        reminders: { daysBefore: 9, time: "99:99", notifyFertile: true },
+        lock: { enabled: false, timeoutSec: 7 },
+        showOnTimeline: true,
+      },
+    }));
+    if (!result.ok || result.cycle === undefined) throw new Error("expected cycle data");
+    expect(result.cycle.enabled).toBe(false);
+    expect(result.cycle.acknowledged).toBe(true);
+    expect(result.cycle.periods).toEqual([{ start: "2026-09-02", end: "2026-09-04" }, { start: "2026-10-01" }]);
+    expect(result.cycle.defaults).toEqual({ cycleLength: 28, periodLength: 5 });
+    expect(result.cycle.reminders).toEqual({ ...DEFAULT_CYCLE_STATE.reminders, notifyFertile: true });
+    expect(result.cycle.lock).toEqual({ enabled: false, timeoutSec: 60 });
+    expect(result.cycle.showOnTimeline).toBe(true);
+  });
+
+  test("a hostile cycle object cannot pollute prototypes or smuggle extra fields", () => {
+    const text = '{"format":"dayform-backup","version":1,"tasks":[],"cycle":{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"extra":1,"enabled":true,"periods":[{"start":"2026-09-02","__proto__":{"polluted":true}}]}}';
+    const result = parseBackup(text);
+    if (!result.ok || result.cycle === undefined) throw new Error("expected cycle data");
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.keys(result.cycle).sort()).toEqual(Object.keys(DEFAULT_CYCLE_STATE).sort());
+    expect(result.cycle.periods).toEqual([{ start: "2026-09-02" }]);
+    expect(result.cycle.enabled).toBe(true);
+  });
+
+  test("a huge periods array is capped at MAX_PERIODS (newest kept)", () => {
+    const periods = Array.from({ length: MAX_PERIODS + 60 }, (_, i) => {
+      const day = new Date(Date.UTC(2020, 0, 1) + i * 30 * 86_400_000);
+      return { start: day.toISOString().slice(0, 10) };
+    });
+    const result = parseBackup(envelope({ cycle: { periods } }));
+    if (!result.ok || result.cycle === undefined) throw new Error("expected cycle data");
+    expect(result.cycle.periods).toHaveLength(MAX_PERIODS);
+    expect(result.cycle.periods.at(-1)).toEqual(periods.at(-1));
+  });
+
+  test("the file size cap still applies when tracker data is present", () => {
+    expect(parseBackup(envelope({ cycle }) + " ".repeat(MAX_BACKUP_BYTES))).toEqual({ ok: false, reason: "too-large" });
   });
 });

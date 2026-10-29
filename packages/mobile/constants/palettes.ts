@@ -103,6 +103,13 @@ const light = {
     magenta: { bg: "#FBE9F7", accent: "#B8329A" },
     slate: { bg: "#EDF0F5", accent: "#5A6783" },
   },
+  /** Cycle tracker tints. Not category slots. Each kind also has its own shape (see components/cycle/KindSymbol.tsx); accent on tint >= 3:1 in lib/theme-contrast.test.ts. */
+  cycle: {
+    period: { bg: "#FDE7EC", accent: "#C0304F" },
+    predicted: { bg: "#FDEFF2", accent: "#B24A66" },
+    fertile: { bg: "#E2F1F6", accent: "#0F7391" },
+    safe: { bg: "#E6F4EA", accent: "#2A7A4B" },
+  },
 };
 
 /** Every palette has exactly the keys of `light`. */
@@ -187,6 +194,12 @@ const dark: ThemeColors = {
     coral: { bg: "#3A2019", accent: "#F59A80" },
     magenta: { bg: "#36193A", accent: "#E78AD6" },
     slate: { bg: "#222834", accent: "#9AA8C4" },
+  },
+  cycle: {
+    period: { bg: "#3A1E28", accent: "#F28BA2" },
+    predicted: { bg: "#2F1D26", accent: "#E48AA3" },
+    fertile: { bg: "#142F3A", accent: "#6CC6E4" },
+    safe: { bg: "#15301F", accent: "#6FD08F" },
   },
 };
 

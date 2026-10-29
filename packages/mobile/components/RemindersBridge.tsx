@@ -1,53 +1,44 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { AppState } from "react-native";
+import { useCycle } from "../lib/cycle-context";
 import { useLanguage } from "../lib/language";
 import { useTasks } from "../lib/tasks-context";
 import { useSettings } from "../lib/settings-context";
-import type { Settings } from "../lib/settings";
-import { planSummary, SUMMARY_DAYS } from "../lib/summary-notification";
-import {
-  DEFAULT_REMINDER_LIMIT,
-  planReminders,
-  reconcileReminders,
-  type PlannedReminder,
-  type ReminderLanguage,
-} from "../lib/reminders";
+import { CYCLE_ID_PREFIX, reconcileReminders, type ReminderLanguage } from "../lib/reminders";
 import {
   createExpoScheduler,
+  ensureCycleChannel,
   ensureReminderChannel,
   getReminderPermission,
   installReminderHandler,
 } from "../lib/reminders-expo";
+import { planAllReminders, type CycleSync, type NotificationSettings } from "../lib/reminders-plan";
 import type { Task } from "../lib/planner";
 
 const DEBOUNCE_MS = 500;
 
-type NotificationSettings = Settings["notifications"];
-
 /**
  * `canSync` is false until the tasks and the settings are trustworthy; syncing earlier would cancel every
- * reminder (or schedule titles the user asked to hide).
+ * reminder (or schedule titles the user asked to hide). The period tracker has its own readiness: while it is
+ * loading or unreadable its scheduled notifications are left alone (see `planAllReminders`).
  */
-type SyncInput = { tasks: Task[]; language: ReminderLanguage; notifications: NotificationSettings; canSync: boolean };
+type SyncInput = {
+  tasks: Task[];
+  language: ReminderLanguage;
+  notifications: NotificationSettings;
+  cycle: CycleSync;
+  canSync: boolean;
+};
 
-/** Task reminders plus, when enabled, the next days' morning summaries (which share iOS's pending limit). */
-function planAll(tasks: Task[], language: ReminderLanguage, settings: NotificationSettings, now: Date): PlannedReminder[] {
-  const { hideTitles, quietEnabled, quietFrom, quietTo, summaryEnabled, summaryTime } = settings;
-  const quiet = quietEnabled ? { from: quietFrom, to: quietTo } : null;
-  const limit = summaryEnabled ? DEFAULT_REMINDER_LIMIT - SUMMARY_DAYS : DEFAULT_REMINDER_LIMIT;
-  const reminders = planReminders(tasks, now, { language, hideTitles, quiet, limit });
-  if (!summaryEnabled) return reminders;
-  return [...reminders, ...planSummary(tasks, now, { time: summaryTime, language, hideTitles })];
-}
-
-async function syncReminders({ tasks, language, notifications }: SyncInput): Promise<string[]> {
+async function syncReminders({ tasks, language, notifications, cycle }: SyncInput): Promise<string[]> {
   // Never prompts: the editor asks for permission when the user first picks a reminder.
   if ((await getReminderPermission()) !== "granted") return [];
   await ensureReminderChannel(language);
-  const planned = planAll(tasks, language, notifications, new Date());
+  const { planned, keepCycle } = planAllReminders({ tasks, language, notifications, cycle, now: new Date() });
+  if (planned.some((reminder) => reminder.id.startsWith(CYCLE_ID_PREFIX))) await ensureCycleChannel(language);
   // Snoozed notifications of deleted or finished tasks must not fire either.
   const liveTaskIds = new Set(tasks.filter((task) => task.status !== "done").map((task) => task.id));
-  return (await reconcileReminders(createExpoScheduler(), planned, liveTaskIds)).errors;
+  return (await reconcileReminders(createExpoScheduler(), planned, liveTaskIds, { keepCycle })).errors;
 }
 
 function warnInDev(message: string): void {
@@ -97,20 +88,26 @@ function createSyncer(read: () => SyncInput): Syncer {
 /**
  * Keeps scheduled local notifications in line with the tasks. Renders nothing. It never syncs while
  * the tasks or settings are loading or writes are blocked (locked/read-only): the list is then empty or
- * partial, and reconciling against it would cancel the user's reminders. Settings changes re-sync.
+ * partial, and reconciling against it would cancel the user's reminders. Settings changes re-sync. Switching the
+ * period tracker off, pausing it or deleting its data cancels every `dayform:cycle:*` notification.
  */
 export function RemindersBridge(): null {
   const { tasks, loading, writesBlocked } = useTasks();
   const { language } = useLanguage();
   const { settings, ready: settingsReady } = useSettings();
   const { notifications } = settings;
+  const { state: cycleState, ready: cycleReady, locked: cycleLocked } = useCycle();
+  const cycle = useMemo<CycleSync>(
+    () => ({ state: cycleState, ready: cycleReady, locked: cycleLocked }),
+    [cycleState, cycleReady, cycleLocked],
+  );
   const canSync = !loading && !writesBlocked && settingsReady;
-  const latest = useRef<SyncInput>({ tasks, language, notifications, canSync });
+  const latest = useRef<SyncInput>({ tasks, language, notifications, cycle, canSync });
   const syncer = useRef<Syncer | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, language, notifications, canSync };
-  }, [tasks, language, notifications, canSync]);
+    latest.current = { tasks, language, notifications, cycle, canSync };
+  }, [tasks, language, notifications, cycle, canSync]);
 
   // Mount-only: handler, syncer and the foreground subscription stay stable across task changes.
   useEffect(() => {
@@ -129,7 +126,7 @@ export function RemindersBridge(): null {
 
   useEffect(() => {
     if (canSync) syncer.current?.schedule();
-  }, [tasks, language, notifications, canSync]);
+  }, [tasks, language, notifications, cycle, canSync]);
 
   return null;
 }
