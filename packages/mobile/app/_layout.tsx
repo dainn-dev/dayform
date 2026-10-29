@@ -11,6 +11,7 @@ import { SnapshotScheduler } from "../components/SnapshotScheduler";
 import { UndoBar } from "../components/UndoBar";
 import { UpdatePrompt } from "../components/update/UpdatePrompt";
 import { WidgetSync } from "../components/WidgetSync";
+import { CategoriesProvider, useCategories } from "../lib/categories-context";
 import { SettingsProvider, useSettings } from "../lib/settings-context";
 import { TasksProvider } from "../lib/tasks-context";
 import { UpdateProvider } from "../lib/update-context";
@@ -39,9 +40,10 @@ function AppReadyGate() {
   const themeReady = useThemePreference().ready;
   const languageReady = useLanguage().ready;
   const settingsReady = useSettings().ready;
+  const categoriesReady = useCategories().ready;
   useEffect(() => {
-    if (themeReady && languageReady && settingsReady) hideSplashOnce();
-  }, [themeReady, languageReady, settingsReady]);
+    if (themeReady && languageReady && settingsReady && categoriesReady) hideSplashOnce();
+  }, [themeReady, languageReady, settingsReady, categoriesReady]);
   return null;
 }
 
@@ -65,6 +67,7 @@ export default function RootLayout() {
         <SettingsProvider>
           <ThemeProvider>
             <LanguageProvider>
+              <CategoriesProvider>
               <TasksProvider>
                 <UpdateProvider>
                   <AppReadyGate />
@@ -79,6 +82,7 @@ export default function RootLayout() {
                   <UpdatePrompt />
                 </UpdateProvider>
               </TasksProvider>
+              </CategoriesProvider>
             </LanguageProvider>
           </ThemeProvider>
         </SettingsProvider>

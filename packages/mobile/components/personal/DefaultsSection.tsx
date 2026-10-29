@@ -7,7 +7,8 @@ import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
 import { reminderChoices, reminderLabel } from "../editor/reminder-choices";
 import { PERMISSION_HINT, useReminderPermission } from "../editor/use-reminder-permission";
 import { useLanguage } from "../../lib/language";
-import { categories } from "../../lib/planner";
+import { useCategories } from "../../lib/categories-context";
+import { pickCategory } from "../../lib/new-task-defaults";
 import { DURATION_OPTIONS, type Settings } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
 import { fillPlaceholders } from "../../lib/text-template";
@@ -24,6 +25,7 @@ export function DefaultsSection() {
   const { t, duration: formatDuration, time: formatTime } = useLanguage();
   const colors = useColors();
   const categoryColors = useCategoryColors();
+  const { visible, label } = useCategories();
   const permission = useReminderPermission();
   const [pickerFailed, setPickerFailed] = useState(false);
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -31,21 +33,23 @@ export function DefaultsSection() {
   const change = (patch: Partial<Settings["defaults"]>) => { void update({ defaults: patch }); };
 
   const durations: Choice<Settings["defaults"]["duration"]>[] = DURATION_OPTIONS.map(value => ({ value, label: formatDuration(value) }));
-  const cats: Choice<string>[] = categories.map(name => ({ value: name, label: t(name), accent: categoryColors[name].accent }));
+  // A stored default that was hidden or deleted is shown (and used by new tasks) as the fallback newTaskDefaults picks.
+  const defaultCategory = pickCategory(defaults.category, visible);
+  const cats: Choice<string>[] = visible.map(id => ({ value: id, label: label(id), accent: categoryColors.get(id).accent }));
   const modes: Choice<StartMode>[] = [{ value: "next-hour", label: t("Next full hour") }, { value: "fixed", label: t("Fixed time") }];
   const pickReminder = (next: number | null) => { change({ remind: next }); void permission.request(next); };
 
   const startText = defaults.startMode === "fixed" ? formatTime(defaults.startFixed) : t("next full hour");
   const reminderText = defaults.remind === null ? t("No reminder") : reminderLabel(defaults.remind, t);
   const details = defaults.scheduleNew
-    ? [formatDuration(defaults.duration), t(defaults.category), startText, reminderText]
-    : [formatDuration(defaults.duration), t(defaults.category), t("not scheduled")];
+    ? [formatDuration(defaults.duration), label(defaultCategory), startText, reminderText]
+    : [formatDuration(defaults.duration), label(defaultCategory), t("not scheduled")];
 
   return <View>
     <Text style={s.caption}>{t("Default duration")}</Text>
     <ChoiceChips choices={durations} value={defaults.duration} onChange={duration => change({ duration })} />
     <Text style={s.caption}>{t("Default category")}</Text>
-    <ChoiceChips choices={cats} value={defaults.category} onChange={category => change({ category })} />
+    <ChoiceChips choices={cats} value={defaultCategory} onChange={category => change({ category })} />
     <Text style={s.caption}>{t("Default reminder")}</Text>
     <ChoiceChips choices={reminderChoices(defaults.remind, t)} value={defaults.remind} onChange={pickReminder} />
     {permission.denied && defaults.remind !== null && <Text accessibilityRole="alert" style={s.hint}>{t(PERMISSION_HINT)}</Text>}

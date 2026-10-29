@@ -88,6 +88,22 @@ describe("filterTasks", () => {
     expect(filterTasks(tasks, all)).toEqual(tasks);
   });
 
+  test("onlyIds keeps just those tasks, in list order", () => {
+    const ids = [tasks[3].id, tasks[0].id];
+    expect(filterTasks(tasks, { ...all, onlyIds: ids })).toEqual([tasks[0], tasks[3]]);
+  });
+
+  test("an empty onlyIds matches nothing, an absent one matches everything", () => {
+    expect(filterTasks(tasks, { ...all, onlyIds: [] })).toEqual([]);
+    expect(filterTasks(tasks, { ...all, onlyIds: undefined })).toEqual(tasks);
+  });
+
+  test("onlyIds combines with the other constraints", () => {
+    const ids = tasks.map(item => item.id);
+    expect(filterTasks(tasks, { query: "work", categories: [], status: "all", onlyIds: ids })).toEqual([tasks[3]]);
+    expect(filterTasks(tasks, { query: "work", categories: [], status: "done", onlyIds: [tasks[0].id] })).toEqual([]);
+  });
+
   test("status filter keeps the explore semantics: active means not done", () => {
     expect(filterTasks(tasks, { ...all, status: "active" }).map(t => t.title)).toEqual(["Gym", "Plan trip", "Deep work"]);
     expect(filterTasks(tasks, { ...all, status: "done" }).map(t => t.title)).toEqual(["Họp nhóm"]);

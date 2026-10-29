@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { snapshotStatus } from "../lib/snapshot-status";
+import { useCategories } from "../lib/categories-context";
 import { createSnapshotRunner, type SnapshotInput, type SnapshotRunner } from "../lib/snapshots";
 import { useTasks } from "../lib/tasks-context";
 
@@ -17,13 +18,16 @@ const FIRST_SNAPSHOT_DELAY_MS = 5_000;
  */
 export function SnapshotScheduler(): null {
   const { tasks, loading, writesBlocked } = useTasks();
+  const { state: categoriesState, ready: categoriesReady } = useCategories();
   const canSnapshot = !loading && !writesBlocked;
-  const latest = useRef<SnapshotInput>({ tasks, canSnapshot });
+  // Until the categories are read the defaults would stand in for them, so they are left out of the copy.
+  const categories = categoriesReady ? categoriesState : undefined;
+  const latest = useRef<SnapshotInput>({ tasks, canSnapshot, categories });
   const runner = useRef<SnapshotRunner | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, canSnapshot };
-  }, [tasks, canSnapshot]);
+    latest.current = { tasks, canSnapshot, categories };
+  }, [tasks, canSnapshot, categories]);
 
   // Mount-only: the runner and the foreground subscription stay stable across task changes.
   useEffect(() => {

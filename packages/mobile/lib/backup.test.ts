@@ -10,6 +10,7 @@ import {
 } from "./backup";
 import { MAX_RECORDS, taskSchema } from "./task-storage";
 import type { Task } from "./planner";
+import { DEFAULT_CATEGORIES_STATE, type CategoriesState } from "./categories";
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
   return {
@@ -250,5 +251,61 @@ describe("serializeBackup compact", () => {
 
   test("pretty stays the default when the option is omitted or false", () => {
     expect(serializeBackup([task("a")], NOW, { compact: false })).toBe(serializeBackup([task("a")], NOW));
+  });
+});
+
+describe("backup categories", () => {
+  const categories: CategoriesState = {
+    custom: [{ id: "c_gym00000", name: "Gym", color: "coral", icon: "barbell-outline" }],
+    hidden: ["Wellness"],
+    renamed: { Work: "Day job" },
+  };
+
+  test("are exported only when customised", () => {
+    expect(JSON.parse(serializeBackup([task("a")], NOW, { categories })).categories).toEqual(categories);
+    expect("categories" in JSON.parse(serializeBackup([task("a")], NOW, { categories: DEFAULT_CATEGORIES_STATE }))).toBe(false);
+    expect("categories" in JSON.parse(serializeBackup([task("a")], NOW))).toBe(false);
+  });
+
+  test("round trip through compact and pretty output", () => {
+    const tasks = [task("a", { category: "c_gym00000" })];
+    for (const compact of [true, false]) {
+      expect(parseBackup(serializeBackup(tasks, NOW, { categories, compact }))).toEqual({ ok: true, tasks, rejected: 0, categories });
+    }
+  });
+
+  test("a backup whose tasks use custom ids but has no categories field still imports", () => {
+    const tasks = [task("a", { category: "c_gym00000" }), task("b", { category: "c_other000" })];
+    const result = parseBackup(serializeBackup(tasks, NOW));
+    expect(result).toEqual({ ok: true, tasks, rejected: 0 });
+    expect(result.ok && "categories" in result).toBe(false);
+  });
+
+  test("a bare array or a non-object categories value carries no categories", () => {
+    expect(parseBackup(JSON.stringify([task("a")]))).toEqual({ ok: true, tasks: [task("a")], rejected: 0 });
+    for (const value of [null, 5, "x", [], true]) {
+      expect(parseBackup(envelope({ categories: value }))).toEqual({ ok: true, tasks: [], rejected: 0 });
+    }
+  });
+
+  test("imported categories are validated with the stored-data limits", () => {
+    const many = Array.from({ length: 40 }, (_, i) => ({
+      id: `c_${String(i).padStart(8, "0")}`, name: `Name ${i}`, color: "sky", icon: "book-outline",
+    }));
+    const result = parseBackup(envelope({
+      categories: {
+        custom: [...many, { id: "Work", name: "Hijack", color: "sky", icon: "book-outline" }],
+        hidden: ["Focus", "Nope"],
+        renamed: { Work: "x".repeat(100), Nope: "y" },
+      },
+    }));
+    if (!result.ok || result.categories === undefined) throw new Error("expected categories");
+    expect(result.categories.custom).toHaveLength(12);
+    expect(result.categories.hidden).toEqual(["Focus"]);
+    expect(result.categories.renamed).toEqual({ Work: "x".repeat(24) });
+  });
+
+  test("the file size cap still applies when categories are present", () => {
+    expect(parseBackup(envelope({ categories }) + " ".repeat(MAX_BACKUP_BYTES))).toEqual({ ok: false, reason: "too-large" });
   });
 });

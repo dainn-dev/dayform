@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { Colors, type ThemeColors } from "../constants/palettes";
 import { ACCENT_IDS, ACCENT_KEYS, ACCENT_SETS, applyAccent } from "../constants/accents";
+import { COLOR_SLOTS } from "./categories";
 import { categories } from "./planner";
 
 const BODY_TEXT_RATIO = 4.5;
@@ -147,6 +148,28 @@ describe("accent contrast (every accent, both schemes)", () => {
       for (const scheme of ["light", "dark"] as const) {
         expect(Object.keys(ACCENT_SETS[accent][scheme]).sort()).toEqual([...ACCENT_KEYS].sort());
       }
+    }
+  });
+});
+
+describe("custom category color slots (both schemes)", () => {
+  for (const scheme of ["light", "dark"] as const) {
+    const palette = Colors[scheme];
+    for (const slot of COLOR_SLOTS) {
+      const { bg, accent } = palette.category[slot];
+      test(`${scheme} ${slot}: accent on tint >= ${ACCENT_RATIO}:1`, () => {
+        expect(contrast(accent, bg)).toBeGreaterThanOrEqual(ACCENT_RATIO);
+      });
+      test(`${scheme} ${slot}: title on tint >= ${BODY_TEXT_RATIO}:1`, () => {
+        expect(contrast(palette.foreground, bg)).toBeGreaterThanOrEqual(BODY_TEXT_RATIO);
+      });
+    }
+  }
+
+  test("slots are visually distinct from each other within a scheme", () => {
+    for (const scheme of ["light", "dark"] as const) {
+      const accents = COLOR_SLOTS.map(slot => Colors[scheme].category[slot].accent);
+      expect(new Set(accents).size).toBe(COLOR_SLOTS.length);
     }
   });
 });

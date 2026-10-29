@@ -13,6 +13,8 @@ import {
   type ImportOutcome,
   type ImportPlan,
   type SafetyCopyTarget,
+  withCategoriesNote,
+  CATEGORIES_NOT_RESTORED,
 } from "./backup-flow";
 import { BACKUP_KEY_PREFIX, MAX_RECORDS, contentKey } from "./task-storage";
 import { parseBackup, serializeBackup } from "./backup";
@@ -311,6 +313,26 @@ describe("runImport replace keeps a safety copy of the current tasks", () => {
     expect(box.tasks.map(t => t.id)).toEqual(["z"]);
   });
 
+  test("the safety copy carries customised categories so a restore can bring them back", async () => {
+    const categories = {
+      custom: [{ id: "c_gym00000", name: "Gym", color: "coral" as const, icon: "barbell-outline" as const }],
+      hidden: [], renamed: {},
+    };
+    const copy = safety();
+    const current = [task("a", { category: "c_gym00000" })];
+    const { mutate } = fakeStore(current, copy.order);
+    await runImport(mutate, parsed([task("z")]), "replace", { ...copy.target, categories });
+    const text = serializeBackup(current, SAFETY_NOW, { compact: true, categories });
+    expect(copy.data.get(contentKey(BACKUP_KEY_PREFIX, text))).toBe(text);
+    expect(parseBackup(text)).toEqual({ ok: true, tasks: current, rejected: 0, categories });
+  });
+
+  test("tasks that use custom or unknown category ids import fine without any categories", () => {
+    const incoming = [task("a", { category: "c_gym00000" }), task("b", { category: "c_gone0000" })];
+    const plan = okPlan(planImport([task("x")], parsed(incoming), "merge"));
+    expect(plan.summary).toMatchObject({ found: 2, skipped: 0, added: 2, resulting: 3 });
+  });
+
   test("the replace itself is an undoable bulk write; reading the list is silent", async () => {
     const copy = safety();
     const { box, mutate } = fakeStore([task("a")], copy.order);
@@ -383,5 +405,77 @@ describe("runImport replace keeps a safety copy of the current tasks", () => {
     expect(await runImport(mutate, parsed(tooMany), "replace", copy.target)).toEqual({ ok: false, reason: "too-many-tasks" });
     expect(box.tasks).toBe(current);
     expect(copy.data.size).toBe(0);
+  });
+});
+
+describe("runImport applies the backup's categories", () => {
+  const incoming = {
+    custom: [{ id: "c_gym00000", name: "Gym", color: "coral" as const, icon: "barbell-outline" as const }],
+    hidden: [], renamed: {},
+  };
+  const withCategories = (tasks: Task[]) => ({ tasks, rejected: 0, categories: incoming });
+  const mutateInto = (box: { tasks: Task[] }) => async (update: (tasks: Task[]) => Task[]) => {
+    box.tasks = update(box.tasks);
+    return true;
+  };
+  function hook(result: { ok: boolean } = { ok: true }) {
+    const calls: Array<[unknown, string]> = [];
+    return { calls, importCategories: async (value: unknown, mode: string) => { calls.push([value, mode]); return result; } };
+  }
+
+  test("merge hands the categories to the store with the same mode, after the tasks are saved", async () => {
+    const box = { tasks: [task("a")] };
+    const h = hook();
+    const outcome = await runImport(mutateInto(box), withCategories([task("z")]), "merge", { ...safety().target, importCategories: h.importCategories });
+    expect(okOutcome(outcome)).toMatchObject({ categories: "applied" });
+    expect(h.calls).toEqual([[incoming, "merge"]]);
+    expect(box.tasks.map(t => t.id)).toEqual(["a", "z"]);
+  });
+  test("replace uses replace mode", async () => {
+    const box = { tasks: [task("a")] };
+    const h = hook();
+    await runImport(mutateInto(box), withCategories([task("z")]), "replace", { ...safety().target, importCategories: h.importCategories });
+    expect(h.calls).toEqual([[incoming, "replace"]]);
+  });
+  test("a file without categories leaves the current ones alone", async () => {
+    const h = hook();
+    const outcome = await runImport(mutateInto({ tasks: [] }), parsed([task("z")]), "merge", { ...safety().target, importCategories: h.importCategories });
+    expect(okOutcome(outcome).categories).toBeUndefined();
+    expect(h.calls).toEqual([]);
+  });
+  test("categories are not applied when the tasks were refused", async () => {
+    const h = hook();
+    const outcome = await runImport(mutateInto({ tasks: [] }), withCategories([]), "merge", { ...safety().target, importCategories: h.importCategories });
+    expect(outcome).toEqual({ ok: false, reason: "no-valid-tasks" });
+    expect(h.calls).toEqual([]);
+  });
+  test("a failed categories save is reported but the tasks stay imported", async () => {
+    const box = { tasks: [] as Task[] };
+    const outcome = await runImport(mutateInto(box), withCategories([task("z")]), "merge", { ...safety().target, importCategories: hook({ ok: false }).importCategories });
+    expect(okOutcome(outcome)).toMatchObject({ categories: "failed" });
+    expect(box.tasks).toHaveLength(1);
+  });
+  test("a throwing categories store is reported as failed, never thrown", async () => {
+    const outcome = await runImport(mutateInto({ tasks: [] }), withCategories([task("z")]), "merge", {
+      ...safety().target, importCategories: async () => { throw new Error("disk"); },
+    });
+    expect(okOutcome(outcome)).toMatchObject({ categories: "failed" });
+  });
+  test("without a hook the categories are ignored", async () => {
+    const outcome = await runImport(mutateInto({ tasks: [] }), withCategories([task("z")]), "merge", safety().target);
+    expect(okOutcome(outcome).categories).toBeUndefined();
+  });
+});
+
+describe("withCategoriesNote", () => {
+  const parts = [countItem(2, "task imported", "tasks imported")];
+  test("adds the note only when the categories failed", () => {
+    expect(withCategoriesNote(parts, { categories: "failed" })).toEqual([...parts, { key: CATEGORIES_NOT_RESTORED }]);
+    expect(withCategoriesNote(parts, { categories: "applied" })).toEqual(parts);
+    expect(withCategoriesNote(parts, {})).toEqual(parts);
+  });
+  test("does not mutate its input", () => {
+    withCategoriesNote(parts, { categories: "failed" });
+    expect(parts).toHaveLength(1);
   });
 });

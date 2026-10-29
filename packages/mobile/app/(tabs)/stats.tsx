@@ -8,8 +8,10 @@ import { useSettings } from "../../lib/settings-context";
 import { computeStats, followToday, monthRange, shiftRange, weekRange, type RangeKind } from "../../lib/stats";
 import { rangeTitle } from "../../lib/range-title";
 import { useTasks } from "../../lib/tasks-context";
+import { useHabitHints } from "../../components/habits/useHabitHints";
 import { CategoryBreakdown } from "../../components/stats/CategoryBreakdown";
 import { DayBars } from "../../components/stats/DayBars";
+import { FocusHoursCard } from "../../components/stats/FocusHoursCard";
 import { EmptyStats } from "../../components/stats/EmptyStats";
 import { RangePicker } from "../../components/stats/RangePicker";
 import { StreakCard } from "../../components/stats/StreakCard";
@@ -23,6 +25,8 @@ export default function StatsScreen() {
   const { tasks, loading } = useTasks();
   const weekStart = useSettings().settings.calendar.weekStart;
   const today = useTodayKey();
+  // Null when habit hints are off or there is not enough history yet.
+  const { focus } = useHabitHints({ summary: true });
   const [kind, setKind] = useState<RangeKind>("week");
   // Any date inside the shown week/month; the range is derived from it so switching Week/Month keeps the position.
   const [anchor, setAnchor] = useState(today);
@@ -52,6 +56,7 @@ export default function StatsScreen() {
             <CategoryBreakdown perCategory={stats.perCategory} />
           </>}
           <StreakCard streak={stats.streak} busiestDay={stats.busiestDay} />
+          {focus && <FocusHoursCard focus={focus} />}
         </View>}
     </ScrollView>
   </SafeAreaView>;

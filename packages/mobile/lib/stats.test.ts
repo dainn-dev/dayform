@@ -137,6 +137,31 @@ describe("computeStats breakdowns", () => {
     expect(stats.perCategory.Focus.count).toBe(0);
   });
 
+  test("keys by any category id present in the data, built-ins stay at zero", () => {
+    const stats = computeStats([
+      at("2026-05-04", 40, { category: "c_gym00000", status: "done" }),
+      at("2026-05-05", 25, { category: "c_gym00000" }),
+      at("2026-05-05", 10, { category: "c_deleted0" }),
+    ], { from: "2026-05-04", to: "2026-05-10" }, "2026-05-05");
+    expect(stats.perCategory.c_gym00000).toEqual({ plannedMinutes: 65, doneMinutes: 40, count: 2 });
+    expect(stats.perCategory.c_deleted0).toEqual({ plannedMinutes: 10, doneMinutes: 0, count: 1 });
+    expect(stats.perCategory.Focus).toEqual({ plannedMinutes: 0, doneMinutes: 0, count: 0 });
+    expect(Object.keys(stats.perCategory)).toEqual(["Focus", "Work", "Personal", "Wellness", "c_gym00000", "c_deleted0"]);
+  });
+
+  test("tasks outside the range or unscheduled do not add a category key", () => {
+    const stats = computeStats([
+      at("2026-06-01", 40, { category: "c_late0000" }),
+      task({ category: "c_backlog0" }),
+    ], { from: "2026-05-04", to: "2026-05-10" }, "2026-05-05");
+    expect(Object.keys(stats.perCategory)).toEqual(["Focus", "Work", "Personal", "Wellness"]);
+  });
+
+  test("an id such as __proto__ is counted as plain data", () => {
+    const stats = computeStats([at("2026-05-04", 15, { category: "__proto__" })], { from: "2026-05-04", to: "2026-05-10" }, "2026-05-05");
+    expect(Object.getOwnPropertyDescriptor(stats.perCategory, "__proto__")?.value).toEqual({ plannedMinutes: 15, doneMinutes: 0, count: 1 });
+  });
+
   test("fills perDay for every date of a leap-February month", () => {
     const stats = computeStats([at("2028-02-29", 30, { status: "done" })], monthRange("2028-02-10"), "2028-03-01");
     expect(stats.perDay).toHaveLength(29);

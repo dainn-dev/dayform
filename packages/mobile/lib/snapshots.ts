@@ -1,4 +1,5 @@
 import { serializeBackup } from "./backup";
+import type { CategoriesState } from "./categories";
 import { dateKey, fromKey, type Task } from "./planner";
 import { utf8Length } from "./text-size";
 
@@ -115,7 +116,12 @@ async function listKeys(storage: SnapshotStorage): Promise<readonly string[] | n
  * Writes `dayform.snapshot.<today>` when one is due, then prunes old ones. Never throws, never reads or
  * writes the main task key, and never snapshots an empty list (it could replace a good one with nothing).
  */
-export async function takeSnapshot(storage: SnapshotStorage, tasks: readonly Task[], now: Date): Promise<SnapshotResult> {
+export async function takeSnapshot(
+  storage: SnapshotStorage,
+  tasks: readonly Task[],
+  now: Date,
+  categories?: CategoriesState,
+): Promise<SnapshotResult> {
   if (Number.isNaN(now.getTime())) return { kind: "failed", reason: "invalid-date" };
   if (tasks.length === 0) return { kind: "skipped", reason: "empty" };
   const keys = await listKeys(storage);
@@ -124,7 +130,7 @@ export async function takeSnapshot(storage: SnapshotStorage, tasks: readonly Tas
   if (!shouldSnapshot(keys, today)) return { kind: "skipped", reason: "not-due" };
 
   if (tasks.length * MIN_TASK_JSON_BYTES > MAX_SNAPSHOT_BYTES) return { kind: "skipped", reason: "too-large" };
-  const text = serializeBackup(tasks, now, { compact: true });
+  const text = serializeBackup(tasks, now, { compact: true, categories });
   if (utf8Length(text) > MAX_SNAPSHOT_BYTES) return { kind: "skipped", reason: "too-large" };
   const key = snapshotKey(today);
   try {
@@ -135,7 +141,8 @@ export async function takeSnapshot(storage: SnapshotStorage, tasks: readonly Tas
   return { kind: "written", key, ...(await pruneSnapshots(storage, [...keys, key], today)) };
 }
 
-export type SnapshotInput = { tasks: readonly Task[]; canSnapshot: boolean };
+/** `categories` (when customised) is stored in the snapshot too, so a restore brings back custom category names. */
+export type SnapshotInput = { tasks: readonly Task[]; canSnapshot: boolean; categories?: CategoriesState };
 export type SnapshotRunner = {
   /** `null` when nothing was attempted (not trustworthy, already running, or disposed). */
   run(): Promise<SnapshotResult | null>;
@@ -159,7 +166,7 @@ export function createSnapshotRunner(options: {
       if (!input.canSnapshot) return null;
       running = true;
       try {
-        const result = await takeSnapshot(options.storage, input.tasks, options.now());
+        const result = await takeSnapshot(options.storage, input.tasks, options.now(), input.categories);
         options.onResult?.(result);
         return result;
       } finally {

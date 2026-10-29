@@ -74,10 +74,18 @@ describe("taskSchema", () => {
     expect(taskSchema.safeParse(task({ date: null, start: null })).success).toBe(true);
   });
 
-  test("rejects an empty id, bad status and bad category", () => {
+  test("rejects an empty id, bad status and a malformed category", () => {
     expect(taskSchema.safeParse(task({ id: "" })).success).toBe(false);
     expect(taskSchema.safeParse({ ...task(), status: "nope" }).success).toBe(false);
-    expect(taskSchema.safeParse({ ...task(), category: "Other" }).success).toBe(false);
+    expect(taskSchema.safeParse({ ...task(), category: "" }).success).toBe(false);
+    expect(taskSchema.safeParse({ ...task(), category: "x".repeat(41) }).success).toBe(false);
+    expect(taskSchema.safeParse({ ...task(), category: 3 }).success).toBe(false);
+  });
+
+  test("accepts every built-in id, custom ids and ids that no longer exist", () => {
+    for (const category of ["Focus", "Work", "Personal", "Wellness", "c_ab12cd34", "Other", "x".repeat(40)]) {
+      expect(taskSchema.safeParse(task({ category })).success).toBe(true);
+    }
   });
 
   test("rejects malformed times and fractional durations", () => {
@@ -115,6 +123,14 @@ describe("loadTasks", () => {
     const tasks = [task(), task({ id: "t2", date: null, start: null })];
     const fake = fakeStorage({ initial: stored(tasks) });
     expect(await load(fake)).toEqual({ kind: "ok", tasks, quarantined: 0 });
+    expect(fake.setCalls).toEqual([]);
+  });
+
+  test("data saved before custom categories existed loads unchanged, and unknown category ids load too", async () => {
+    const old = (["Focus", "Work", "Personal", "Wellness"] as const).map((category, i) => task({ id: `old-${i}`, category }));
+    const unknown = task({ id: "gone", category: "c_deleted0" });
+    const fake = fakeStorage({ initial: stored([...old, unknown]) });
+    expect(await load(fake)).toEqual({ kind: "ok", tasks: [...old, unknown], quarantined: 0 });
     expect(fake.setCalls).toEqual([]);
   });
 

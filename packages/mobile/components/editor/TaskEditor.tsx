@@ -5,11 +5,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import type { Category, Repeat, Status, Task } from "../../lib/planner";
+import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
 import { newTaskDefaults, type NewTaskDefaults } from "../../lib/new-task-defaults";
 import type { Settings } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
 import { useTasks } from "../../lib/tasks-context";
+import { NewTaskHints } from "../habits/NewTaskHints";
 import { CategoryChips } from "./CategoryChips";
 import { ConflictWarning } from "./ConflictWarning";
 import { DurationStatusRow } from "./DurationStatusRow";
@@ -43,14 +45,14 @@ const PICKER_ERROR = "Could not open the picker. Please try again.";
 const FALLBACK_TIME = "09:00";
 
 /** An existing task keeps its own values; only a NEW task (no `task`) takes the user's defaults. */
-function initialValues(task: Task | null | undefined, settings: Settings, defaultDate: string, defaultTime: string | null | undefined): NewTaskDefaults {
+function initialValues(task: Task | null | undefined, settings: Settings, knownCategories: readonly string[], defaultDate: string, defaultTime: string | null | undefined): NewTaskDefaults {
   if (task) {
     return {
       duration: task.duration, category: task.category, remind: task.remind ?? null, scheduled: Boolean(task.start || defaultTime),
       date: task.date ?? defaultDate, time: task.start ?? defaultTime ?? FALLBACK_TIME,
     };
   }
-  return newTaskDefaults(settings, { now: new Date(), slotTime: defaultTime ?? null, selectedDate: defaultDate });
+  return newTaskDefaults(settings, { now: new Date(), slotTime: defaultTime ?? null, selectedDate: defaultDate, knownCategories });
 }
 
 export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, extraFields }: Props) {
@@ -59,13 +61,16 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const { settings } = useSettings();
-  const [initial] = useState(() => initialValues(task, settings, defaultDate, defaultTime));
+  const { visible: visibleCategories } = useCategories();
+  const [initial] = useState(() => initialValues(task, settings, visibleCategories, defaultDate, defaultTime));
   const [title, setTitle] = useState(task?.title ?? "");
   const [duration, setDuration] = useState(String(initial.duration));
   const [scheduled, setScheduled] = useState(initial.scheduled);
   const [date, setDate] = useState(initial.date);
   const [time, setTime] = useState(initial.time);
-  const [category, setCategory] = useState<Category>(initial.category);
+  const [category, setCategoryState] = useState<Category>(initial.category);
+  /** Once the user picks a category themselves, a habit hint must not offer to change it. */
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [status, setStatus] = useState<Status>(task?.status ?? "todo");
   const [notes, setNotes] = useState(task?.notes ?? "");
   const [remind, setRemind] = useState<number | null>(initial.remind);
@@ -73,6 +78,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const [repeatUntil, setRepeatUntil] = useState<string | null>(task?.repeatUntil ?? null);
   const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil } });
 
+  const setCategory = (next: Category) => { setCategoryState(next); setCategoryTouched(true); };
   /** A field that affects the overlap check or the scope choice: editing it drops a stale "Save anyway". */
   const resetting = <V,>(set: (value: V) => void) => (value: V) => { set(value); actions.resetConfirmations(); };
   /** Removing the rule also removes its end date, so it cannot come back with a later rule. */
@@ -87,6 +93,8 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={Keyboard.dismiss}>
           <TitleField value={title} onChange={setTitle} />
           <DurationStatusRow duration={duration} onDurationChange={resetting(setDuration)} status={status} onStatusChange={setStatus} />
+          {!task && <NewTaskHints title={title} duration={duration} category={category} categoryTouched={categoryTouched} repeat={repeat} scheduled={scheduled}
+            onApplyDuration={resetting(setDuration)} onApplyCategory={setCategory} onApplyRepeat={changeRepeat} />}
           <CategoryChips value={category} onChange={setCategory} />
           <ScheduleToggle value={scheduled} onChange={resetting(setScheduled)} />
           {scheduled && <ScheduleFields date={date} time={time} onDateChange={resetting(setDate)} onTimeChange={resetting(setTime)} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}

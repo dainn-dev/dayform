@@ -29,6 +29,8 @@ export function DurationField({ minutes, onChange }: Props) {
   const [unit, setUnit] = useState<DurationUnit>("min");
   const [hoursDraft, setHoursDraft] = useState("");
   const inHours = unit === "hr";
+  // The draft is what the user typed; when the minutes changed from outside (a habit hint), show them instead.
+  const shownHours = hoursTextToMinutesText(hoursDraft) === minutes ? hoursDraft : minutesToHoursText(minutes);
 
   const handleChange = (text: string): void => {
     if (!inHours) {
@@ -48,7 +50,7 @@ export function DurationField({ minutes, onChange }: Props) {
 
   return <View>
     <TextInput
-      value={inHours ? hoursDraft : minutes}
+      value={inHours ? shownHours : minutes}
       onChangeText={handleChange}
       keyboardType={inHours ? "decimal-pad" : "number-pad"}
       returnKeyType="done"

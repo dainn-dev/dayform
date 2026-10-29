@@ -93,6 +93,15 @@ const light = {
     Work: { bg: "#EBF7F5", accent: "#4BB3A4" },
     Personal: { bg: "#FFF3E8", accent: "#EDAA6A" },
     Wellness: { bg: "#FCECF0", accent: "#E38AA5" },
+    // Custom category color slots (lib/categories.ts COLOR_SLOTS). Accent on tint is >= 3:1; see lib/theme-contrast.test.ts.
+    violet: { bg: "#EEEBFF", accent: "#6A4FD6" },
+    sky: { bg: "#E6F3FC", accent: "#1E78B4" },
+    mint: { bg: "#E7F7EE", accent: "#1F8A5B" },
+    lime: { bg: "#F1F7DF", accent: "#5F7F12" },
+    amber: { bg: "#FFF4D9", accent: "#A66A00" },
+    coral: { bg: "#FFEDE8", accent: "#CC4B32" },
+    magenta: { bg: "#FBE9F7", accent: "#B8329A" },
+    slate: { bg: "#EDF0F5", accent: "#5A6783" },
   },
 };
 
@@ -170,6 +179,14 @@ const dark: ThemeColors = {
     Work: { bg: "#15302E", accent: "#5FCFC0" },
     Personal: { bg: "#3A2A1B", accent: "#F2BB82" },
     Wellness: { bg: "#3A1F2A", accent: "#F29AB5" },
+    violet: { bg: "#231F45", accent: "#A594F7" },
+    sky: { bg: "#14283A", accent: "#6DB8EE" },
+    mint: { bg: "#14302A", accent: "#5AD3A0" },
+    lime: { bg: "#26300F", accent: "#B5D34E" },
+    amber: { bg: "#35290E", accent: "#F0C04A" },
+    coral: { bg: "#3A2019", accent: "#F59A80" },
+    magenta: { bg: "#36193A", accent: "#E78AD6" },
+    slate: { bg: "#222834", accent: "#9AA8C4" },
   },
 };
 

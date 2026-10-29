@@ -1,4 +1,4 @@
-import { countItem, importErrorMessage, type ImportFailure, type ImportSummary, type NoticeItem, type ParsedTasks } from "./backup-flow";
+import { countItem, importErrorMessage, type ImportFailure, type ImportSummary, type NoticeItem, type ParsedTasks, withCategoriesNote } from "./backup-flow";
 import type { DeleteResult, PreviewFailure, RecoveryItem, RecoveryKind } from "./recovery";
 
 // The strings below are translation keys (lib/i18n/recovery.ts and lib/i18n/backup.ts); keep them in sync.
@@ -78,10 +78,10 @@ export function restoreErrorMessage(reason: RestoreFailure): string {
   }
 }
 
-export function restoredNotice(summary: ImportSummary): RecoveryNotice {
+export function restoredNotice(summary: ImportSummary, categories?: "applied" | "failed"): RecoveryNotice {
   const parts = [countItem(summary.added + summary.updated, "task restored", "tasks restored")];
   if (summary.skipped > 0) parts.push(countItem(summary.skipped, "task skipped", "tasks skipped"));
-  return { tone: "success", parts };
+  return { tone: "success", parts: withCategoriesNote(parts, { categories }) };
 }
 
 export function deleteNotice(results: readonly DeleteResult[]): RecoveryNotice {

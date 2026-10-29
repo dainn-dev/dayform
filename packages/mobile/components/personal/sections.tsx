@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { CalendarSection } from "./CalendarSection";
+import { CategoriesSection } from "./CategoriesSection";
 import { DefaultsSection } from "./DefaultsSection";
 import { GreetingSection } from "./GreetingSection";
 import { HabitsSection } from "./HabitsSection";
@@ -19,6 +20,7 @@ export type PersonalSectionEntry = {
  */
 export const PERSONAL_SECTIONS: readonly PersonalSectionEntry[] = [
   { key: "defaults", title: "New tasks", Component: DefaultsSection },
+  { key: "categories", title: "Categories", Component: CategoriesSection },
   { key: "calendar", title: "Calendar & time", Component: CalendarSection },
   { key: "notifications", title: "Notifications", Component: NotificationsSection },
   { key: "widget", title: "Widget", Component: WidgetSection },

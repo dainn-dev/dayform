@@ -393,3 +393,30 @@ describe("createSnapshotRunner edge cases", () => {
     expect((await runner.run())?.kind).toBe("written");
   });
 });
+
+describe("snapshots keep customised categories", () => {
+  const categories = {
+    custom: [{ id: "c_gym00000", name: "Gym", color: "coral" as const, icon: "barbell-outline" as const }],
+    hidden: [], renamed: {},
+  };
+
+  test("a snapshot carries the categories when they are customised", async () => {
+    const { storage, data } = fakeStorage();
+    await takeSnapshot(storage, [task("a", { category: "c_gym00000" })], NOW, categories);
+    const parsed = parseBackup(data.get(key("2026-03-20")) ?? "");
+    expect(parsed.ok && parsed.categories).toEqual(categories);
+  });
+
+  test("default categories add nothing to the snapshot", async () => {
+    const { storage, data } = fakeStorage();
+    await takeSnapshot(storage, [task("a")], NOW, { custom: [], hidden: [], renamed: {} });
+    expect(data.get(key("2026-03-20"))).not.toContain("categories");
+  });
+
+  test("the runner passes along the categories it reads", async () => {
+    const { storage, data } = fakeStorage();
+    const runner = createSnapshotRunner({ storage, read: () => ({ tasks: [task("a")], canSnapshot: true, categories }), now: () => NOW });
+    await runner.run();
+    expect(data.get(key("2026-03-20"))).toContain("c_gym00000");
+  });
+});

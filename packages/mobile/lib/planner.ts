@@ -1,5 +1,9 @@
 export type Status = "todo" | "in_progress" | "done";
-export type Category = "Focus" | "Work" | "Personal" | "Wellness";
+/**
+ * A category id: one of the built-in ids ("Focus", "Work", "Personal", "Wellness") or a user-defined
+ * `c_xxxxxxxx` id (see lib/categories.ts). Stored tasks may reference an id that no longer exists.
+ */
+export type Category = string;
 export type Repeat = "daily" | "weekdays" | "weekly" | "monthly";
 export const repeats: Repeat[] = ["daily", "weekdays", "weekly", "monthly"];
 /** Minutes before `start` that a reminder can fire. */
@@ -23,8 +27,12 @@ export type Task = {
   repeatUntil?: string | null;
 };
 
-export const categories: Category[] = ["Focus", "Work", "Personal", "Wellness"];
-export const categoryStyle: Record<Category, { bg: string; accent: string; icon: string }> = {
+/** Ids of the categories that ship with the app. Their display names are translated; the ids never change. */
+export const BUILTIN_CATEGORIES = ["Focus", "Work", "Personal", "Wellness"] as const;
+export type BuiltinCategory = (typeof BUILTIN_CATEGORIES)[number];
+export const categories: readonly BuiltinCategory[] = BUILTIN_CATEGORIES;
+/** Styles of the built-in categories only; custom ones are resolved through `resolveCategory` in lib/categories.ts. */
+export const categoryStyle: Record<BuiltinCategory, { bg: string; accent: string; icon: string }> = {
   Focus: { bg: "#E9EEFF", accent: "#5A78DD", icon: "bulb-outline" },
   Work: { bg: "#EBF7F5", accent: "#4BB3A4", icon: "briefcase-outline" },
   Personal: { bg: "#FFF3E8", accent: "#EDAA6A", icon: "heart-outline" },

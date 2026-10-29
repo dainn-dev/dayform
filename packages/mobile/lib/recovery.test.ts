@@ -452,3 +452,36 @@ describe("restoreRecoveryItem", () => {
     });
   });
 });
+
+describe("recovery copies with categories", () => {
+  const categories = {
+    custom: [{ id: "c_gym00000", name: "Gym", color: "coral" as const, icon: "barbell-outline" as const }],
+    hidden: [], renamed: {},
+  };
+  const key = snap("2026-03-20");
+
+  test("a preview carries the categories of the copy and omits the field otherwise", async () => {
+    const { storage } = fakeStorage({
+      [key]: serializeBackup([task("a")], NOW, { categories }),
+      [snap("2026-03-13")]: serializeBackup([task("a")], NOW),
+    });
+    expect(await previewRecoveryItem(storage, key)).toEqual({ ok: true, tasks: [task("a")], rejected: 0, categories });
+    expect(await previewRecoveryItem(storage, snap("2026-03-13"))).toEqual({ ok: true, tasks: [task("a")], rejected: 0 });
+  });
+
+  test("a restore applies the copy's categories in the same mode and stores the current ones in the safety copy", async () => {
+    const { storage, data } = fakeStorage({ [key]: serializeBackup([task("a")], NOW, { categories }) });
+    const { mutate } = fakeStore([task("current")]);
+    const calls: string[] = [];
+    const current = { custom: [], hidden: ["Work"], renamed: {} };
+    const outcome = await restoreRecoveryItem(storage, mutate, key, "replace", NOW, {
+      categories: current,
+      importCategories: async (incoming, mode) => { calls.push(`${incoming.custom.length}:${mode}`); return { ok: true }; },
+    });
+    expect(outcome).toMatchObject({ ok: true, categories: "applied" });
+    expect(calls).toEqual(["1:replace"]);
+    const copies = [...data.entries()].filter(([name]) => name.startsWith(BACKUP_KEY_PREFIX));
+    expect(copies).toHaveLength(1);
+    expect(copies[0][1]).toContain('"hidden":["Work"]');
+  });
+});

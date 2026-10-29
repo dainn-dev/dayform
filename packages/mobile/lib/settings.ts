@@ -25,7 +25,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const WHITESPACE = /\s+/g;
 const INVISIBLE = /[\p{Cc}­؜᠎​‎‏‪-‮⁠-⁤⁦-⁩]/gu;
 
-function sanitizeLine(text: unknown, maxLength: number): string {
+export function sanitizeLine(text: unknown, maxLength: number): string {
   if (typeof text !== "string") return "";
   const cleaned = text.replace(WHITESPACE, " ").replace(INVISIBLE, "").replace(WHITESPACE, " ").trim();
   return Array.from(cleaned).slice(0, maxLength).join("").trim();

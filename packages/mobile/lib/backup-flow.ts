@@ -1,3 +1,4 @@
+import type { CategoriesState } from "./categories";
 import { mergeBackup, serializeBackup, type BackupFailure, type MergeMode } from "./backup";
 import type { Task } from "./planner";
 import { utf8Length } from "./text-size";
@@ -26,11 +27,24 @@ export type ImportSummary = {
 export type ImportPlan =
   | { ok: true; update: (tasks: Task[]) => Task[]; summary: ImportSummary }
   | { ok: false; reason: PlanFailure };
-export type ParsedTasks = { tasks: readonly Task[]; rejected: number };
+/** `categories` is set when the file carried a categories object; it is applied after the tasks, in the same mode. */
+export type ParsedTasks = { tasks: readonly Task[]; rejected: number; categories?: CategoriesState };
 export type ImportFailure = PlanFailure | "save-failed" | "safety-copy-failed" | "list-changed";
-export type ImportOutcome = { ok: true; summary: ImportSummary } | { ok: false; reason: ImportFailure };
+/** `categories` is only set when the file had categories and the caller could apply them. */
+export type ImportOutcome =
+  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed" }
+  | { ok: false; reason: ImportFailure };
 /** Where (and when) the safety copy taken before a replace is written. */
-export type SafetyCopyTarget = { storage: { setItem(key: string, value: string): Promise<void> }; now: Date };
+export type SafetyCopyTarget = {
+  storage: { setItem(key: string, value: string): Promise<void> };
+  now: Date;
+  /** The current categories, saved in the copy too (only when customised) so a restore can bring them back. */
+  categories?: CategoriesState;
+};
+/** What `runImport` needs besides the task store: the safety-copy target and, optionally, how to apply categories. */
+export type ImportTarget = SafetyCopyTarget & {
+  importCategories?: (incoming: CategoriesState, mode: MergeMode) => Promise<{ ok: boolean }>;
+};
 export type ImportMutate = (
   update: (tasks: Task[]) => Task[],
   options?: { undo?: "bulk"; silent?: boolean },
@@ -106,7 +120,7 @@ async function commitImport(
 
 /** Writes the list as a compact backup under a content-addressed recovery key (same scheme as loadTasks). */
 async function writeSafetyCopy(target: SafetyCopyTarget, tasks: readonly Task[]): Promise<boolean> {
-  const text = serializeBackup(tasks, target.now, { compact: true });
+  const text = serializeBackup(tasks, target.now, { compact: true, categories: target.categories });
   try {
     await target.storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
     return true;
@@ -134,14 +148,30 @@ async function runReplace(mutate: ImportMutate, parsed: ParsedTasks, safety: Saf
   return commitImport(mutate, parsed, "replace", current);
 }
 
-/** Commits an import through `mutate`, reporting why nothing was written when it could not be. */
-export function runImport(
+async function applyCategories(target: ImportTarget, parsed: ParsedTasks, mode: MergeMode): Promise<"applied" | "failed" | null> {
+  if (parsed.categories === undefined || target.importCategories === undefined) return null;
+  try {
+    return (await target.importCategories(parsed.categories, mode)).ok ? "applied" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
+ * Commits an import through `mutate`, reporting why nothing was written when it could not be. The file's
+ * categories (when it has any and `importCategories` is given) are applied only after the tasks were saved,
+ * so a refused import never changes them; if only that step fails the outcome says so.
+ */
+export async function runImport(
   mutate: ImportMutate,
   parsed: ParsedTasks,
   mode: MergeMode,
-  safety: SafetyCopyTarget,
+  target: ImportTarget,
 ): Promise<ImportOutcome> {
-  return mode === "replace" ? runReplace(mutate, parsed, safety) : commitImport(mutate, parsed, mode, null);
+  const outcome = mode === "replace" ? await runReplace(mutate, parsed, target) : await commitImport(mutate, parsed, mode, null);
+  if (!outcome.ok) return outcome;
+  const categories = await applyCategories(target, parsed, mode);
+  return categories === null ? outcome : { ...outcome, categories };
 }
 
 // The strings below are translation keys (lib/i18n/backup.ts); keep them in sync.
@@ -193,6 +223,14 @@ export function parseErrorMessage(reason: BackupFailure): string {
 
 /** A notice part: an English translation key, optionally with a leading count. Translated at render. */
 export type NoticeItem = { key: string; count?: number };
+
+/** Translation key (lib/i18n/category-usage.ts) shown after an import whose categories could not be saved. */
+export const CATEGORIES_NOT_RESTORED = "Categories could not be restored";
+
+/** `parts` plus a note when the outcome says the file's categories failed to apply; unchanged otherwise. */
+export function withCategoriesNote(parts: readonly NoticeItem[], outcome: { categories?: "applied" | "failed" }): NoticeItem[] {
+  return outcome.categories === "failed" ? [...parts, { key: CATEGORIES_NOT_RESTORED }] : [...parts];
+}
 
 /** One key per grammatical number, so no translation key ever contains an interpolated value. */
 export function countItem(count: number, one: string, other: string): NoticeItem {

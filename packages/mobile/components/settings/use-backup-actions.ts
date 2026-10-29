@@ -12,7 +12,9 @@ import {
   runImport,
   type NoticeItem,
   type ParsedTasks,
+  withCategoriesNote,
 } from "../../lib/backup-flow";
+import { useCategories } from "../../lib/categories-context";
 import { useTasks } from "../../lib/tasks-context";
 
 /** `parts` are English translation keys (with optional counts); the UI translates them when rendering. */
@@ -37,15 +39,16 @@ export type BackupActions = {
 
 const failure = (message: string): Notice => ({ tone: "error", parts: [{ key: message }] });
 
-function importedNotice(imported: number, skipped: number): Notice {
+function importedNotice(imported: number, skipped: number, categories?: "applied" | "failed"): Notice {
   const parts = [countItem(imported, "task imported", "tasks imported")];
   if (skipped > 0) parts.push(countItem(skipped, "task skipped", "tasks skipped"));
-  return { tone: "success", parts };
+  return { tone: "success", parts: withCategoriesNote(parts, { categories }) };
 }
 
 /** State machine behind BackupSection: export, pick + parse, preview, merge or confirmed replace. */
 export function useBackupActions(): BackupActions {
   const { tasks, loading, mutate } = useTasks();
+  const { state: categoriesState, importState } = useCategories();
   const [stage, setStage] = useState<ImportStage>(IDLE);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,12 +62,12 @@ export function useBackupActions(): BackupActions {
     }
     setBusy(true);
     try {
-      const result = await exportBackupFile(tasks);
+      const result = await exportBackupFile(tasks, categoriesState);
       setNotice(result.ok ? { tone: "success", parts: [{ key: "Backup exported" }] } : failure(exportErrorMessage(result.reason)));
     } finally {
       setBusy(false);
     }
-  }, [tasks, loading]);
+  }, [tasks, loading, categoriesState]);
 
   const startImport = useCallback(async () => {
     setBusy(true);
@@ -89,14 +92,16 @@ export function useBackupActions(): BackupActions {
     if (stage.kind === "idle") return;
     setBusy(true);
     try {
-      const outcome = await runImport(mutate, stage.parsed, mode, { storage: AsyncStorage, now: new Date() });
+      const outcome = await runImport(mutate, stage.parsed, mode, {
+        storage: AsyncStorage, now: new Date(), categories: categoriesState, importCategories: importState,
+      });
       setStage(IDLE);
       if (!outcome.ok) setNotice(failure(importErrorMessage(outcome.reason)));
-      else setNotice(importedNotice(outcome.summary.added + outcome.summary.updated, outcome.summary.skipped));
+      else setNotice(importedNotice(outcome.summary.added + outcome.summary.updated, outcome.summary.skipped, outcome.categories));
     } finally {
       setBusy(false);
     }
-  }, [stage, mutate]);
+  }, [stage, mutate, categoriesState, importState]);
 
   const askToReplace = useCallback(() => {
     setStage(current => (current.kind === "preview" ? { kind: "confirm-replace", parsed: current.parsed } : current));

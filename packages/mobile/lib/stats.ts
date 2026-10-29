@@ -12,6 +12,7 @@ export type Stats = {
   completionRate: number | null;
   plannedMinutes: number;
   doneMinutes: number;
+  /** Keyed by category id: the built-ins always, plus any other id (custom, hidden, deleted) that a counted task uses. */
   perCategory: Record<Category, CategoryStats>;
   /** One entry for every date of the range, zero-filled. */
   perDay: DayStats[];
@@ -74,8 +75,11 @@ function streakOf(tasks: readonly Task[], today: string): number {
   return streak;
 }
 
-function emptyCategories(): Record<Category, CategoryStats> {
-  return Object.fromEntries(categories.map(category => [category, { plannedMinutes: 0, doneMinutes: 0, count: 0 }])) as Record<Category, CategoryStats>;
+const EMPTY_CATEGORY: CategoryStats = { plannedMinutes: 0, doneMinutes: 0, count: 0 };
+
+/** Every built-in id (so existing consumers always find them), in their fixed order; other ids are added as tasks use them. */
+function emptyCategories(): Map<string, CategoryStats> {
+  return new Map(categories.map(category => [category, EMPTY_CATEGORY]));
 }
 
 function busiest(perDay: readonly DayStats[]): string | null {
@@ -102,12 +106,12 @@ export function computeStats(tasks: readonly Task[], range: DateRange, today: st
       scheduledCount: day.scheduledCount + 1,
       doneCount: day.doneCount + (isDone ? 1 : 0),
     });
-    const entry = perCategory[task.category];
-    perCategory[task.category] = {
+    const entry = perCategory.get(task.category) ?? EMPTY_CATEGORY;
+    perCategory.set(task.category, {
       plannedMinutes: entry.plannedMinutes + task.duration,
       doneMinutes: entry.doneMinutes + doneMinutes,
       count: entry.count + 1,
-    };
+    });
   }
   const perDay = [...days.values()];
   const sum = (pick: (day: DayStats) => number) => perDay.reduce((total, day) => total + pick(day), 0);
@@ -119,7 +123,8 @@ export function computeStats(tasks: readonly Task[], range: DateRange, today: st
     completionRate: scheduledCount === 0 ? null : doneCount / scheduledCount,
     plannedMinutes: sum(day => day.plannedMinutes),
     doneMinutes: sum(day => day.doneMinutes),
-    perCategory,
+    // fromEntries defines own properties, so even an id such as "__proto__" stays plain data.
+    perCategory: Object.fromEntries(perCategory),
     perDay,
     busiestDay: busiest(perDay),
     streak: streakOf(tasks, today),

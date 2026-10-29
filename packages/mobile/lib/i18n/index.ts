@@ -2,9 +2,14 @@ import { vi as archive } from "./archive";
 import { vi as backup } from "./backup";
 import { vi as calendar } from "./calendar";
 import { vi as carryOver } from "./carry-over";
+import { vi as categories } from "./categories";
+import { vi as categoriesUi } from "./categories-ui";
+import { vi as categoryUsage } from "./category-usage";
 import { vi as errors } from "./errors";
 import { vi as gestures } from "./gestures";
 import { vi as greeting } from "./greeting";
+import { vi as habits } from "./habits";
+import { vi as habitsUi } from "./habits-ui";
 import { vi as newTask } from "./new-task";
 import { vi as notificationActions } from "./notification-actions";
 import { vi as notifications } from "./notifications";
@@ -31,9 +36,14 @@ export const extraTranslations: Record<string, string> = {
   ...backup,
   ...calendar,
   ...carryOver,
+  ...categories,
+  ...categoriesUi,
+  ...categoryUsage,
   ...errors,
   ...gestures,
   ...greeting,
+  ...habits,
+  ...habitsUi,
   ...newTask,
   ...notificationActions,
   ...notifications,

@@ -1,4 +1,6 @@
 // Pure geometry and formatting helpers for the Stats charts (no React Native, unit-tested).
+import { BUILTIN_CATEGORIES } from "./planner";
+import type { CategoryStats } from "./stats";
 
 /** Smallest visible bar height in px for a day that has planned time. */
 export const MIN_BAR_PX = 4;
@@ -20,6 +22,26 @@ export function barLayout(plannedMinutes: number, doneMinutes: number, maxMinute
 /** Category bar length as a fraction (0..1) of the longest category bar. */
 export function categoryShare(minutes: number, maxMinutes: number): number {
   return maxMinutes > 0 ? minutes / maxMinutes : 0;
+}
+
+const BUILTIN_ORDER = BUILTIN_CATEGORIES as readonly string[];
+
+/**
+ * Category ids the breakdown lists, in order: the built-ins in their fixed order (a hidden one only while it still
+ * has tasks in the range), then every other id (custom categories and ids that no longer exist; a custom one that
+ * is visible always) by planned minutes, most first. Equal minutes keep `visible` order, then first appearance.
+ */
+export function breakdownIds(
+  perCategory: Readonly<Record<string, CategoryStats | undefined>>,
+  visible: readonly string[],
+): string[] {
+  const hasTasks = (id: string) => (perCategory[id]?.count ?? 0) > 0;
+  const builtins = BUILTIN_ORDER.filter(id => visible.includes(id) || hasTasks(id));
+  const others = [...new Set([...visible, ...Object.keys(perCategory)])]
+    .filter(id => !BUILTIN_ORDER.includes(id) && (visible.includes(id) || hasTasks(id)));
+  const minutes = (id: string) => perCategory[id]?.plannedMinutes ?? 0;
+  // Array.prototype.sort is stable, so ties keep the order built above.
+  return [...builtins, ...others.sort((a, b) => minutes(b) - minutes(a))];
 }
 
 export function percentLabel(rate: number | null): string {

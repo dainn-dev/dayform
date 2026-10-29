@@ -14,6 +14,12 @@ import { filterTasks } from "../../lib/search";
 import { SearchBar } from "../../components/tasks/SearchBar";
 import { CategoryFilter } from "../../components/tasks/CategoryFilter";
 import { buildExploreSections, conflictIds, taskStats, type ExploreFilter } from "../../lib/explore-groups";
+import { useHabitHints } from "../../components/habits/useHabitHints";
+import { StaleBanner, StaleReviewStrip } from "../../components/habits/StaleBanner";
+import { showStaleBanner } from "../../lib/habits-copy";
+import { DEFAULT_STALE_DAYS } from "../../lib/habits-nudge";
+import { useSettings } from "../../lib/settings-context";
+import { useTodayKey } from "../../components/stats/use-today-key";
 
 const FILTERS: readonly ExploreFilter[] = ["all", "active", "done"];
 const MIN_TOUCH_TARGET = 44;
@@ -38,10 +44,18 @@ export default function TasksScreen() {
   const [filter, setFilter] = useState<ExploreFilter>("all");
   const [query, setQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<readonly Category[]>([]);
-  const searching = query.trim() !== "" || selectedCategories.length > 0;
+  const habitHintsOn = useSettings().settings.habits.hints;
+  const { stale } = useHabitHints({ summary: true });
+  const today = useTodayKey();
+  // Dismissal lasts for the current day only and lives in memory (a new day or a restart brings the banner back).
+  const [staleDismissedOn, setStaleDismissedOn] = useState<string | null>(null);
+  // The ids are captured when "Review them" is pressed, so a task stays listed after it is ticked off.
+  const [reviewIds, setReviewIds] = useState<readonly string[] | null>(null);
+  const onlyIds = habitHintsOn ? reviewIds ?? undefined : undefined;
+  const searching = query.trim() !== "" || selectedCategories.length > 0 || onlyIds !== undefined;
   const stats = useMemo(() => taskStats(tasks), [tasks]);
   const conflicts = useMemo(() => conflictIds(tasks), [tasks]);
-  const visibleTasks = useMemo(() => filterTasks(tasks, { query, categories: selectedCategories, status: filter }), [tasks, query, selectedCategories, filter]);
+  const visibleTasks = useMemo(() => filterTasks(tasks, { query, categories: selectedCategories, status: filter, onlyIds }), [tasks, query, selectedCategories, filter, onlyIds]);
   const sections = useMemo<ExploreSection[]>(() => {
     if (loading) return [];
     const { backlog, scheduled } = buildExploreSections(visibleTasks, "all");
@@ -56,6 +70,7 @@ export default function TasksScreen() {
   const toggleCategory = useCallback((category: Category) => {
     setSelectedCategories(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category]);
   }, []);
+  const reviewStale = () => { setFilter("all"); setSelectedCategories([]); setReviewIds(stale.ids); };
   const edit = useCallback((task: Task) => setEditing(task), []);
   // One formatter per locale: building it per row per render is slow on long lists.
   const dateFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short", month: "short", day: "numeric" }), [locale]);
@@ -90,6 +105,9 @@ export default function TasksScreen() {
     <View style={s.topRow}><Text accessibilityRole="header" style={s.kicker}>{t("THE BIG PICTURE")}</Text><LanguageSwitch /></View>
     <Text accessibilityRole="header" style={s.title}>{t("Your tasks")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
     <Text style={s.subtitle}>{t("Every little thing, all in one place.")}</Text>
+    {onlyIds !== undefined
+      ? <StaleReviewStrip onShowAll={() => setReviewIds(null)} />
+      : showStaleBanner(stale.count, staleDismissedOn, today) && <StaleBanner count={stale.count} days={DEFAULT_STALE_DAYS} onReview={reviewStale} onDismiss={() => setStaleDismissedOn(today)} />}
     <SearchBar value={query} onChange={setQuery} />
     <View style={s.stats}>
       <View><Text style={s.statNumber}>{stats.todo}</Text><Text style={s.statLabel}>{t("TO DO")}</Text></View><View style={s.statDivider} />

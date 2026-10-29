@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { barLayout, maxPlannedMinutes, percentLabel, showMonthTick, categoryShare } from "./stats-chart";
+import { barLayout, breakdownIds, maxPlannedMinutes, percentLabel, showMonthTick, categoryShare } from "./stats-chart";
 
 describe("maxPlannedMinutes", () => {
   test("is 0 for no days and the largest planned value otherwise", () => {
@@ -43,5 +43,32 @@ describe("percentLabel", () => {
 describe("showMonthTick", () => {
   test("labels the 1st and every 5th day", () => {
     expect([1, 2, 5, 10, 15, 20, 25, 30, 31].map(showMonthTick)).toEqual([true, false, true, true, true, true, true, true, false]);
+  });
+});
+
+describe("breakdownIds", () => {
+  const stat = (plannedMinutes: number, count = plannedMinutes > 0 ? 1 : 0) => ({ plannedMinutes, doneMinutes: 0, count });
+  const builtins = { Focus: stat(0), Work: stat(0), Personal: stat(0), Wellness: stat(0) };
+  const visible = ["Focus", "Work", "Personal", "Wellness"];
+
+  test("lists the built-ins in their fixed order whatever their minutes", () => {
+    const per = { ...builtins, Focus: stat(10), Wellness: stat(300) };
+    expect(breakdownIds(per, visible)).toEqual(["Focus", "Work", "Personal", "Wellness"]);
+  });
+  test("puts other ids after the built-ins, most planned minutes first", () => {
+    const per = { ...builtins, c_a0000000: stat(30), c_b0000000: stat(90), c_gone0000: stat(60) };
+    expect(breakdownIds(per, [...visible, "c_a0000000", "c_b0000000"])).toEqual(["Focus", "Work", "Personal", "Wellness", "c_b0000000", "c_gone0000", "c_a0000000"]);
+  });
+  test("a visible custom category with no time still gets a row, in visible order on a tie", () => {
+    const per = { ...builtins, c_b0000000: stat(0) };
+    expect(breakdownIds(per, [...visible, "c_a0000000", "c_b0000000"]).slice(4)).toEqual(["c_a0000000", "c_b0000000"]);
+  });
+  test("a hidden built-in only shows while it has tasks", () => {
+    const per = { ...builtins, Work: stat(20) };
+    expect(breakdownIds(per, ["Focus", "Personal", "Wellness"])).toEqual(["Focus", "Work", "Personal", "Wellness"]);
+    expect(breakdownIds(builtins, ["Focus", "Personal", "Wellness"])).toEqual(["Focus", "Personal", "Wellness"]);
+  });
+  test("an id that is neither visible nor used is not listed", () => {
+    expect(breakdownIds({ ...builtins, c_old00000: stat(0, 0) }, visible)).toEqual(visible);
   });
 });

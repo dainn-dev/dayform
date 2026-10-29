@@ -36,6 +36,18 @@ describe("duration, category and reminder", () => {
     expect(newTaskDefaults(settings, noSlot()).category).toBe("Focus");
   });
 
+  test("a custom category id is accepted when it is visible, and falls back when it is not", () => {
+    const settings = withSettings({ defaults: { category: "c_gym00000" } });
+    expect(newTaskDefaults(settings, { ...noSlot(), knownCategories: ["Focus", "c_gym00000"] }).category).toBe("c_gym00000");
+    expect(newTaskDefaults(settings, { ...noSlot(), knownCategories: ["Focus", "Work"] }).category).toBe("Focus");
+  });
+
+  test("when Focus is hidden the fallback is the first visible category", () => {
+    const settings = withSettings({ defaults: { category: "Gardening" } });
+    expect(newTaskDefaults(settings, { ...noSlot(), knownCategories: ["Work", "Personal"] }).category).toBe("Work");
+    expect(newTaskDefaults(settings, { ...noSlot(), knownCategories: [] }).category).toBe("Focus");
+  });
+
   test("a category is accepted when it is in the supplied list", () => {
     const settings = withSettings({ defaults: { category: "Wellness" } });
     expect(newTaskDefaults(settings, { ...noSlot(), knownCategories: ["Focus", "Wellness"] }).category).toBe("Wellness");

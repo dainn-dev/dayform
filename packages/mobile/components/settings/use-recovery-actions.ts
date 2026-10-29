@@ -16,6 +16,7 @@ import {
   restoredNotice,
   type RecoveryNotice,
 } from "../../lib/recovery-messages";
+import { useCategories } from "../../lib/categories-context";
 import { useTasks } from "../../lib/tasks-context";
 
 export type PendingAction =
@@ -50,6 +51,7 @@ const failure = (message: string): RecoveryNotice => ({ tone: "error", parts: [{
 /** State machine behind RecoverySection: expand + list, preview, restore (merge / confirmed replace), delete. */
 export function useRecoveryActions(): RecoveryActions {
   const { loading, writesBlocked, mutate } = useTasks();
+  const { state: categoriesState, importState } = useCategories();
   const [expanded, setExpanded] = useState(false);
   const [items, setItems] = useState<RecoveryItem[] | null>(null);
   const [listFailed, setListFailed] = useState(false);
@@ -89,14 +91,16 @@ export function useRecoveryActions(): RecoveryActions {
     setBusy(true);
     setPending(null);
     try {
-      const outcome = await restoreRecoveryItem(AsyncStorage, mutate, key, mode, new Date());
-      setNotice(outcome.ok ? restoredNotice(outcome.summary) : failure(restoreErrorMessage(outcome.reason)));
+      const outcome = await restoreRecoveryItem(AsyncStorage, mutate, key, mode, new Date(), {
+        categories: categoriesState, importCategories: importState,
+      });
+      setNotice(outcome.ok ? restoredNotice(outcome.summary, outcome.categories) : failure(restoreErrorMessage(outcome.reason)));
       // A replace saves the current list as a new recovery copy, so the list is out of date now.
       await refresh();
     } finally {
       setBusy(false);
     }
-  }, [mutate, refresh]);
+  }, [mutate, refresh, categoriesState, importState]);
 
   const ask = useCallback(async (action: PendingAction) => {
     setNotice(null);

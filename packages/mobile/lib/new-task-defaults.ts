@@ -1,4 +1,4 @@
-import { categories, dateKey, type Category } from "./planner";
+import { BUILTIN_CATEGORIES, dateKey, type Category } from "./planner";
 import type { Settings } from "./settings";
 
 const MINUTES_PER_HOUR = 60;
@@ -11,7 +11,7 @@ export type NewTaskContext = {
   slotTime: string | null;
   /** 'YYYY-MM-DD' of the day the new task is created for. */
   selectedDate: string;
-  /** Categories a default may name; anything else falls back to "Focus". */
+  /** Visible category ids (built-in and custom) a default may name; anything else falls back to "Focus", or the first one when "Focus" is hidden. */
   knownCategories?: readonly Category[];
 };
 
@@ -44,17 +44,23 @@ function startTime(settings: Settings, { now, selectedDate }: NewTaskContext): s
   return nextFullHour(now, settings.calendar.dayStart, settings.calendar.dayEnd);
 }
 
+/** `wanted` when it is still offered, otherwise "Focus", or the first offered category when "Focus" is hidden. */
+export function pickCategory(wanted: Category, known: readonly Category[]): Category {
+  if (known.includes(wanted)) return wanted;
+  return known.includes(FALLBACK_CATEGORY) ? FALLBACK_CATEGORY : known[0] ?? FALLBACK_CATEGORY;
+}
+
 /**
  * Initial values of the editor for a NEW task. A tapped time slot always wins (the task is scheduled at that time);
  * a reminder is only kept when the task ends up scheduled, because a reminder needs a start time.
  */
 export function newTaskDefaults(settings: Settings, context: NewTaskContext): NewTaskDefaults {
   const { defaults } = settings;
-  const { slotTime, selectedDate, knownCategories = categories } = context;
+  const { slotTime, selectedDate, knownCategories = BUILTIN_CATEGORIES } = context;
   const scheduled = slotTime !== null || defaults.scheduleNew;
   return {
     duration: defaults.duration,
-    category: knownCategories.find(name => name === defaults.category) ?? FALLBACK_CATEGORY,
+    category: pickCategory(defaults.category, knownCategories),
     remind: scheduled ? defaults.remind : null,
     scheduled,
     date: selectedDate,

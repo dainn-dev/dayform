@@ -7,6 +7,6 @@ import { SwitchRow } from "./SwitchRow";
 export function HabitsSection() {
   const { settings, update } = useSettings();
   const { t } = useLanguage();
-  return <SwitchRow label={t("Show habit hints")} value={settings.habits.hints}
+  return <SwitchRow label={t("Show habit hints")} hint={t("Suggestions come from your own tasks and never leave this device")} value={settings.habits.hints}
     onChange={next => { void update({ habits: { hints: next } }); }} />;
 }

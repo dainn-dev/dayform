@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseJson } from "./json";
-import { Task, categories, dateKey, fromKey, repeats, seedTasks } from "./planner";
+import { Task, dateKey, fromKey, repeats, seedTasks } from "./planner";
 
 export const TASKS_STORAGE_KEY = "dayform.tasks.v1";
 export const CORRUPT_KEY_PREFIX = "dayform.tasks.corrupt.";
@@ -10,6 +10,7 @@ const MAX_DURATION = 1440;
 export const MAX_REMIND_MINUTES = 1440;
 const MAX_ID_LENGTH = 100;
 const MAX_TITLE_LENGTH = 300;
+export const MAX_CATEGORY_ID_LENGTH = 40;
 const MAX_NOTES_LENGTH = 10_000;
 const MAX_CREATED_AT_LENGTH = 40;
 export const MAX_RECORDS = 10_000;
@@ -38,7 +39,8 @@ export const taskSchema = z.object({
   start: timeString.nullable(),
   duration: z.number().int().min(MIN_DURATION).max(MAX_DURATION),
   status: z.enum(["todo", "in_progress", "done"]),
-  category: z.enum(categories),
+  // Any non-empty id: built-in, custom (`c_...`) or one that no longer exists (resolved to a fallback when shown).
+  category: z.string().min(1).max(MAX_CATEGORY_ID_LENGTH),
   notes: z.string().max(MAX_NOTES_LENGTH),
   createdAt: z.string().max(MAX_CREATED_AT_LENGTH),
   remind: z.number().int().min(0).max(MAX_REMIND_MINUTES).nullable().optional(),

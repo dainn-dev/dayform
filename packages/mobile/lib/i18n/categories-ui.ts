@@ -1,0 +1,58 @@
+/**
+ * Vietnamese strings for the category management card (Personal tab). The English text is the key. Reuses the keys
+ * of lib/i18n/categories.ts, personal.ts and recovery.ts ("Categories", "Cancel", "Save", "Delete", "Edit",
+ * "Preview", "Violet"...) and only adds the missing ones.
+ */
+export const vi: Record<string, string> = {
+  // List
+  "Hidden": "Đã ẩn",
+  "Add category": "Thêm nhóm",
+  "No tasks": "Không có việc",
+  "1 task": "1 việc",
+  "{count} tasks": "{count} việc",
+  "{name}, {tasks}": "{name}, {tasks}",
+  "{name}, {tasks}, hidden": "{name}, {tasks}, đã ẩn",
+  "Edit {category}": "Sửa {category}",
+  "Hide {category}": "Ẩn {category}",
+  "Show {category}": "Hiện {category}",
+  "Delete {category}": "Xoá {category}",
+  // Delete confirmation and errors
+  "Delete {category}? {tasks} will move to {target}.": "Xoá {category}? {tasks} sẽ chuyển sang {target}.",
+  "Delete {category}? No tasks use it.": "Xoá {category}? Không có việc nào thuộc nhóm này.",
+  "Could not move the tasks, so nothing was deleted.": "Không thể chuyển các việc nên chưa xoá gì cả.",
+  "The tasks were moved, but the category could not be deleted. Try again.": "Đã chuyển các việc nhưng không thể xoá nhóm. Hãy thử lại.",
+  "Could not save the category. Please try again.": "Không thể lưu nhóm. Vui lòng thử lại.",
+  "Could not save your categories. Please try again.": "Không thể lưu các nhóm. Vui lòng thử lại.",
+  "Categories are read-only because the saved data could not be read safely.": "Nhóm chỉ để xem vì không thể đọc dữ liệu đã lưu một cách an toàn.",
+  // Editor
+  "Edit category": "Sửa nhóm",
+  "Reset to default": "Đặt lại mặc định",
+  "Enter a name": "Nhập tên",
+  "Use at most {count} characters": "Dùng tối đa {count} ký tự",
+  "Built-in categories keep their color and icon. You can only change the name.": "Nhóm có sẵn giữ nguyên màu và biểu tượng. Bạn chỉ có thể đổi tên.",
+  // Color names
+  "Sky": "Xanh da trời",
+  "Mint": "Bạc hà",
+  "Lime": "Xanh chanh",
+  "Amber": "Hổ phách",
+  "Coral": "San hô",
+  "Magenta": "Hồng tím",
+  "Slate": "Xám đá",
+  // Icon names
+  "Star": "Ngôi sao",
+  "Book": "Sách",
+  "Cart": "Mua sắm",
+  "Home": "Nhà",
+  "Music": "Âm nhạc",
+  "Fitness": "Thể dục",
+  "School": "Học tập",
+  "Coffee": "Cà phê",
+  "Travel": "Du lịch",
+  "Games": "Trò chơi",
+  "Pet": "Thú cưng",
+  "Wallet": "Ví",
+  "Camera": "Máy ảnh",
+  "Leaf": "Lá cây",
+  "Tag": "Thẻ",
+  "Heart": "Trái tim",
+};

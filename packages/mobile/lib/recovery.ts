@@ -1,5 +1,6 @@
 import { parseBackup, type BackupFailure, type MergeMode } from "./backup";
-import { runImport, type ImportMutate, type ImportOutcome } from "./backup-flow";
+import { runImport, type ImportMutate, type ImportOutcome, type ImportTarget } from "./backup-flow";
+import type { CategoriesState } from "./categories";
 import type { Task } from "./planner";
 import { SNAPSHOT_KEY_PREFIX, snapshotDateFromKey } from "./snapshots";
 import { utf8Length } from "./text-size";
@@ -41,7 +42,7 @@ export type PreviewFailure =
   | "unreadable-copy"
   | "newer-version"
   | "copy-too-large";
-export type PreviewResult = { ok: true; tasks: Task[]; rejected: number } | { ok: false; reason: PreviewFailure };
+export type PreviewResult = { ok: true; tasks: Task[]; rejected: number; categories?: CategoriesState } | { ok: false; reason: PreviewFailure };
 export type DeleteOutcome = "deleted" | "refused" | "failed";
 export type DeleteResult = { key: string; outcome: DeleteOutcome };
 export type RecoveryRestoreOutcome = ImportOutcome | { ok: false; reason: PreviewFailure };
@@ -125,7 +126,8 @@ export async function previewRecoveryItem(storage: RecoveryStorage, key: string)
   if (!read.ok) return read;
   const parsed = parseBackup(read.text);
   if (!parsed.ok) return { ok: false, reason: PARSE_FAILURES[parsed.reason] };
-  return { ok: true, tasks: parsed.tasks, rejected: parsed.rejected };
+  const base = { ok: true as const, tasks: parsed.tasks, rejected: parsed.rejected };
+  return parsed.categories === undefined ? base : { ...base, categories: parsed.categories };
 }
 
 async function removeOne(storage: RecoveryStorage, key: string): Promise<DeleteResult> {
@@ -148,7 +150,8 @@ export async function deleteRecoveryItems(storage: RecoveryStorage, keys: readon
 /**
  * Restores a copy through `planImport` + `store.mutate` (via `runImport`), so the store's limits and
  * invariants apply exactly as for a file import (including the safety copy before a replace). The main key
- * is never written here, and the copy itself is left in place.
+ * is never written here, and the copy itself is left in place. `categories` / `importCategories` carry the
+ * current categories (for the safety copy) and the way to apply the copy's own categories, when it has any.
  */
 export async function restoreRecoveryItem(
   storage: RecoveryStorage,
@@ -156,8 +159,9 @@ export async function restoreRecoveryItem(
   key: string,
   mode: MergeMode,
   now: Date,
+  categoryHooks: Pick<ImportTarget, "categories" | "importCategories"> = {},
 ): Promise<RecoveryRestoreOutcome> {
   const preview = await previewRecoveryItem(storage, key);
   if (!preview.ok) return preview;
-  return runImport(mutate, preview, mode, { storage, now });
+  return runImport(mutate, preview, mode, { storage, now, ...categoryHooks });
 }

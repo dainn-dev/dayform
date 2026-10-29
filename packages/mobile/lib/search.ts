@@ -1,7 +1,13 @@
 import { matchesFilter, type ExploreFilter } from "./explore-groups";
 import type { Category, Task } from "./planner";
 
-export type SearchOptions = { query: string; categories: readonly Category[]; status: ExploreFilter };
+export type SearchOptions = {
+  query: string;
+  categories: readonly Category[];
+  status: ExploreFilter;
+  /** When given, only tasks with one of these ids match (an empty list matches nothing). Omit it for no constraint. */
+  onlyIds?: readonly string[];
+};
 /** Half-open `[start, end)` UTF-16 range in the original text. */
 export type TextRange = { start: number; end: number };
 
@@ -79,11 +85,13 @@ export function matchesQuery(task: Task, query: string): boolean {
 }
 
 /** Status filter (same semantics as the Tasks tab), optional category multi-select (empty = all) and text query. O(n). */
-export function filterTasks(tasks: readonly Task[], { query, categories, status }: SearchOptions): Task[] {
+export function filterTasks(tasks: readonly Task[], { query, categories, status, onlyIds }: SearchOptions): Task[] {
   const terms = queryTerms(query);
   const wanted = new Set<Category>(categories);
+  const allowedIds = onlyIds === undefined ? null : new Set<string>(onlyIds);
   return tasks.filter(task =>
-    matchesFilter(task, status)
+    (allowedIds === null || allowedIds.has(task.id))
+    && matchesFilter(task, status)
     && (wanted.size === 0 || wanted.has(task.category))
     && matchesTerms(task, terms));
 }

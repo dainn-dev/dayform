@@ -1,3 +1,4 @@
+import { hasCategoryCustomizations, parseCategoriesState, type CategoriesState } from "./categories";
 import { parseJson } from "./json";
 import { Task, dateKey } from "./planner";
 import { MAX_RECORDS, taskSchema } from "./task-storage";
@@ -7,7 +8,8 @@ export const BACKUP_VERSION = 1;
 
 export type BackupFailure = "invalid-json" | "wrong-format" | "unsupported-version" | "too-large";
 export type ParseResult =
-  | { ok: true; tasks: Task[]; rejected: number }
+  /** `categories` is present only when the file carried a categories object (validated and capped like stored data). */
+  | { ok: true; tasks: Task[]; rejected: number; categories?: CategoriesState }
   | { ok: false; reason: BackupFailure };
 export type MergeMode = "merge" | "replace";
 export type MergeResult = { tasks: Task[]; added: number; updated: number; unchanged: number };
@@ -21,11 +23,17 @@ const COMPARED_KEYS = Object.keys(taskSchema.shape) as (keyof Task)[];
 export type SerializeOptions = {
   /** No indentation: about a third smaller, for copies that only the app itself reads back. */
   compact?: boolean;
+  /** Written as `categories` only when it holds custom categories, hidden built-ins or renames. */
+  categories?: CategoriesState;
 };
 
 /** JSON envelope (pretty by default). `exportedAt` is an ISO instant (informational only, never a task date). */
 export function serializeBackup(tasks: readonly Task[], now: Date, options: SerializeOptions = {}): string {
-  const envelope = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), tasks };
+  const { categories } = options;
+  const envelope = {
+    format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), tasks,
+    ...(categories !== undefined && hasCategoryCustomizations(categories) ? { categories } : {}),
+  };
   return options.compact === true ? JSON.stringify(envelope) : JSON.stringify(envelope, null, 2);
 }
 
@@ -37,7 +45,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-type Extracted = { ok: true; records: unknown[] } | { ok: false; reason: BackupFailure };
+type Extracted = { ok: true; records: unknown[]; categories?: CategoriesState } | { ok: false; reason: BackupFailure };
 
 function extractRecords(value: unknown): Extracted {
   if (Array.isArray(value)) return { ok: true, records: value };
@@ -48,7 +56,9 @@ function extractRecords(value: unknown): Extracted {
   }
   if (version > BACKUP_VERSION) return { ok: false, reason: "unsupported-version" };
   if (!Array.isArray(tasks)) return { ok: false, reason: "wrong-format" };
-  return { ok: true, records: tasks };
+  return isRecord(value.categories)
+    ? { ok: true, records: tasks, categories: parseCategoriesState(value.categories) }
+    : { ok: true, records: tasks };
 }
 
 function validateRecords(records: readonly unknown[]): { tasks: Task[]; rejected: number } {
@@ -71,7 +81,8 @@ export function parseBackup(text: string): ParseResult {
   const extracted = extractRecords(json.value);
   if (!extracted.ok) return extracted;
   if (extracted.records.length > MAX_RECORDS) return { ok: false, reason: "too-large" };
-  return { ok: true, ...validateRecords(extracted.records) };
+  const result = { ok: true as const, ...validateRecords(extracted.records) };
+  return extracted.categories === undefined ? result : { ...result, categories: extracted.categories };
 }
 
 function sameTask(a: Task, b: Task): boolean {

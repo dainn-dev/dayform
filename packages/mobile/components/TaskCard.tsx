@@ -6,6 +6,7 @@ import { useLanguage } from "../lib/language";
 import { withAlpha } from "../lib/color-tint";
 import { useColors } from "../hooks/use-colors";
 import { useCategoryColors } from "../hooks/use-category-colors";
+import { useCategories } from "../lib/categories-context";
 import type { ThemeColors } from "../constants/theme";
 import { HighlightedText } from "./tasks/HighlightedText";
 
@@ -19,14 +20,15 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
   const { t, duration, time } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const color = useCategoryColors()[task.category];
+  const color = useCategoryColors().get(task.category);
+  const { label: categoryLabel } = useCategories();
   const done = task.status === "done";
   const toggleLabel = `${done ? t("Reopen") : t("Complete")} ${task.title}`;
   const label = [
     `${t("Edit")} ${task.title}`,
     task.start ? time(task.start) : null,
     duration(task.duration),
-    t(task.category),
+    categoryLabel(task.category),
     t(STATUS_TEXT[task.status]),
     conflict ? t("⚠ Overlaps another task") : null,
   ].filter(Boolean).join(", ");
@@ -45,7 +47,7 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
     <View style={[s.icon, { backgroundColor: withAlpha(color.accent, ICON_TINT_ALPHA) }]}><Ionicons name={color.icon} size={21} color={color.accent} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <HighlightedText numberOfLines={1} style={[s.title, done && s.done]} text={task.title} query={highlight ?? ""} />
-      <Text style={s.meta}>{task.start ? `${time(task.start)}  ·  ` : ""}{duration(task.duration)}  ·  {t(task.category)}</Text>
+      <Text style={s.meta}>{task.start ? `${time(task.start)}  ·  ` : ""}{duration(task.duration)}  ·  {categoryLabel(task.category)}</Text>
       {conflict && <Text style={s.conflict}>{t("⚠ Overlaps another task")}</Text>}
     </View>
     <Pressable onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={toggleLabel} style={s.checkTarget}>

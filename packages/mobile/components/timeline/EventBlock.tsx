@@ -39,7 +39,7 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
   const drag = useBlockDrag({ task, onCommit, onPress, onLockChange });
   const shown = drag.shown;
   const { top, height } = eventGeometry(config, shown);
-  const color = categoryColors[task.category];
+  const color = categoryColors.get(task.category);
   const width = 100 / lanes;
   const place = { left: `${lane * width}%` as const, width: `${width}%` as const };
   const done = task.status === "done";

@@ -143,6 +143,14 @@ describe("restoreErrorMessage", () => {
   });
 });
 
+describe("restoredNotice with categories", () => {
+  test("mentions categories only when they failed to apply", () => {
+    const base = summary({ added: 1, updated: 0 });
+    expect(formatNotice(restoredNotice(base, "failed").parts, identity)).toBe("1 task restored, Categories could not be restored");
+    expect(formatNotice(restoredNotice(base, "applied").parts, identity)).toBe("1 task restored");
+  });
+});
+
 describe("restoredNotice", () => {
   test("counts added and updated tasks as restored, with the right number form", () => {
     expect(formatNotice(restoredNotice(summary({ added: 1, updated: 0 })).parts, identity)).toBe("1 task restored");
