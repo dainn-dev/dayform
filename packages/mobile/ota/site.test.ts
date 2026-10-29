@@ -53,6 +53,13 @@ const manifestFile = () => join(outDir, "android", "manifest.json");
 const readManifest = () => JSON.parse(readFileSync(manifestFile(), "utf8"));
 
 describe("buildSite", () => {
+  test("creates an output directory that does not exist yet, even under a missing parent", () => {
+    const fresh = join(outDir, "missing-parent", "..", "missing-parent", "site");
+    publish({ outDir: fresh });
+    expect(existsSync(join(fresh, "android", "manifest.json"))).toBe(true);
+    expect(existsSync(join(fresh, "_headers"))).toBe(true);
+  });
+
   test("writes manifest, assets and _headers and returns a summary", () => {
     const summary = publish();
     expect(MANIFEST_PATH).toBe("/android/manifest.json");

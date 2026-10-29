@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defaultSpawn, runExpoExport, type Spawn } from "./expo-export";
+import { defaultCapture, defaultSpawn, readExpoConfig, runExpoExport, type Capture, type Spawn } from "./expo-export";
 
 describe("runExpoExport", () => {
   test("runs `bun x expo export` for android into the given directory", () => {
@@ -33,6 +33,54 @@ describe("runExpoExport", () => {
       },
     });
     expect(seen).toEqual([process.execPath]);
+  });
+});
+
+describe("readExpoConfig", () => {
+  const capture = (exitCode: number, stdout: string): Capture => () => ({ exitCode, stdout });
+
+  test("runs `bun x expo config --type public --json` and returns the parsed object", () => {
+    const calls: { command: readonly string[]; cwd: string }[] = [];
+    const config = readExpoConfig({
+      cwd: "/app",
+      bunPath: "/bin/bun",
+      capture: (command, cwd) => {
+        calls.push({ command, cwd });
+        return { exitCode: 0, stdout: '{"name":"Dayform","version":"1.1.0"}' };
+      },
+    });
+    expect(config).toEqual({ name: "Dayform", version: "1.1.0" });
+    expect(calls).toEqual([
+      { command: ["/bin/bun", "x", "expo", "config", "--type", "public", "--json"], cwd: "/app" },
+    ]);
+  });
+
+  test("defaults to the current bun executable", () => {
+    const seen: string[] = [];
+    readExpoConfig({
+      cwd: "/app",
+      capture: (command) => {
+        seen.push(command[0]);
+        return { exitCode: 0, stdout: "{}" };
+      },
+    });
+    expect(seen).toEqual([process.execPath]);
+  });
+
+  test("fails on a non-zero exit code, invalid JSON, and JSON that is not an object", () => {
+    expect(() => readExpoConfig({ cwd: "/a", capture: capture(3, "") })).toThrow("exit code 3");
+    expect(() => readExpoConfig({ cwd: "/a", capture: capture(0, "not json") })).toThrow("valid JSON");
+    expect(() => readExpoConfig({ cwd: "/a", capture: capture(0, "[1]") })).toThrow("JSON object");
+    expect(() => readExpoConfig({ cwd: "/a", capture: capture(0, "null") })).toThrow("JSON object");
+  });
+});
+
+describe("defaultCapture", () => {
+  test("captures the output and exit code of a real child process", () => {
+    const result = defaultCapture([process.execPath, "-e", "console.log('hi')"], process.cwd());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe("hi");
+    expect(defaultCapture([process.execPath, "-e", "process.exit(4)"], process.cwd()).exitCode).toBe(4);
   });
 });
 

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useSync
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { useTasks } from "./tasks-context";
 import { createUpdateStore, type CheckAutoResult, type UpdateStatus, type UpdateStoreState } from "./update-store";
 import type { SaveUpdateStateResult } from "./update-state";
@@ -22,7 +23,8 @@ export type UpdatesValue = UpdateStoreState & {
 
 const UpdatesContext = createContext<UpdatesValue | null>(null);
 
-const currentVersion = Constants.expoConfig?.version ?? "0.0.0";
+// An over-the-air update that carries no app config leaves `expoConfig` empty; the runtime version equals expo.version.
+const currentVersion = Constants.expoConfig?.version ?? Updates.runtimeVersion ?? "0.0.0";
 const fetchFn: FetchLike = (url, init) => fetch(url, init);
 
 export function useUpdates(): UpdatesValue {

@@ -2,7 +2,7 @@
 // written site by re-reading it from disk.
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { ASSETS_URL_DIR, buildManifest, normalizeBaseUrl } from "./manifest";
 import { buildHeadersFile, validateHeadersFile } from "./headers";
 import { serializeSignatureHeader, signManifest, verifySignature } from "./sign";
@@ -53,16 +53,19 @@ export function buildSite(input: BuildSiteInput): SiteSummary {
     signatureHeader: serializeSignatureHeader(signature, input.keyId),
   });
 
-  rmSync(join(input.outDir, "android"), { recursive: true, force: true });
-  rmSync(join(input.outDir, ASSETS_URL_DIR), { recursive: true, force: true });
-  mkdirSync(join(input.outDir, "android"), { recursive: true });
-  mkdirSync(join(input.outDir, ASSETS_URL_DIR), { recursive: true });
+  // Absolute and created first: on Windows rmSync throws EINVAL for a relative path under a missing parent.
+  const outDir = resolve(input.outDir);
+  mkdirSync(outDir, { recursive: true });
+  rmSync(join(outDir, "android"), { recursive: true, force: true });
+  rmSync(join(outDir, ASSETS_URL_DIR), { recursive: true, force: true });
+  mkdirSync(join(outDir, "android"), { recursive: true });
+  mkdirSync(join(outDir, ASSETS_URL_DIR), { recursive: true });
   for (const asset of assets) {
-    copyFileSync(asset.sourcePath, join(input.outDir, ASSETS_URL_DIR, asset.publishedName));
+    copyFileSync(asset.sourcePath, join(outDir, ASSETS_URL_DIR, asset.publishedName));
   }
   // The very string that was signed, written as-is: no re-serialisation.
-  writeFileSync(join(input.outDir, MANIFEST_FILE), manifestJson, "utf8");
-  writeFileSync(join(input.outDir, HEADERS_FILE), headersText, "utf8");
+  writeFileSync(join(outDir, MANIFEST_FILE), manifestJson, "utf8");
+  writeFileSync(join(outDir, HEADERS_FILE), headersText, "utf8");
 
   return {
     updateId: manifest.id,

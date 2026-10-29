@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ArgsError, USAGE, parseArgs, type CliOptions } from "./args";
-import { runExpoExport } from "./expo-export";
+import { readExpoConfig, runExpoExport } from "./expo-export";
 import { buildSite, verifySite, type SiteSummary } from "./site";
 import { derivePublicKeyPem } from "./sign";
 
@@ -20,6 +20,8 @@ export interface PublishIo {
   readonly now: () => Date;
   /** Runs `expo export --platform android` into the given directory; throws on failure. */
   readonly exportAndroid: (outDir: string) => void;
+  /** The public app config, carried in the manifest as `extra.expoClient`; the real CLI always provides it. */
+  readonly readExpoConfig?: () => Record<string, unknown>;
   readonly defaultCertificatePath: string;
 }
 
@@ -98,6 +100,7 @@ function publish(options: CliOptions, env: Env, io: PublishIo): number {
       createdAt: io.now().toISOString(),
       privateKeyPem,
       keyId: options.keyId,
+      expoConfig: io.readExpoConfig?.(),
     }),
   );
 
@@ -154,6 +157,7 @@ export function createRealIo(): PublishIo {
     error: write(process.stderr),
     now: () => new Date(),
     exportAndroid: (outDir) => runExpoExport({ cwd: resolve(otaDir, ".."), outDir }),
+    readExpoConfig: () => readExpoConfig({ cwd: resolve(otaDir, "..") }),
     defaultCertificatePath: join(otaDir, "certs", "certificate.pem"),
   };
 }

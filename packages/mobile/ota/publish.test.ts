@@ -62,6 +62,28 @@ const writeCertificate = (pem: string): string => {
   return path;
 };
 
+describe("runPublish app config", () => {
+  test("puts the public app config into the manifest as extra.expoClient", () => {
+    const outDir = join(workDir, "site-config");
+    const config = { name: "Dayform", version: "1.1.0", scheme: "dayform" };
+    const code = runPublish(argv(outDir, ["--export-dir", fakeExportDir]), keyEnv(), makeIo({ readExpoConfig: () => config }));
+    expect(code).toBe(0);
+    const manifest = JSON.parse(readFileSync(join(outDir, "android", "manifest.json"), "utf8"));
+    expect(manifest.extra).toEqual({ expoClient: config });
+  });
+
+  test("leaves extra empty when no config reader is given", () => {
+    const outDir = join(workDir, "site-no-config");
+    expect(runPublish(argv(outDir, ["--export-dir", fakeExportDir]), keyEnv(), makeIo())).toBe(0);
+    const manifest = JSON.parse(readFileSync(join(outDir, "android", "manifest.json"), "utf8"));
+    expect(manifest.extra).toEqual({});
+  });
+
+  test("the real io provides a config reader", () => {
+    expect(typeof createRealIo().readExpoConfig).toBe("function");
+  });
+});
+
 describe("loadPrivateKeyPem", () => {
   test("reads PEM text from DAYFORM_OTA_PRIVATE_KEY", () => {
     expect(loadPrivateKeyPem(keyEnv())).toBe(keys.privateKeyPem);
