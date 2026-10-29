@@ -3,8 +3,11 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 1,
+      "versionCode": 7,
       "allowBackup": false,
+      "permissions": [
+        "android.permission.USE_EXACT_ALARM"
+      ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -27,7 +30,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.0.0",
+    "version": "1.0.6",
     "scheme": "runable-dayform-u41hhel",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -41,8 +44,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "resizeMode": "cover",
-          "backgroundColor": "#ffffff"
+          "imageWidth": 288,
+          "resizeMode": "contain",
+          "backgroundColor": "#6565E8"
         }
       ],
       "expo-status-bar",
