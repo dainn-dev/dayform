@@ -97,9 +97,18 @@ jobs:
         working-directory: packages/mobile
         run: bunx expo prebuild --platform android --no-install --clean
 
+      # The generated gradle.properties caps the metaspace at 512 MB, which expo-updates' KSP step exceeds: the JVM
+      # then dies with "OutOfMemoryError: Metaspace" and the build HANGS instead of failing. So: a bigger heap and
+      # metaspace, no per-module lint-vital analysis (it only runs a lint check that adds minutes and memory), parallel
+      # tasks, and a step timeout so any future hang fails in 30 minutes instead of 60.
       - name: Build the release APK
+        timeout-minutes: 30
         working-directory: packages/mobile/android
-        run: ./gradlew assembleRelease "-PreactNativeArchitectures=${DAYFORM_ABIS}" --no-daemon --console=plain
+        run: >-
+          ./gradlew assembleRelease "-PreactNativeArchitectures=${DAYFORM_ABIS}"
+          "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
+          -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease
+          --parallel --no-daemon --console=plain
 
       - name: Verify the APK signature and version
         env:
