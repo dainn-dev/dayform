@@ -9,6 +9,7 @@ import { vi as cycleNotify } from "./cycle-notify";
 import { vi as cyclePrivacy } from "./cycle-privacy";
 import { vi as cycleUi } from "./cycle-ui";
 import { vi as errors } from "./errors";
+import { vi as exploreScheduled } from "./explore-paging";
 import { vi as gestures } from "./gestures";
 import { vi as greeting } from "./greeting";
 import { vi as habits } from "./habits";
@@ -23,6 +24,7 @@ import { vi as recovery } from "./recovery";
 import { vi as recurrence } from "./recurrence";
 import { vi as reminders } from "./reminders";
 import { vi as search } from "./search";
+import { vi as settingsMenu } from "./settings-menu";
 import { vi as slogans } from "./slogans";
 import { vi as stats } from "./stats";
 import { vi as store } from "./store";
@@ -47,6 +49,7 @@ export const extraTranslations: Record<string, string> = {
   ...cyclePrivacy,
   ...cycleUi,
   ...errors,
+  ...exploreScheduled,
   ...gestures,
   ...greeting,
   ...habits,
@@ -61,6 +64,7 @@ export const extraTranslations: Record<string, string> = {
   ...recurrence,
   ...reminders,
   ...search,
+  ...settingsMenu,
   ...slogans,
   ...stats,
   ...store,

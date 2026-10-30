@@ -6,6 +6,7 @@ import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { hoursTextToMinutesText, minutesToHoursText, toggleUnit, type DurationUnit } from "../../lib/duration-input";
 import { useFieldStyles } from "./field-styles";
+import { useRevealOnFocus } from "./reveal-context";
 
 const MINUTES_MAX_LENGTH = 4;
 const HOURS_MAX_LENGTH = 5;
@@ -25,6 +26,7 @@ export function DurationField({ minutes, onChange }: Props) {
   const { t } = useLanguage();
   const colors = useColors();
   const f = useFieldStyles();
+  const revealOnFocus = useRevealOnFocus();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [unit, setUnit] = useState<DurationUnit>("min");
   const [hoursDraft, setHoursDraft] = useState("");
@@ -55,6 +57,7 @@ export function DurationField({ minutes, onChange }: Props) {
       keyboardType={inHours ? "decimal-pad" : "number-pad"}
       returnKeyType="done"
       onSubmitEditing={Keyboard.dismiss}
+      onFocus={revealOnFocus}
       maxLength={inHours ? HOURS_MAX_LENGTH : MINUTES_MAX_LENGTH}
       style={[f.input, s.input]}
       accessibilityLabel={t(inHours ? "Duration in hours" : "Duration in minutes")}

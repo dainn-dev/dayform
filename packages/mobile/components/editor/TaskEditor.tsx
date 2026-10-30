@@ -1,8 +1,11 @@
-import React, { useMemo, useState, type ReactNode } from "react";
-import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
+import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
+import { useRevealFocusedInput } from "../../hooks/use-reveal-focused-input";
+import { footerLift } from "../../lib/keyboard-inset";
 import type { ThemeColors } from "../../constants/theme";
 import type { Category, Repeat, Status, Task } from "../../lib/planner";
 import { useCategories } from "../../lib/categories-context";
@@ -20,6 +23,7 @@ import { FormMessages } from "./FormMessages";
 import { NotesField } from "./NotesField";
 import { ReminderField } from "./ReminderField";
 import { RepeatField } from "./RepeatField";
+import { RevealOnFocusProvider } from "./reveal-context";
 import { ScheduleFields } from "./ScheduleFields";
 import { ScheduleToggle } from "./ScheduleToggle";
 import { ScopeDialog } from "./ScopeDialog";
@@ -43,6 +47,10 @@ type Props = {
 const PICKER_ERROR = "Could not open the picker. Please try again.";
 
 const FALLBACK_TIME = "09:00";
+const CONTENT_BOTTOM_PADDING = 32;
+const SCROLL_EVENT_THROTTLE_MS = 16;
+/** A focus change reports before the new input is registered as focused, and before its layout settles. */
+const REVEAL_ON_FOCUS_DELAY_MS = 60;
 
 /** An existing task keeps its own values; only a NEW task (no `task`) takes the user's defaults. */
 function initialValues(task: Task | null | undefined, settings: Settings, knownCategories: readonly string[], defaultDate: string, defaultTime: string | null | undefined): NewTaskDefaults {
@@ -76,6 +84,16 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const [remind, setRemind] = useState<number | null>(initial.remind);
   const [repeat, setRepeat] = useState<Repeat | null>(task?.repeat ?? null);
   const [repeatUntil, setRepeatUntil] = useState<string | null>(task?.repeatUntil ?? null);
+  // The Modal is edge-to-edge, so Android does not resize it for the keyboard: pad the content and scroll the focused input into view.
+  const keyboard = useKeyboardInset();
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportRef = useRef<View>(null);
+  const { reveal, onScroll } = useRevealFocusedInput(scrollRef, viewportRef, keyboard);
+  const revealOnFocus = useCallback(() => { setTimeout(reveal, REVEAL_ON_FOCUS_DELAY_MS); }, [reveal]);
+  // The action bar rises with the keyboard, so the scroll area already ends above it: no extra bottom padding needed.
+  const insets = useSafeAreaInsets();
+  const footerMargin = keyboard.top === null ? 0 : footerLift(keyboard.height, insets.bottom);
+  const contentStyle = useMemo(() => [s.content, { paddingBottom: CONTENT_BOTTOM_PADDING }], [s.content]);
   const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil } });
 
   const setCategory = (next: Category) => { setCategoryState(next); setCategoryTouched(true); };
@@ -85,12 +103,15 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const changeRepeat = (next: Repeat | null) => { setRepeat(next); if (next === null) setRepeatUntil(null); actions.resetConfirmations(); };
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
     <SafeAreaView style={s.root} edges={["top", "bottom", "left", "right"]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <RevealOnFocusProvider value={revealOnFocus}>
+      <View style={s.flex}>
         <View style={s.top}>
           <View><Text style={s.eyebrow}>{t("YOUR PLANNER")}</Text><Text style={s.heading}>{task ? t("Edit task") : t("New task")}</Text></View>
           <Pressable onPress={onClose} accessibilityLabel={t("Close task editor")} accessibilityRole="button" style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
         </View>
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={Keyboard.dismiss}>
+        <View ref={viewportRef} style={s.flex} collapsable={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={contentStyle} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={Keyboard.dismiss}
+          onScroll={onScroll} scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS} onContentSizeChange={reveal}>
           <TitleField value={title} onChange={setTitle} />
           <DurationStatusRow duration={duration} onDurationChange={resetting(setDuration)} status={status} onStatusChange={setStatus} />
           {!task && <NewTaskHints title={title} duration={duration} category={category} categoryTouched={categoryTouched} repeat={repeat} scheduled={scheduled}
@@ -103,11 +124,17 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
           {scheduled && <RepeatField value={repeat} onChange={changeRepeat} until={repeatUntil} onUntilChange={resetting(setRepeatUntil)} taskDate={date} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}
           {extraFields}
           <NotesField value={notes} onChange={setNotes} />
+        </ScrollView>
+        </View>
+        {/* Pinned below the scroll area so Save / Delete (and the message that explains a refusal) are always in reach;
+            it rises above the keyboard, and the scroll area above it shrinks to fit. */}
+        <View style={[s.footer, { marginBottom: footerMargin }]}>
           <FormMessages validation={actions.validation} error={error} />
           {actions.confirmConflict && <ConflictWarning />}
           <FormActions saving={actions.saving} isEditing={Boolean(task)} confirmConflict={actions.confirmConflict} onSave={actions.save} onDelete={actions.deleteTask} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </View>
+      </RevealOnFocusProvider>
       <ScopeDialog visible={actions.dialog.visible} mode={actions.dialog.mode} scopes={actions.dialogScopes} disabled={actions.saving} onChoose={actions.chooseScope} onCancel={actions.cancelDialog} />
     </SafeAreaView>
   </Modal>;
@@ -115,9 +142,11 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: c.background },
+  flex: { flex: 1 },
   top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 2, color: c.primary, marginBottom: 5 },
   heading: { fontSize: 28, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
   close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 24, paddingBottom: 32 },
+  content: { paddingHorizontal: 24 },
+  footer: { paddingHorizontal: 24, paddingBottom: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, backgroundColor: c.background },
 });
