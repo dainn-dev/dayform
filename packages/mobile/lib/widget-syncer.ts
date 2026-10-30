@@ -1,4 +1,5 @@
 import type { Task } from "./planner";
+import type { PetKind } from "./settings";
 import {
   buildWidgetSnapshot,
   snapshotsEqual,
@@ -11,6 +12,8 @@ export type WidgetSyncInput = {
   tasks: readonly Task[];
   showTitles: boolean;
   locale: WidgetLocale;
+  pet: PetKind;
+  petWalks: boolean;
   canSync: boolean;
 };
 export type WidgetSyncerDeps = {
@@ -60,6 +63,8 @@ export function createWidgetSyncer(deps: WidgetSyncerDeps): WidgetSyncer {
       now: now(),
       showTitles: input.showTitles,
       locale: input.locale,
+      pet: input.pet,
+      petWalks: input.petWalks,
     });
     if (!force && snapshotsEqual(lastSent, snapshot)) return;
     force = false;

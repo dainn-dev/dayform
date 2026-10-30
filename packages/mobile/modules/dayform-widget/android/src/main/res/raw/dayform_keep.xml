@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The pet frames are looked up by name at run time, so resource shrinking must not drop them. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/dayform_pet_*" />

@@ -56,7 +56,7 @@ describe("registry", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
       ["appearance", "language", "greeting"],
       ["new-tasks", "calendar", "categories", "habits"],
-      ["notifications", "widget"],
+      ["notifications", "widget", "pet"],
       ["cycle", "cycle-tracking"],
       ["backup", "archive", "recovery"],
       ["updates", "about"],
@@ -175,6 +175,12 @@ describe("summaries", () => {
   test("widget says whether titles show", () => {
     expect(say("widget")).toBe("Titles shown");
     expect(say("widget", { widget: { showTitles: false } })).toBe("Titles hidden");
+  });
+
+  test("pet names the animal and whether it strolls", () => {
+    expect(say("pet")).toBe("Round cat · Strolling");
+    expect(say("pet", { pet: { kind: "dog", walks: false } })).toBe("Dog · Resting");
+    expect(say("pet", { pet: { kind: "off" } })).toBe("No pet");
   });
 
   test("backup, archive and recovery have a fixed hint", () => {

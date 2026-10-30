@@ -24,7 +24,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function setup(initial: Partial<WidgetSyncInput> = {}, sendResult: () => Promise<boolean> = async () => true) {
-  let input: WidgetSyncInput = { tasks: [makeTask()], showTitles: true, locale: "en", canSync: true, ...initial };
+  let input: WidgetSyncInput = { tasks: [makeTask()], showTitles: true, locale: "en", pet: "round-cat", petWalks: true, canSync: true, ...initial };
   const sent: string[] = [];
   const syncer = createWidgetSyncer({
     read: () => input,
@@ -52,6 +52,18 @@ describe("createWidgetSyncer", () => {
     await sleep(WAIT);
     expect(sent.length).toBe(1);
     expect(JSON.parse(sent[0]).days["2026-10-29"].items[0].t).toBe("Deep work");
+    syncer.dispose();
+  });
+
+  test("sends again when the pet changes", async () => {
+    const { syncer, sent, set } = setup();
+    syncer.schedule();
+    await sleep(WAIT);
+    set({ pet: "dog" });
+    syncer.schedule();
+    await sleep(WAIT);
+    expect(sent.length).toBe(2);
+    expect(JSON.parse(sent[1]).pet).toBe("dog");
     syncer.dispose();
   });
 
@@ -174,7 +186,7 @@ describe("createWidgetSyncer", () => {
   test("uses the real clock and default delay when none are injected", async () => {
     const sent: string[] = [];
     const syncer = createWidgetSyncer({
-      read: () => ({ tasks: [], showTitles: true, locale: "vi", canSync: true }),
+      read: () => ({ tasks: [], showTitles: true, locale: "vi", pet: "round-cat", petWalks: true, canSync: true }),
       send: async (json) => {
         sent.push(json);
         return true;

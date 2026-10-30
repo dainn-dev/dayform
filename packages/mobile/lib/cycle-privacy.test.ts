@@ -89,7 +89,7 @@ function sourceFiles(directory: string): string[] {
 describe("the home-screen widget never sees the period tracker", () => {
   test("the snapshot it reads has no cycle field", () => {
     const { snapshot } = buildWidgetSnapshot([], { now: new Date(2026, 9, 29, 8, 0), showTitles: true, locale: "en" });
-    expect(Object.keys(snapshot).sort()).toEqual(["days", "generatedAt", "labels", "locale", "version"]);
+    expect(Object.keys(snapshot).sort()).toEqual(["days", "generatedAt", "labels", "locale", "pet", "petWalks", "version"]);
     expect(JSON.stringify(snapshot)).not.toMatch(/cycle|period|fertil/i);
   });
 

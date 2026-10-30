@@ -1,5 +1,6 @@
 import { addDays, dateKey, minutes, type Task } from "./planner";
 import { vi } from "./i18n/widget";
+import type { PetKind } from "./settings";
 
 /** What the native home-screen widget reads. Titles are already localised or user-written; dates are local. */
 export type WidgetItem = {
@@ -27,11 +28,17 @@ export type WidgetSnapshot = {
   /** Only days that have at least one scheduled task, in date order. */
   days: Record<string, WidgetDay>;
   labels: WidgetLabels;
+  /** The pet the user chose; an older widget build ignores both fields. */
+  pet: PetKind;
+  /** Whether the pet strolls along the bottom (true) or stays in the corner (false). */
+  petWalks: boolean;
 };
 export type BuildOptions = {
   now: Date;
   showTitles: boolean;
   locale: WidgetLocale;
+  pet?: PetKind;
+  petWalks?: boolean;
   /** Days covered, starting today. */
   days?: number;
   maxPerDay?: number;
@@ -138,7 +145,7 @@ function fitSize(snapshot: WidgetSnapshot): WidgetSnapshotResult {
 
 /** Builds the widget payload from the scheduled tasks of today and the following days. */
 export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOptions): WidgetSnapshotResult {
-  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY } = options;
+  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "round-cat", petWalks = true } = options;
   const today = dateKey(now);
   const keys = Array.from({ length: days }, (_, index) => addDays(today, index));
   return fitSize({
@@ -147,6 +154,8 @@ export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOption
     locale,
     days: buildDays(tasks, keys, showTitles, maxPerDay),
     labels: labelsFor(locale),
+    pet,
+    petWalks,
   });
 }
 

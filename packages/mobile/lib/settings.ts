@@ -9,6 +9,9 @@ const MAX_CATEGORY_LENGTH = 40;
 
 export const ACCENT_IDS = ["violet", "ocean", "lagoon", "forest", "sunset", "blossom"] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
+/** The home-screen widget's pet: three drawn or pixel cats, a pixel dog, or none. */
+export const PET_KINDS = ["round-cat", "gray-cat", "orange-cat", "dog", "off"] as const;
+export type PetKind = (typeof PET_KINDS)[number];
 export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120] as const;
 export const SNOOZE_OPTIONS = [5, 10, 15] as const;
 
@@ -130,6 +133,8 @@ const settingsSchema = z.object({
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
   widget: group(z.object({ showTitles: flag(true) })),
+  /** The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. */
+  pet: group(z.object({ kind: choice(PET_KINDS, "round-cat"), walks: flag(true) })),
   /** App content (over-the-air) updates; the APK update check keeps its own preference in update-state. */
   updates: group(z.object({ autoOta: flag(true) })),
 });

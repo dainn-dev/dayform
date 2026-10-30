@@ -44,6 +44,7 @@ describe("defaults", () => {
       calendar: { dayStart: 360, dayEnd: 1320, hourHeight: "normal", weekStart: "mon", timeFormat: "auto" },
       habits: { hints: true },
       widget: { showTitles: true },
+      pet: { kind: "round-cat", walks: true },
       updates: { autoOta: true },
     });
     expect(ACCENT_IDS).toEqual(["violet", "ocean", "lagoon", "forest", "sunset", "blossom"]);
@@ -74,6 +75,7 @@ describe("resolveSettings", () => {
       calendar: { dayStart: 420, dayEnd: 1260, hourHeight: "roomy", weekStart: "sun", timeFormat: "24h" },
       habits: { hints: false },
       widget: { showTitles: false },
+      pet: { kind: "dog", walks: false },
       updates: { autoOta: false },
     };
     expect(resolveSettings(raw)).toEqual(raw as never);
@@ -89,6 +91,7 @@ describe("resolveSettings", () => {
       calendar: { hourHeight: "tiny", weekStart: "fri", timeFormat: "36h" },
       habits: { hints: "no" },
       widget: { showTitles: 0 },
+      pet: { kind: "unicorn", walks: "sometimes" },
       updates: { autoOta: "off" },
     });
     expect(result.accent).toBe("violet");
@@ -99,6 +102,7 @@ describe("resolveSettings", () => {
     expect(result.calendar).toEqual(DEFAULT_SETTINGS.calendar);
     expect(result.habits.hints).toBe(true);
     expect(result.widget.showTitles).toBe(true);
+    expect(result.pet).toEqual(DEFAULT_SETTINGS.pet);
     expect(result.updates.autoOta).toBe(true);
   });
 

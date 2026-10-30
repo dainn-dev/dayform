@@ -251,6 +251,17 @@ describe("snapshotsEqual", () => {
     expect(snapshotsEqual(base, buildWidgetSnapshot([makeTask()], { ...OPTIONS, showTitles: false }).snapshot)).toBe(false);
   });
 
+  test("carries the chosen pet, defaulting to the round cat that strolls", () => {
+    const defaults = buildWidgetSnapshot([makeTask()], OPTIONS).snapshot;
+    expect(defaults.pet).toBe("round-cat");
+    expect(defaults.petWalks).toBe(true);
+    const chosen = buildWidgetSnapshot([makeTask()], { ...OPTIONS, pet: "dog", petWalks: false }).snapshot;
+    expect(chosen.pet).toBe("dog");
+    expect(chosen.petWalks).toBe(false);
+    expect(snapshotsEqual(defaults, chosen)).toBe(false);
+    expect(snapshotsEqual(chosen, buildWidgetSnapshot([makeTask()], { ...OPTIONS, pet: "dog", petWalks: false }).snapshot)).toBe(true);
+  });
+
   test("detects the day rolling over", () => {
     const today = buildWidgetSnapshot([makeTask()], OPTIONS).snapshot;
     const tomorrow = buildWidgetSnapshot([makeTask({ date: "2026-10-30" })], OPTIONS).snapshot;

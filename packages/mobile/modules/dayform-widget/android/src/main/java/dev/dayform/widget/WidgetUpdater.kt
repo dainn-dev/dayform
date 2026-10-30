@@ -16,6 +16,7 @@ private val PROVIDERS = listOf(TodayWidgetProvider::class.java, TodayWidgetProvi
 internal object WidgetUpdater {
   fun updateOne(context: Context, manager: AppWidgetManager, widgetId: Int, options: Bundle?) {
     val views = WidgetRenderer.render(context, options)
+    Log.d(TAG, "widget $widgetId sized by the launcher: $options")
     logIfNotApplicable(context, views)
     manager.updateAppWidget(widgetId, views)
   }

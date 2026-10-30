@@ -14,6 +14,7 @@ import { GreetingSection } from "./GreetingSection";
 import { HabitsSection } from "./HabitsSection";
 import { LanguageSection } from "./LanguageSection";
 import { NotificationsSection } from "./NotificationsSection";
+import { PetSection } from "./PetSection";
 import { WidgetSection } from "./WidgetSection";
 
 export type SettingsPageEntry = {
@@ -38,6 +39,7 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   habits: { Component: HabitsSection },
   notifications: { Component: NotificationsSection },
   widget: { Component: WidgetSection },
+  pet: { Component: PetSection },
   cycle: { Component: CycleSection },
   backup: { Component: BackupSection },
   archive: { Component: ArchiveSection },

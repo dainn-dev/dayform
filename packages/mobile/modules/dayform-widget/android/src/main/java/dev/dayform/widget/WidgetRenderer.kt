@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
@@ -30,6 +31,21 @@ internal object WidgetRenderer {
   private const val HEADER_DP = 60
   private const val LINE_DP = 30
   private const val DEFAULT_CAPACITY = 4
+
+  /** Measured on the card: the title and progress bar above the rows, one row, and the padding under the last one. */
+  private const val PET_HEADER_DP = 47
+  private const val PET_ROW_DP = 23
+  private const val PET_BOTTOM_PADDING_DP = 10
+  /** The pet (44) and the gap under it (8) need this much free height, or it stays away. */
+  private const val PET_MIN_FREE_DP = 60
+
+  /**
+   * vivo's launcher reports a widget about 25 dp narrower than it is drawn and counts the app label under it (about
+   * 29 dp) in the height; other launchers report the real size, so they get no correction.
+   */
+  private val isVivo = Build.MANUFACTURER.equals("vivo", ignoreCase = true) || Build.BRAND.equals("iqoo", ignoreCase = true)
+  private val launcherWidthFixDp = if (isVivo) 25 else 0
+  private val launcherLabelDp = if (isVivo) 29 else 0
   private const val MINUTES_PER_HOUR = 60
 
   /** What the rows and the "+N more" line show for one day. */
@@ -44,9 +60,37 @@ internal object WidgetRenderer {
     val day = snapshot?.days?.get(WidgetClock.todayKey(nowMs))
     val views = RemoteViews(context.packageName, R.layout.dayform_widget)
     bindHeader(context, views, snapshot, day, nowMs)
-    bindRows(context, views, snapshot, day, lineCapacity(options), nowMs)
+    val capacity = lineCapacity(options)
+    bindRows(context, views, snapshot, day, capacity, nowMs)
+    bindPet(context, views, snapshot, day, capacity, options)
     bindClick(context, views)
     return views
+  }
+
+  /**
+   * Shows the pet when there is room below the rows, in the mood of the day: it roams the free area while tasks are
+   * left, plays when all are done and mostly sleeps when nothing is planned (see WidgetPet).
+   */
+  private fun bindPet(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, capacity: Int, options: Bundle?) {
+    val total = day?.total ?: 0
+    val plan = planRows(total, day?.items?.size ?: 0, capacity)
+    val usedLines = plan.shown + if (plan.showMore) 1 else 0
+    val reportedWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
+    val reportedHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
+    val widthDp = if (reportedWidth > 0) reportedWidth + launcherWidthFixDp else 0
+    // The card's height minus its header, its bottom padding and the rows shown is the room left for the pet.
+    val freeHeightDp = if (reportedHeight > 0) {
+      reportedHeight - launcherLabelDp - PET_HEADER_DP - PET_BOTTOM_PADDING_DP - usedLines * PET_ROW_DP
+    } else {
+      (capacity - usedLines) * LINE_DP
+    }
+    val mood = when {
+      freeHeightDp < PET_MIN_FREE_DP -> null
+      total <= 0 -> PetMood.RESTING
+      (day?.done ?: 0) >= total -> PetMood.CHEERING
+      else -> PetMood.WALKING
+    }
+    WidgetPet.bind(context, views, snapshot?.pet ?: WidgetPet.DEFAULT_KIND, snapshot?.petWalks ?: true, mood, widthDp, freeHeightDp)
   }
 
   private fun bindHeader(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, nowMs: Long) {

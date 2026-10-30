@@ -19,6 +19,7 @@ import { vi as notificationActions } from "./notification-actions";
 import { vi as notifications } from "./notifications";
 import { vi as ota } from "./ota";
 import { vi as personal } from "./personal";
+import { vi as pet } from "./pet";
 import { vi as pickers } from "./pickers";
 import { vi as recovery } from "./recovery";
 import { vi as recurrence } from "./recurrence";
@@ -59,6 +60,7 @@ export const extraTranslations: Record<string, string> = {
   ...notifications,
   ...ota,
   ...personal,
+  ...pet,
   ...pickers,
   ...recovery,
   ...recurrence,

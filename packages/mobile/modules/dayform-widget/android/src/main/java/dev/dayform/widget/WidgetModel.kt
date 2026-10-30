@@ -15,7 +15,14 @@ internal data class WidgetLabels(
   val task: String,
 )
 
-internal data class WidgetSnapshot(val locale: String, val labels: WidgetLabels, val days: Map<String, WidgetDay>)
+/** `pet` is a kind id of the Pet settings page ("round-cat", "gray-cat", "orange-cat", "dog" or "off"); both pet fields are optional so an older app still works. */
+internal data class WidgetSnapshot(
+  val locale: String,
+  val labels: WidgetLabels,
+  val days: Map<String, WidgetDay>,
+  val pet: String,
+  val petWalks: Boolean,
+)
 
 /** Reads the JSON written by lib/widget-snapshot.ts. Anything unexpected yields null, never a crash. */
 internal object WidgetSnapshotParser {
@@ -50,6 +57,8 @@ internal object WidgetSnapshotParser {
         task = labels.optString("task", labels.getString("tasks")),
       ),
       days = days,
+      pet = root.optString("pet", WidgetPet.DEFAULT_KIND),
+      petWalks = root.optBoolean("petWalks", true),
     )
   }
 

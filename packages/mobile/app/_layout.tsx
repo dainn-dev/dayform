@@ -53,7 +53,7 @@ function AppReadyGate() {
 /** Feeds the home-screen widget once the settings are loaded, so a hidden-titles choice is never briefly ignored. */
 function WidgetBridge() {
   const { settings, ready } = useSettings();
-  return ready ? <WidgetSync showTitles={settings.widget.showTitles} /> : null;
+  return ready ? <WidgetSync showTitles={settings.widget.showTitles} pet={settings.pet.kind} petWalks={settings.pet.walks} /> : null;
 }
 
 // Provider chain: ErrorBoundary → SafeArea → Settings → Theme → Language → Tasks → Updates → Ota → Slot (+ UndoBar, helpers, the UpdatePrompt dialog and the OTA auto-check).

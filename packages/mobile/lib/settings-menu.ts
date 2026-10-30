@@ -2,6 +2,7 @@ import type { Colors } from "../constants/palettes";
 import type { TimeFormat } from "./planner";
 import type { Settings } from "./settings";
 import { fillPlaceholders } from "./text-template";
+import { petSummary } from "./pet";
 import type { ThemePreference } from "./theme-preference";
 import { hourLabel } from "./timeline-config";
 
@@ -13,7 +14,7 @@ type Translate = (text: string) => string;
 
 export type MenuGroupId = "personalise" | "tasks" | "reminders" | "health" | "data" | "app";
 export type PageSlug =
-  | "appearance" | "language" | "greeting" | "new-tasks" | "calendar" | "categories" | "habits" | "notifications" | "widget"
+  | "appearance" | "language" | "greeting" | "new-tasks" | "calendar" | "categories" | "habits" | "notifications" | "widget" | "pet"
   | "cycle" | "backup" | "archive" | "recovery" | "updates" | "about";
 export type MenuRowId = PageSlug | "cycle-tracking";
 /** A color slot of `Colors.<scheme>.category`: the chip is drawn with its `bg` and `accent`. */
@@ -67,6 +68,7 @@ export const MENU_ROWS: readonly MenuRow[] = [
   { id: "habits", slug: "habits", group: "tasks", title: "Habit hints", icon: "bulb-outline", tint: "mint" },
   { id: "notifications", slug: "notifications", group: "reminders", title: "Notifications", icon: "notifications-outline", tint: "coral" },
   { id: "widget", slug: "widget", group: "reminders", title: "Widget", icon: "apps-outline", tint: "Work" },
+  { id: "pet", slug: "pet", group: "reminders", title: "Pet", icon: "paw-outline", tint: "amber" },
   { id: "cycle", slug: "cycle", group: "health", title: "Cycle", icon: "flower-outline", tint: "Wellness" },
   { id: "cycle-tracking", slug: "cycle", group: "health", title: "Cycle tracking", icon: "toggle-outline", tint: "Wellness" },
   { id: "backup", slug: "backup", group: "data", title: "Backup", icon: "save-outline", tint: "slate" },
@@ -166,6 +168,7 @@ const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
   habits: ({ settings, t }) => t(settings.habits.hints ? "On" : "Off"),
   notifications: notificationsSummary,
   widget: ({ settings, t }) => t(settings.widget.showTitles ? "Titles shown" : "Titles hidden"),
+  pet: ({ settings: { pet }, t }) => petSummary(pet.kind, pet.walks, t),
   cycle: cycleSummary,
   "cycle-tracking": ({ t }) => t("Turn tracking off"),
   backup: ({ t }) => t("Export or import your data"),
