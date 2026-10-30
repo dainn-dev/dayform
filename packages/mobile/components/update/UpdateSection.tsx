@@ -68,14 +68,14 @@ export function UpdateSection() {
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   version: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 48, marginTop: 6 },
+  switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 44, marginTop: 4 },
   switchLabel: { flex: 1, color: c.foreground, fontSize: 13, fontWeight: "700" },
-  button: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 8, minHeight: 44, paddingHorizontal: 14, marginTop: 6, borderRadius: 12, backgroundColor: c.primaryTint },
+  button: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 8, minHeight: 44, paddingHorizontal: 14, marginTop: 4, borderRadius: 12, backgroundColor: c.primaryTint },
   buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
   disabled: { opacity: 0.45 },
-  muted: { color: c.mutedForeground, fontSize: 12, marginTop: 10 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 10 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 10 },
+  muted: { color: c.mutedForeground, fontSize: 12, marginTop: 8 },
+  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
+  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
   availableRow: { minHeight: 44, justifyContent: "center", marginTop: 2 },
   available: { color: c.primary, fontSize: 12, fontWeight: "800" },
 });

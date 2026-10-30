@@ -6,6 +6,7 @@
 export const vi: Record<string, string> = {
   // Group labels
   "Personalise": "Cá nhân hóa",
+  "Language": "Ngôn ngữ",
   "Tasks & calendar": "Công việc & lịch",
   "Reminders & widget": "Nhắc nhở & tiện ích",
   "Health": "Sức khỏe",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DAYS_PER_PAGE, INITIAL_DAYS, daysBetween, initialDays, nextDays, pageScheduled, shownScheduled } from "./explore-paging";
+import { DAYS_PER_PAGE, INITIAL_DAYS, NEAR_END_PX, daysBetween, initialDays, nextDays, pageScheduled, pagingStep, shownScheduled } from "./explore-paging";
 import type { Task } from "./planner";
 
 let counter = 0;
@@ -11,6 +11,25 @@ function task(date: string | null, patch: Partial<Task> = {}): Task {
   };
 }
 const dates = (tasks: readonly Task[]) => tasks.map(item => item.date);
+
+describe("pagingStep", () => {
+  test("arriving near the bottom while armed loads one page and disarms", () => {
+    expect(pagingStep(NEAR_END_PX, true)).toEqual({ load: true, armed: false });
+    expect(pagingStep(0, true)).toEqual({ load: true, armed: false });
+    expect(pagingStep(-5, true)).toEqual({ load: true, armed: false });
+  });
+
+  test("staying near the bottom afterwards loads nothing more (no chaining)", () => {
+    expect(pagingStep(10, false)).toEqual({ load: false, armed: false });
+    expect(pagingStep(NEAR_END_PX, false)).toEqual({ load: false, armed: false });
+  });
+
+  test("scrolling well away from the bottom arms it again, a little away does not", () => {
+    expect(pagingStep(NEAR_END_PX * 2 + 1, false)).toEqual({ load: false, armed: true });
+    expect(pagingStep(NEAR_END_PX + 40, false)).toEqual({ load: false, armed: false });
+    expect(pagingStep(NEAR_END_PX * 3, true)).toEqual({ load: false, armed: true });
+  });
+});
 
 describe("daysBetween", () => {
   test("counts calendar days, 0 for the same day", () => {

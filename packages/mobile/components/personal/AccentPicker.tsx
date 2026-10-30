@@ -36,7 +36,7 @@ export function AccentPicker() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 4 },
+  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 4 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   target: { width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
   swatch: { width: SWATCH, height: SWATCH, borderRadius: SWATCH / 2, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },

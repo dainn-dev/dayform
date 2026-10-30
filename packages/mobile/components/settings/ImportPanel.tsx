@@ -79,12 +79,12 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  panel: { marginTop: 12, padding: 14, borderRadius: 14, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
+  panel: { marginTop: 10, padding: 12, borderRadius: 14, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
   headline: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  question: { color: c.foreground, fontSize: 13, fontWeight: "700", marginTop: 10 },
-  detail: { color: c.mutedForeground, fontSize: 12, marginTop: 6 },
-  error: { color: c.errorMessage, fontSize: 12, marginTop: 6 },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  question: { color: c.foreground, fontSize: 13, fontWeight: "700", marginTop: 8 },
+  detail: { color: c.mutedForeground, fontSize: 12, marginTop: 4 },
+  error: { color: c.errorMessage, fontSize: 12, marginTop: 4 },
+  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   primary: { backgroundColor: c.primary }, primaryText: { color: c.onPrimary, fontSize: 12, fontWeight: "800" },
   secondary: { backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder }, secondaryText: { color: c.foreground, fontSize: 12, fontWeight: "800" },

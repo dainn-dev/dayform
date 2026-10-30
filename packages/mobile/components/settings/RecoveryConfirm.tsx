@@ -32,8 +32,8 @@ export function RecoveryConfirm({ question, yes, busy, onYes, onCancel }: Props)
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  question: { color: c.foreground, fontSize: 13, fontWeight: "700", marginTop: 10 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  question: { color: c.foreground, fontSize: 13, fontWeight: "700", marginTop: 8 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   danger: { backgroundColor: c.destructive }, dangerText: { color: c.onPrimary, fontSize: 12, fontWeight: "800" },
   secondary: { backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder }, secondaryText: { color: c.foreground, fontSize: 12, fontWeight: "800" },

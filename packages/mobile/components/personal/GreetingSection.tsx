@@ -56,8 +56,8 @@ export function GreetingSection() {
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   disabled: { opacity: DISABLED_OPACITY },
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 8 },
-  input: { minHeight: 48, marginTop: 10, backgroundColor: c.background, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, color: c.foreground, fontSize: 14, borderWidth: 1, borderColor: c.inputBorder },
-  helper: { color: c.mutedForeground, fontSize: 11, lineHeight: 16, marginTop: 6 },
-  preview: { backgroundColor: c.primarySoft, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14 },
+  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
+  input: { minHeight: 44, marginTop: 8, backgroundColor: c.background, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, color: c.foreground, fontSize: 14, borderWidth: 1, borderColor: c.inputBorder },
+  helper: { color: c.mutedForeground, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  preview: { backgroundColor: c.primarySoft, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
 });

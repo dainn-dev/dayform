@@ -40,7 +40,7 @@ export function NotificationTimeFields({ fields, onChange }: Props) {
       onError: () => undefined,
     });
   };
-  return <View>
+  return <View style={styles.root}>
     <View style={styles.row}>
       {fields.map(field => <PickerField key={field.id} label={field.label} display={formatTime(field.value)} icon="time-outline"
         accessibilityLabel={field.accessibilityLabel} isActive={openId === field.id} onPress={() => press(field)} />)}
@@ -50,4 +50,7 @@ export function NotificationTimeFields({ fields, onChange }: Props) {
   </View>;
 }
 
-const styles = StyleSheet.create({ row: { flexDirection: "row", gap: 12 } });
+/** The shared editor field label carries a 19 px top margin; pull it up so the label sits ~13 px under the previous row (10 px stack gap included). */
+const LABEL_TOP_TRIM = -16;
+
+const styles = StyleSheet.create({ root: { marginTop: LABEL_TOP_TRIM }, row: { flexDirection: "row", gap: 12 } });

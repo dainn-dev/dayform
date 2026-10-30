@@ -66,8 +66,8 @@ export function DefaultsSection() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 8 },
-  gap: { marginTop: 12 },
-  hint: { color: c.warningText, backgroundColor: c.warningBg, fontSize: 12, lineHeight: 17, marginTop: 10, padding: 12, borderRadius: 12, overflow: "hidden" },
-  preview: { color: c.emptyText, fontSize: 12, lineHeight: 18, marginTop: 16 },
+  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
+  gap: { marginTop: 8 },
+  hint: { color: c.warningText, backgroundColor: c.warningBg, fontSize: 12, lineHeight: 17, marginTop: 8, padding: 10, borderRadius: 12, overflow: "hidden" },
+  preview: { color: c.emptyText, fontSize: 12, lineHeight: 18, marginTop: 12 },
 });

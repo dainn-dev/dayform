@@ -50,7 +50,7 @@ export function NotificationPermissionHint() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  box: { backgroundColor: c.warningBg, borderRadius: 12, padding: 12, gap: 10 },
+  box: { backgroundColor: c.warningBg, borderRadius: 12, padding: 10, gap: 8 },
   text: { color: c.warningText, fontSize: 12, lineHeight: 17 },
   button: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: 16, borderRadius: 14, backgroundColor: c.primary },
   buttonText: { color: c.onPrimary, fontSize: 12, fontWeight: "700" },

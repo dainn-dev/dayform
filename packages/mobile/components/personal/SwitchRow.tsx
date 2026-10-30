@@ -20,7 +20,7 @@ export function SwitchRow({ label, value, onChange, hint }: Props) {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 48 },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 44 },
   texts: { flex: 1 },
   label: { color: c.foreground, fontSize: 13, fontWeight: "700" },
   hint: { color: c.mutedForeground, fontSize: 11, lineHeight: 16, marginTop: 2 },

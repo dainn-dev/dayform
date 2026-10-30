@@ -96,8 +96,8 @@ export function ArchiveSection() {
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  count: { color: c.foreground, fontSize: 12, fontWeight: "700", marginTop: 6 },
-  row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12 },
+  count: { color: c.foreground, fontSize: 12, fontWeight: "700", marginTop: 4 },
+  row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 10 },
   question: { color: c.foreground, fontSize: 13, fontWeight: "800" },
   button: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: c.primaryTint },
   buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800", flexShrink: 1 },
@@ -105,7 +105,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   primaryText: { color: c.primaryForeground, fontSize: 12, fontWeight: "800" },
   secondary: { backgroundColor: c.primaryTint },
   disabled: { opacity: 0.45 },
-  busy: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }, busyText: { color: c.mutedForeground, fontSize: 12 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 10 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 10 },
+  busy: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }, busyText: { color: c.mutedForeground, fontSize: 12 },
+  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
+  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
 });

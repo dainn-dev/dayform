@@ -51,6 +51,6 @@ export function NotificationsSection() {
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: 14 },
-  chipLabel: { marginTop: 0 },
+  stack: { gap: 10 },
+  chipLabel: { marginTop: 0, marginBottom: 6 },
 });

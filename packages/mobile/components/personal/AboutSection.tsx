@@ -24,8 +24,8 @@ export function AboutSection() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 8 },
+  stack: { gap: 6 },
   version: { color: c.foreground, fontSize: 17, fontWeight: "800" },
-  privacy: { color: c.foreground, fontSize: 14, fontWeight: "700", marginTop: 6 },
+  privacy: { color: c.foreground, fontSize: 14, fontWeight: "700", marginTop: 4 },
   meta: { color: c.mutedForeground, fontSize: 13, lineHeight: 19 },
 });

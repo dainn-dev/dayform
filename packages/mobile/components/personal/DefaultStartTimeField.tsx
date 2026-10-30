@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Platform, Text, TextInput, View } from "react-native";
+import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useColors } from "../../hooks/use-colors";
 import { useLanguage } from "../../lib/language";
@@ -9,6 +9,10 @@ import { useFieldStyles } from "../editor/field-styles";
 import { PickerField } from "../editor/PickerField";
 
 type Props = { value: string; onChange: (time: string) => void; onPickerError: () => void };
+
+/** The shared editor field label carries a 19 px top margin; trim it to ~12 px to match the other captions on this page. */
+const LABEL_TOP_TRIM = -7;
+const s = StyleSheet.create({ root: { marginTop: LABEL_TOP_TRIM } });
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -23,13 +27,13 @@ export function DefaultStartTimeField({ value, onChange, onPickerError }: Props)
 
   if (Platform.OS === "web") {
     const typed = (text: string) => { setDraft(text); if (TIME_PATTERN.test(text)) onChange(text); };
-    return <View><Text style={f.label}>{label}</Text><TextInput value={draft} onChangeText={typed} placeholder="09:00" style={f.input} accessibilityLabel={t("Default start time")} /></View>;
+    return <View style={s.root}><Text style={f.label}>{label}</Text><TextInput value={draft} onChangeText={typed} placeholder="09:00" style={f.input} accessibilityLabel={t("Default start time")} /></View>;
   }
   const press = () => {
     if (Platform.OS !== "android") return setSpinnerOpen(open => !open);
     openAndroidPicker({ mode: "time", value, is24Hour: timeFormat === "24h", onSelect: onChange, onError: onPickerError });
   };
-  return <View>
+  return <View style={s.root}>
     <View style={f.row}>
       <PickerField label={label} display={formatTime(value)} icon="time-outline" accessibilityLabel={t("Default start time")} isActive={spinnerOpen} onPress={press} />
       <View style={{ flex: 1 }} />

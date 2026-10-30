@@ -1,18 +1,15 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { leaveToPersonal } from "../../hooks/use-back-to-personal";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 
 const BACK_SIZE = 44;
 
-/** Back to where the user came from; to the Personal tab when the page was opened directly (a deep link). */
-export function leaveSettingsPage(): void {
-  if (router.canGoBack()) router.back();
-  else router.replace("/(tabs)/personal");
-}
+/** Back to the Personal tab the page was opened from (router.back() would land on the Timeline, see hooks/use-back-to-personal.ts). */
+export const leaveSettingsPage = leaveToPersonal;
 
 /** Title row of a settings page with a 44dp back button. */
 export function PageHeader({ title }: { title: string }) {

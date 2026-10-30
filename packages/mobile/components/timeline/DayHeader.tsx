@@ -9,7 +9,6 @@ import { useLanguage } from "../../lib/language";
 import { fromKey, type Task } from "../../lib/planner";
 import { useSettings } from "../../lib/settings-context";
 import { windowLabel } from "../../lib/timeline-config";
-import { LanguageSwitch } from "../LanguageSwitch";
 
 const GREETING_MIN_FONT_SCALE = 0.6;
 
@@ -37,7 +36,7 @@ export function GreetingHeader({ onToday, now }: { onToday: () => void; now: Dat
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return <>
-    <View style={s.kickerRow}><Text style={s.kicker}>DAYFORM ✦</Text><LanguageSwitch /></View>
+    <View style={s.kickerRow}><Text style={s.kicker}>DAYFORM ✦</Text></View>
     <View style={s.header}>
       <GreetingLines now={now} />
       <Pressable onPress={onToday} style={s.todayShortcut} accessibilityRole="button" accessibilityLabel={tr("Jump to today")}><Ionicons name="calendar-outline" size={21} color={colors.foreground} /></Pressable>

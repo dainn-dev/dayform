@@ -13,7 +13,7 @@ type Translate = (text: string) => string;
 
 export type MenuGroupId = "personalise" | "tasks" | "reminders" | "health" | "data" | "app";
 export type PageSlug =
-  | "appearance" | "greeting" | "new-tasks" | "calendar" | "categories" | "habits" | "notifications" | "widget"
+  | "appearance" | "language" | "greeting" | "new-tasks" | "calendar" | "categories" | "habits" | "notifications" | "widget"
   | "cycle" | "backup" | "archive" | "recovery" | "updates" | "about";
 export type MenuRowId = PageSlug | "cycle-tracking";
 /** A color slot of `Colors.<scheme>.category`: the chip is drawn with its `bg` and `accent`. */
@@ -36,6 +36,8 @@ export type MenuGroup = { id: MenuGroupId; title: string; rows: readonly MenuRow
 export type MenuInputs = {
   settings: Settings;
   themePreference: ThemePreference;
+  /** The interface language (lib/language.tsx), shown by name in its own language. */
+  language: "en" | "vi";
   /** Categories a picker offers (visible built-ins plus custom ones). */
   categoryCount: number;
   categoryName: (id: string) => string;
@@ -57,6 +59,7 @@ const MINUTES_PER_HOUR = 60;
 /** Display order of the menu. To add a Personal page: one row here and one body in components/personal/sections.tsx. */
 export const MENU_ROWS: readonly MenuRow[] = [
   { id: "appearance", slug: "appearance", group: "personalise", title: "Appearance", icon: "color-palette-outline", tint: "violet" },
+  { id: "language", slug: "language", group: "personalise", title: "Language", icon: "language-outline", tint: "sky" },
   { id: "greeting", slug: "greeting", group: "personalise", title: "Greeting", icon: "sunny-outline", tint: "amber" },
   { id: "new-tasks", slug: "new-tasks", group: "tasks", title: "New tasks", icon: "add-circle-outline", tint: "Focus" },
   { id: "calendar", slug: "calendar", group: "tasks", title: "Calendar & time", icon: "calendar-outline", tint: "sky" },
@@ -154,6 +157,8 @@ function cycleSummary({ cycle, t }: MenuInputs): string {
 
 const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
   appearance: ({ themePreference, settings, t }) => join([t(THEME_LABELS[themePreference]), t(ACCENT_LABELS[settings.accent])]),
+  // A language is always named in itself, so these two are never translated.
+  language: ({ language }) => (language === "vi" ? "Tiếng Việt" : "English"),
   greeting: ({ settings: { greeting }, t }) => join([t(greeting.showName ? "Name shown" : "Name hidden"), t(SLOGAN_LABELS[greeting.sloganStyle])]),
   "new-tasks": ({ settings: { defaults }, duration, categoryName }) => join([duration(defaults.duration), categoryName(defaults.category)]),
   calendar: calendarSummary,

@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useBackToPersonal } from "../../hooks/use-back-to-personal";
 import { useColors } from "../../hooks/use-colors";
 import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
 import type { ThemeColors } from "../../constants/theme";
@@ -19,6 +20,7 @@ export function SettingsPage({ row }: { row: MenuRow }) {
   const colors = useColors();
   const { saveError } = useSettings();
   const keyboard = useKeyboardInset();
+  useBackToPersonal();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const { Component, hasTextInput } = SETTINGS_PAGES[row.slug];
   // Pages with a text field keep the field reachable above the keyboard.

@@ -1,16 +1,13 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { leaveToPersonal } from "../../hooks/use-back-to-personal";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 
-/** Back to where the user came from; to the Personal tab when the screen was opened directly. */
-export function leaveCycleScreen(): void {
-  if (router.canGoBack()) router.back();
-  else router.replace("/(tabs)/personal");
-}
+/** Back to the Personal tab the screen was opened from (router.back() would land on the Timeline, see hooks/use-back-to-personal.ts). */
+export const leaveCycleScreen = leaveToPersonal;
 
 /** Title row of the cycle screen with a 44dp back button. Shared by the content and the lock screen. */
 export function CycleHeader() {

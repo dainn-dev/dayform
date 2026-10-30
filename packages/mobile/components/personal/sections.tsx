@@ -12,6 +12,7 @@ import { CycleSection } from "./CycleSection";
 import { DefaultsSection } from "./DefaultsSection";
 import { GreetingSection } from "./GreetingSection";
 import { HabitsSection } from "./HabitsSection";
+import { LanguageSection } from "./LanguageSection";
 import { NotificationsSection } from "./NotificationsSection";
 import { WidgetSection } from "./WidgetSection";
 
@@ -29,6 +30,7 @@ export type SettingsPageEntry = {
  */
 export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   appearance: { Component: AppearanceSection },
+  language: { Component: LanguageSection },
   greeting: { Component: GreetingSection, hasTextInput: true },
   "new-tasks": { Component: DefaultsSection, hasTextInput: true },
   calendar: { Component: CalendarSection },

@@ -74,12 +74,12 @@ export function RecoveryItemRow({ item, actions }: Props) {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { marginTop: 12, padding: 14, borderRadius: 14, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
+  row: { marginTop: 10, padding: 12, borderRadius: 14, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
   title: { color: c.foreground, fontSize: 13, fontWeight: "800" },
   meta: { color: c.mutedForeground, fontSize: 12, lineHeight: 18, marginTop: 2 },
   preview: { marginTop: 8 },
   error: { color: c.errorMessage, fontSize: 12, marginTop: 4 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder },
   buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
   destructiveText: { color: c.errorMessage, fontSize: 12, fontWeight: "800" },

@@ -20,6 +20,7 @@ function inputs(patch: DeepPartial<Settings> = {}, extra: Partial<MenuInputs> = 
   return {
     settings: mergeSettings(DEFAULT_SETTINGS, patch),
     themePreference: "system",
+    language: "en",
     categoryCount: 4,
     categoryName: id => id,
     version: "1.2.1",
@@ -53,7 +54,7 @@ describe("registry", () => {
 
   test("lists the pages of the design in order", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
-      ["appearance", "greeting"],
+      ["appearance", "language", "greeting"],
       ["new-tasks", "calendar", "categories", "habits"],
       ["notifications", "widget"],
       ["cycle", "cycle-tracking"],
@@ -129,6 +130,11 @@ describe("summaries", () => {
     expect(say("appearance")).toBe("System · Violet");
     expect(say("appearance", { accent: "forest" }, { themePreference: "dark" })).toBe("Dark · Forest");
     expect(say("appearance", { accent: "blossom" }, { themePreference: "light" })).toBe("Light · Blossom");
+  });
+
+  test("language names the current language in itself, whatever the translator does", () => {
+    expect(say("language")).toBe("English");
+    expect(say("language", {}, { language: "vi", t: () => "never used" })).toBe("Tiếng Việt");
   });
 
   test("greeting says whether the name shows and which slogan style is on", () => {

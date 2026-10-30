@@ -56,15 +56,15 @@ export function ProfileCard() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: 17, padding: 16, marginBottom: 10 },
+  card: { backgroundColor: c.card, borderRadius: 17, padding: 14, marginBottom: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 14 },
   avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: c.accent, alignItems: "center", justifyContent: "center" },
   initial: { color: c.accentForeground, fontSize: 24, fontWeight: "800" },
   name: { flex: 1, color: c.foreground, fontSize: 19, fontWeight: "800" },
   editButton: { minHeight: MIN_TOUCH_TARGET, minWidth: MIN_TOUCH_TARGET, paddingHorizontal: 14, borderRadius: 13, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
   editText: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
-  editor: { marginTop: 16 },
-  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 12 },
+  editor: { marginTop: 12 },
+  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 10 },
   cancel: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 18, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   cancelText: { color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
   save: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 22, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },

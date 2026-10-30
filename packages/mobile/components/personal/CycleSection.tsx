@@ -66,7 +66,7 @@ export function CycleSection() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 10 },
+  stack: { gap: 8 },
   text: { color: c.foreground, fontSize: 13, lineHeight: 19 },
   status: { color: c.foreground, fontSize: 15, fontWeight: "800" },
   error: { color: c.errorMessage, fontSize: 12, lineHeight: 17 },

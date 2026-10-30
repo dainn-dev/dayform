@@ -72,16 +72,16 @@ export function RecoverySection() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  loading: { alignSelf: "flex-start", marginTop: 12 },
+  loading: { alignSelf: "flex-start", marginTop: 10 },
   hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  paused: { color: c.foreground, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 8 },
-  empty: { color: c.mutedForeground, fontSize: 12, marginTop: 12 },
+  paused: { color: c.foreground, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 6 },
+  empty: { color: c.mutedForeground, fontSize: 12, marginTop: 10 },
   toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", alignSelf: "flex-start", backgroundColor: c.primaryTint, marginTop: 12 },
+  button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", alignSelf: "flex-start", backgroundColor: c.primaryTint, marginTop: 10 },
   buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
   deleteAll: { backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder },
   deleteText: { color: c.errorMessage, fontSize: 12, fontWeight: "800" },
   disabled: { opacity: 0.45 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 10 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 10 },
+  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
+  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
 });

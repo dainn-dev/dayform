@@ -14,6 +14,6 @@ export function PersonalCard({ title, children }: { title?: string; children: Re
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: 17, padding: 16, marginBottom: 10 },
-  label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 12, textTransform: "uppercase" },
+  card: { backgroundColor: c.card, borderRadius: 17, padding: 14, marginBottom: 8 },
+  label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 10, textTransform: "uppercase" },
 });

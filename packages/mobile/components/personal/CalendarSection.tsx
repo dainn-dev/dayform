@@ -64,7 +64,7 @@ export function CalendarSection() {
 }
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 8 },
-  error: { color: c.errorBannerText, fontSize: 12, lineHeight: 17, marginTop: 6 },
-  example: { color: c.mutedForeground, fontSize: 12, marginTop: 10 },
+  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
+  error: { color: c.errorBannerText, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  example: { color: c.mutedForeground, fontSize: 12, marginTop: 8 },
 });

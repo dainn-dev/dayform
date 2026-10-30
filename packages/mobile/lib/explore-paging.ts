@@ -23,6 +23,21 @@ export function daysBetween(from: string, to: string): number {
 }
 
 /** Splits scheduled tasks (sorted by date) into earlier / the window `today .. today + daysShown - 1` / later. Backlog tasks are ignored. */
+/** Within this distance (px) of the true bottom of the list a scroll loads the next days. */
+export const NEAR_END_PX = 120;
+
+/**
+ * One step of the scroll-driven paging: given how far the viewport is from the end of the content and whether paging is
+ * armed, say whether to load the next days and what the armed state becomes. Loading disarms; paging is armed again
+ * once the user scrolls away from the bottom (or the content changes, see the screen), so a single arrival at the
+ * bottom loads exactly one page instead of chaining. This replaces `onEndReached`, which React Native fires once per
+ * content length and never again while a short list stays inside its end zone.
+ */
+export function pagingStep(distanceFromEnd: number, armed: boolean): { load: boolean; armed: boolean } {
+  if (distanceFromEnd <= NEAR_END_PX) return { load: armed, armed: false };
+  return { load: false, armed: armed || distanceFromEnd > NEAR_END_PX * 2 };
+}
+
 export function pageScheduled(scheduled: readonly Task[], today: string, daysShown: number): ScheduledPage {
   const windowEnd = addDays(today, Math.max(1, daysShown) - 1);
   const earlier: Task[] = [];

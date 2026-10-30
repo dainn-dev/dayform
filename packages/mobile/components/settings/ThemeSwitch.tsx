@@ -13,7 +13,10 @@ const A11Y_LABELS: Record<ThemePreference, string> = {
   dark: "Use the dark appearance",
 };
 
-/** System / Light / Dark segmented control; same visual language as LanguageSwitch. */
+/** 36 px segment + 3 px root padding + 4 px slop above and below = the 44 px minimum touch target. */
+const SEGMENT_HIT_SLOP = { top: 4, bottom: 4, left: 0, right: 0 } as const;
+
+/** System / Light / Dark segmented control. */
 export function ThemeSwitch() {
   const { preference, setPreference, saveError } = useThemePreference();
   const { t } = useLanguage();
@@ -23,7 +26,7 @@ export function ThemeSwitch() {
     <View style={s.root}>{THEME_PREFERENCES.map(value => <Pressable key={value}
       accessibilityRole="button" accessibilityLabel={t(A11Y_LABELS[value])}
       accessibilityState={{ selected: preference === value }} onPress={() => setPreference(value)}
-      style={[s.button, preference === value && s.active]}>
+      hitSlop={SEGMENT_HIT_SLOP} style={[s.button, preference === value && s.active]}>
       <Text style={[s.text, preference === value && s.activeText]}>{t(LABELS[value])}</Text>
     </Pressable>)}</View>
     {saveError && <Text accessibilityRole="alert" style={s.error}>{t(saveError)}</Text>}
@@ -32,7 +35,7 @@ export function ThemeSwitch() {
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   root: { flexDirection: "row", backgroundColor: c.segmentBg, borderRadius: 12, padding: 3 },
-  button: { flex: 1, paddingHorizontal: 12, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: 10 },
+  button: { flex: 1, paddingHorizontal: 12, minHeight: 36, alignItems: "center", justifyContent: "center", borderRadius: 10 },
   active: { backgroundColor: c.primary }, text: { color: c.segmentText, fontWeight: "800", fontSize: 12 }, activeText: { color: c.onPrimary },
-  error: { color: c.errorMessage, fontSize: 11, marginTop: 6 },
+  error: { color: c.errorMessage, fontSize: 11, marginTop: 4 },
 });

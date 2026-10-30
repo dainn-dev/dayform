@@ -1,9 +1,8 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../../lib/language";
-import { LanguageSwitch } from "../../components/LanguageSwitch";
 import { TaskEditor } from "../../components/TaskEditor";
 import { TaskCard } from "../../components/TaskCard";
 import { useTasks } from "../../lib/tasks-context";
@@ -14,7 +13,7 @@ import { filterTasks } from "../../lib/search";
 import { SearchBar } from "../../components/tasks/SearchBar";
 import { CategoryFilter } from "../../components/tasks/CategoryFilter";
 import { buildExploreSections, conflictIds, taskStats, type ExploreFilter } from "../../lib/explore-groups";
-import { initialDays, nextDays, pageScheduled, shownScheduled } from "../../lib/explore-paging";
+import { initialDays, nextDays, pageScheduled, pagingStep, shownScheduled } from "../../lib/explore-paging";
 import { EarlierTasksToggle, ShowNextDays } from "../../components/tasks/ScheduledControls";
 import { useHabitHints } from "../../components/habits/useHabitHints";
 import { StaleBanner, StaleReviewStrip } from "../../components/habits/StaleBanner";
@@ -26,7 +25,7 @@ import { useTodayKey } from "../../components/stats/use-today-key";
 const FILTERS: readonly ExploreFilter[] = ["all", "active", "done"];
 const MIN_TOUCH_TARGET = 44;
 
-const END_REACHED_THRESHOLD = 0.6;
+const SCROLL_EVENT_THROTTLE_MS = 64;
 
 type ExploreSection = { key: "backlog" | "scheduled"; data: Task[] };
 /** What the Scheduled group needs besides its visible rows. Paged is false while searching or filtering (everything is listed). */
@@ -69,12 +68,8 @@ export default function TasksScreen() {
   // Days the user has paged to, valid for one key only: a new day or leaving a search/filter starts again at today + tomorrow.
   const [loaded, setLoaded] = useState<{ key: string; days: number }>({ key: "", days: 0 });
   const [showEarlier, setShowEarlier] = useState(false);
-  const userScrolledKey = useRef("");
   // Leaving the plain view (search, filter) or a new day forgets the paging, so coming back starts at today + tomorrow.
-  useEffect(() => {
-    setLoaded({ key: "", days: 0 });
-    userScrolledKey.current = "";
-  }, [pageKey]);
+  useEffect(() => { setLoaded({ key: "", days: 0 }); }, [pageKey]);
   const { sections, meta } = useMemo<{ sections: ExploreSection[]; meta: ScheduledMeta }>(() => {
     if (loading) return { sections: [], meta: ALL_SCHEDULED };
     const { backlog, scheduled } = buildExploreSections(visibleTasks, "all");
@@ -91,8 +86,15 @@ export default function TasksScreen() {
     return { sections: searching ? all.filter(section => section.data.length > 0) : all, meta: scheduledMeta };
   }, [visibleTasks, loading, searching, paged, today, pageKey, loaded, showEarlier]);
   const loadMoreDays = useCallback(() => setLoaded({ key: pageKey, days: meta.nextDays }), [pageKey, meta.nextDays]);
-  // The list is short right after a reset, which would fire onEndReached by itself: only a user scroll may page.
-  const onEndReached = () => { if (meta.paged && meta.hasMore && userScrolledKey.current === pageKey) loadMoreDays(); };
+  // Scroll-driven paging (see pagingStep): measured on every scroll, so a short list at the bottom of the page pages too.
+  // onEndReached is not used: React Native fires it once per content length and not again while the list stays in its end zone.
+  const armed = useRef(true);
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    const step = pagingStep(contentSize.height - (contentOffset.y + layoutMeasurement.height), armed.current);
+    armed.current = step.armed;
+    if (step.load && meta.paged && meta.hasMore) loadMoreDays();
+  };
   // The new list is derived from the committed one inside the store, never from a render-time task snapshot.
   const toggle = useCallback((id: string) => {
     void mutate(list => list.map(item => item.id === id ? { ...item, status: item.status === "done" ? "todo" : "done" } : item));
@@ -143,7 +145,7 @@ export default function TasksScreen() {
   </View>;
 
   const header = <View>
-    <View style={s.topRow}><Text accessibilityRole="header" style={s.kicker}>{t("THE BIG PICTURE")}</Text><LanguageSwitch /></View>
+    <View style={s.topRow}><Text accessibilityRole="header" style={s.kicker}>{t("THE BIG PICTURE")}</Text></View>
     <Text accessibilityRole="header" style={s.title}>{t("Your tasks")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
     <Text style={s.subtitle}>{t("Every little thing, all in one place.")}</Text>
     {onlyIds !== undefined
@@ -170,7 +172,7 @@ export default function TasksScreen() {
       renderItem={renderItem} renderSectionHeader={renderSectionHeader} renderSectionFooter={renderSectionFooter}
       ListHeaderComponent={header} ListEmptyComponent={searching && !loading ? noMatches : null}
       contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
-      onScrollBeginDrag={() => { userScrolledKey.current = pageKey; }} onEndReached={onEndReached} onEndReachedThreshold={END_REACHED_THRESHOLD}
+      onScroll={onScroll} scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS} onContentSizeChange={() => { armed.current = true; }}
       initialNumToRender={12} windowSize={7} maxToRenderPerBatch={10}
     />
     <Pressable onPress={() => setEditing(null)} accessibilityRole="button" accessibilityLabel={t("Create a new task")} style={s.fab}><Ionicons name="add" size={30} color={colors.onPrimary} /></Pressable>

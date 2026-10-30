@@ -15,7 +15,7 @@ import { updateSummaryLine } from "../../lib/update-summary";
  */
 export function useMenuInputs(): MenuInputs {
   const { settings } = useSettings();
-  const { t, duration, time, timeFormat } = useLanguage();
+  const { t, duration, time, timeFormat, language } = useLanguage();
   const { preference } = useThemePreference();
   const categories = useCategories();
   const apk = useUpdates();
@@ -28,6 +28,7 @@ export function useMenuInputs(): MenuInputs {
   return useMemo(() => ({
     settings,
     themePreference: preference,
+    language,
     categoryCount: categories.visible.length,
     categoryName: categories.label,
     version: apk.currentVersion,
@@ -37,6 +38,6 @@ export function useMenuInputs(): MenuInputs {
     duration,
     time,
     t,
-  }), [settings, preference, categories.visible.length, categories.label, apk.currentVersion, updateLine,
+  }), [settings, preference, language, categories.visible.length, categories.label, apk.currentVersion, updateLine,
     ready, cycleEnabled, lockEnabled, timeFormat, duration, time, t]);
 }
