@@ -5,7 +5,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Goku's script is a short film, not a stroll: six scenes that repeat (about 36 seconds; one tick is one flip of the widget,
+ * Goku's script is a short film, not a stroll: six scenes that repeat (about 46 seconds; one tick is one flip of the widget,
  * 300 ms). Every character frame of the sprite sheet is in it.
  *
  *  1. Start: stances, hair and clothes stirring (the blurred frames), grey energy gathering.
@@ -36,7 +36,7 @@ internal object GokuPet {
   /**
    * One set of frames played in order. `from`..`to` is how far along the card it moves while it plays; `lunge` pushes
    * every other frame forward; frames from `shakeFrom` up to `shakeTo` jitter by `shake` dp; `arc` lifts the middle of the set;
-   * `fx` gives the full-card layer of each frame; `stops` are frames held one extra tick (hit-stop).
+   * `fx` gives the full-card layer of each frame; `hold` is how many ticks every frame lasts (slow scenes); `stops` are frames held one extra tick (hit-stop).
    */
   private class Seg(
     val set: String,
@@ -49,6 +49,7 @@ internal object GokuPet {
     val arc: Float = 0f,
     val fx: IntArray? = null,
     val stops: Set<Int> = emptySet(),
+    val hold: Int = 1,
   )
 
   private const val N = WidgetPet.FX_NONE
@@ -69,9 +70,9 @@ internal object GokuPet {
     Seg("duel", Pos.DASH, shake = 2f, shakeTo = 3, stops = setOf(0)),
     // 3. Charge
     Seg("back", Pos.DASH, Pos.HOME),
-    Seg("charge", Pos.HOME),
-    Seg("shot", Pos.HOME, shake = 3f),
-    Seg("bomb", Pos.HOME, shake = 2f),
+    Seg("charge", Pos.HOME, hold = 2),
+    Seg("shot", Pos.HOME, shake = 3f, hold = 2),
+    Seg("bomb", Pos.HOME, shake = 2f, hold = 3),
     Seg("gather", Pos.HOME, shake = 2f, fx = intArrayOf(N, N, F75)),
     // 4. Transformation
     Seg("bow", Pos.HOME, shake = 3f, shakeFrom = 1, fx = intArrayOf(N, F50, F75, F100, F75)),
@@ -81,11 +82,11 @@ internal object GokuPet {
     // 5. Finisher
     Seg("wfight", Pos.HOME, Pos.DASH, lunge = LUNGE_DP, stops = setOf(3)),
     Seg("wkick", Pos.DASH, Pos.HOME, lunge = LUNGE_DP),
-    Seg("cast", Pos.HOME),
-    Seg("bombw", Pos.HOME),
-    Seg("thin", Pos.HOME, shake = 2f),
-    Seg("beam", Pos.HOME, shake = 3f),
-    Seg("boom", Pos.HOME, shake = 3f, shakeTo = 2, fx = intArrayOf(F50, F100, F100), stops = setOf(1)),
+    Seg("cast", Pos.HOME, hold = 3),
+    Seg("bombw", Pos.HOME, hold = 2),
+    Seg("thin", Pos.HOME, shake = 2f, hold = 3),
+    Seg("beam", Pos.HOME, shake = 3f, hold = 3),
+    Seg("boom", Pos.HOME, shake = 3f, shakeTo = 4, fx = intArrayOf(F50, F100, F100), stops = setOf(1), hold = 2),
     Seg("recoil", Pos.HOME, shake = 3f, shakeTo = 2, fx = intArrayOf(F75, F50, F25) + IntArray(8) { N }),
     // 6. End
     Seg("fade", Pos.HOME, fx = intArrayOf(F75, F50, F25)),
@@ -113,7 +114,7 @@ internal object GokuPet {
         val lift = if (seg.arc != 0f) sin(PI * (i + 0.5) / frames.size).toFloat() * seg.arc else 0f
         val step = if (areaW <= 0f) WidgetPet.STEPS else (x / areaW * WidgetPet.STEPS + 0.5f).toInt().coerceIn(0, WidgetPet.STEPS)
         val fx = seg.fx?.getOrNull(i) ?: N
-        repeat(if (i in seg.stops) 2 else 1) { out.add(WidgetPet.Frame(frames[i], step, lift.toInt(), fx)) }
+        repeat(seg.hold + (if (i in seg.stops) 1 else 0)) { out.add(WidgetPet.Frame(frames[i], step, lift.toInt(), fx)) }
       }
     }
     return out
