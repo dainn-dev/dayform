@@ -28,7 +28,7 @@ internal object WidgetBackground {
   private const val STORE_MAX_PX = 1280
   private const val DRAW_MAX_PX = 900
   private const val CARD_RADIUS_DP = 24f
-  const val DEFAULT_VEIL = 60
+  const val DEFAULT_VEIL = 72
   const val MAX_VEIL = 90
 
   private fun file(context: Context) = File(context.filesDir, FILE_NAME)

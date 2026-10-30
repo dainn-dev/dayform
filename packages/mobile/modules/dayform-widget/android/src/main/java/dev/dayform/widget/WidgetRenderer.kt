@@ -166,6 +166,7 @@ internal object WidgetRenderer {
     val languageTag = snapshot?.locale ?: Locale.getDefault().toLanguageTag()
     views.setTextViewText(R.id.dayform_widget_title, snapshot?.labels?.today ?: context.getString(R.string.dayform_widget_today))
     views.setTextViewText(R.id.dayform_widget_date, WidgetClock.headerDate(nowMs, languageTag))
+    if (WidgetBackground.exists(context)) views.setTextColor(R.id.dayform_widget_date, context.getColor(R.color.dayform_widget_text_secondary_photo))
 
     bindMarks(views, day)
 
@@ -210,6 +211,7 @@ internal object WidgetRenderer {
 
     if (total <= 0) {
       views.setTextViewText(R.id.dayform_widget_empty, snapshot?.labels?.empty ?: context.getString(R.string.dayform_widget_empty))
+      if (WidgetBackground.exists(context)) views.setTextColor(R.id.dayform_widget_empty, context.getColor(R.color.dayform_widget_text_secondary_photo))
       views.setViewVisibility(R.id.dayform_widget_empty, View.VISIBLE)
     } else {
       views.setViewVisibility(R.id.dayform_widget_empty, View.GONE)
@@ -218,8 +220,10 @@ internal object WidgetRenderer {
 
   private fun bindRow(context: Context, views: RemoteViews, ids: RowIds, item: WidgetItem, state: RowState, userAccent: WidgetAccent?, tints: Boolean) {
     val primary = context.getColor(R.color.dayform_widget_text_primary)
-    val secondary = context.getColor(R.color.dayform_widget_text_secondary)
-    val muted = context.getColor(R.color.dayform_widget_text_done)
+    // Over a picture the grey texts are darkened: they were the ones that washed out.
+    val onPicture = WidgetBackground.exists(context)
+    val secondary = context.getColor(if (onPicture) R.color.dayform_widget_text_secondary_photo else R.color.dayform_widget_text_secondary)
+    val muted = context.getColor(if (onPicture) R.color.dayform_widget_text_done_photo else R.color.dayform_widget_text_done)
     val accent = userAccent?.primary ?: context.getColor(R.color.dayform_widget_accent)
 
     views.setViewVisibility(ids.row, View.VISIBLE)

@@ -5,6 +5,8 @@
     <color name="dayform_widget_text_primary">#FF1F2230</color>
     <color name="dayform_widget_text_secondary">#FF6B7080</color>
     <color name="dayform_widget_text_done">#FF9A9EAE</color>
+    <color name="dayform_widget_text_secondary_photo">#FF3B4052</color>
+    <color name="dayform_widget_text_done_photo">#FF565C70</color>
     <color name="dayform_widget_accent">#FFBF520D</color>
     <color name="dayform_widget_accent_tint">#FFFDEEE4</color>
     <color name="dayform_widget_track">#FFE9EAF2</color>

@@ -35,7 +35,7 @@ export async function setWidgetSnapshot(json: string): Promise<boolean> {
 /** The widget's custom background picture: whether one is set and how much white veil covers it (percent). */
 export type WidgetBackgroundState = { hasPicture: boolean; veil: number };
 
-export const DEFAULT_BACKGROUND_VEIL = 60;
+export const DEFAULT_BACKGROUND_VEIL = 72;
 export const MAX_BACKGROUND_VEIL = 90;
 
 export function getWidgetBackground(): WidgetBackgroundState {
