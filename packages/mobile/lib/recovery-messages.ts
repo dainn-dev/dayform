@@ -2,6 +2,7 @@ import {
   countItem,
   importErrorMessage,
   withCategoriesNote,
+  withSpecialDaysNote,
   withCycleNote,
   type ImportFailure,
   type ImportSummary,
@@ -65,6 +66,8 @@ export const INCLUDES_PERSONAL_DATA = "Includes personal data";
 export const REPLACE_PERSONAL_DATA_QUESTION = "Replace all your current personal data with this copy?";
 /** Translation key: the notice after a restore that touched only the tracker. */
 export const PERSONAL_DATA_RESTORED = "Personal data restored";
+/** Translation key (lib/i18n/special-days.ts): a restore or import that held special days and no task. */
+export const SPECIAL_DAYS_RESTORED = "Special days restored";
 
 /** Translation key: the question before a replace restore of a copy that holds tasks and tracker data. */
 export const REPLACE_TASKS_AND_PERSONAL_QUESTION = "Replace all your current tasks and personal data with this copy?";
@@ -80,7 +83,7 @@ export function replaceCopyQuestion(kind: RecoveryKind, parsed: Pick<ParsedTasks
 }
 
 /** True when restoring this preview changes no task, only the tracker. */
-export const isPersonalDataOnly = (parsed: ParsedTasks): boolean => parsed.tasks.length === 0 && parsed.cycle !== undefined;
+export const isPersonalDataOnly = (parsed: ParsedTasks): boolean => parsed.tasks.length === 0 && (parsed.cycle !== undefined || parsed.specialDays !== undefined);
 
 /** Accessibility label of a row button: the action plus which copy it acts on. */
 export function itemActionLabel(action: string, item: RecoveryItem, t: (text: string) => string): string {
@@ -120,12 +123,13 @@ export function restoreErrorMessage(reason: RestoreFailure): string {
 export function restoredNotice(
   summary: ImportSummary,
   categories?: "applied" | "failed",
-  extras: { cycle?: "applied" | "failed"; cycleOnly?: boolean } = {},
+  extras: { cycle?: "applied" | "failed"; specialDays?: "applied" | "failed"; cycleOnly?: boolean; specialDaysOnly?: boolean } = {},
 ): RecoveryNotice {
   if (extras.cycleOnly === true) return { tone: "success", parts: [{ key: PERSONAL_DATA_RESTORED }] };
+  if (extras.specialDaysOnly === true) return { tone: "success", parts: [{ key: SPECIAL_DAYS_RESTORED }] };
   const parts = [countItem(summary.added + summary.updated, "task restored", "tasks restored")];
   if (summary.skipped > 0) parts.push(countItem(summary.skipped, "task skipped", "tasks skipped"));
-  return { tone: "success", parts: withCycleNote(withCategoriesNote(parts, { categories }), extras) };
+  return { tone: "success", parts: withCycleNote(withSpecialDaysNote(withCategoriesNote(parts, { categories }), extras), extras) };
 }
 
 export function deleteNotice(results: readonly DeleteResult[]): RecoveryNotice {

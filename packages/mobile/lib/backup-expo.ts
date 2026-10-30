@@ -3,6 +3,7 @@ import { File, Paths } from "expo-file-system";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
 import type { CategoriesState } from "./categories";
+import type { SpecialDaysState } from "./special-days";
 import type { CycleState } from "./cycle";
 import type { Task } from "./planner";
 import { MAX_BACKUP_BYTES, backupFileName, serializeBackup } from "./backup";
@@ -50,12 +51,14 @@ export function deleteStaleBackups(): void {
   }
 }
 
-function writeBackupFile(tasks: readonly Task[], categories: CategoriesState | undefined, cycle: CycleState | undefined): File | null {
+function writeBackupFile(
+  tasks: readonly Task[], categories: CategoriesState | undefined, cycle: CycleState | undefined, specialDays: SpecialDaysState | undefined,
+): File | null {
   try {
     deleteStaleBackups();
     const file = new File(Paths.cache, backupFileName(new Date()));
     file.create({ overwrite: true });
-    file.write(serializeBackup(tasks, new Date(), { categories, cycle }));
+    file.write(serializeBackup(tasks, new Date(), { categories, specialDays, cycle }));
     return file;
   } catch {
     return null;
@@ -82,9 +85,10 @@ export async function exportBackupFile(
   tasks: readonly Task[],
   categories?: CategoriesState,
   cycle?: CycleState,
+  specialDays?: SpecialDaysState,
 ): Promise<ExportResult> {
   if (Platform.OS === "web") return { ok: false, reason: "unsupported-platform" };
-  const file = writeBackupFile(tasks, categories, cycle);
+  const file = writeBackupFile(tasks, categories, cycle, specialDays);
   if (file === null) return { ok: false, reason: "write-failed" };
   if (!(await canShare())) return { ok: false, reason: "sharing-unavailable" };
   // The file is deliberately NOT deleted when the share call settles: the chosen app (mail, a drive) may read it

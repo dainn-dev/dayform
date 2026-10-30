@@ -23,6 +23,7 @@ function inputs(patch: DeepPartial<Settings> = {}, extra: Partial<MenuInputs> = 
     language: "en",
     categoryCount: 4,
     categoryName: id => id,
+    specialDayCount: 0,
     version: "1.2.1",
     updateLine: null,
     cycle: { ready: true, enabled: false, lockEnabled: false },
@@ -55,8 +56,8 @@ describe("registry", () => {
   test("lists the pages of the design in order", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
       ["appearance", "language", "greeting"],
-      ["new-tasks", "calendar", "categories", "habits"],
-      ["notifications", "widget", "pet"],
+      ["new-tasks", "calendar", "categories", "special-days", "habits"],
+      ["notifications", "widget"],
       ["cycle", "cycle-tracking"],
       ["backup", "archive", "recovery"],
       ["updates", "about"],
@@ -172,15 +173,17 @@ describe("summaries", () => {
     expect(say("notifications", { notifications: { quietEnabled: true, summaryEnabled: true } })).toBe("Quiet 22:00 – 07:00 · Morning summary 08:00");
   });
 
-  test("widget says whether titles show", () => {
-    expect(say("widget")).toBe("Titles shown");
-    expect(say("widget", { widget: { showTitles: false } })).toBe("Titles hidden");
+  test("special days says how many there are", () => {
+    expect(say("special-days")).toBe("No special days");
+    expect(say("special-days", {}, { specialDayCount: 1 })).toBe("1 special day");
+    expect(say("special-days", {}, { specialDayCount: 12 })).toBe("12 special days");
   });
 
-  test("pet names the animal and whether it strolls", () => {
-    expect(say("pet")).toBe("Round cat · Strolling");
-    expect(say("pet", { pet: { kind: "dog", walks: false } })).toBe("Dog · Resting");
-    expect(say("pet", { pet: { kind: "off" } })).toBe("No pet");
+  test("widget says whether titles show and names its pet", () => {
+    expect(say("widget")).toBe("Titles shown · Orange cat · Strolling");
+    expect(say("widget", { widget: { showTitles: false } })).toBe("Titles hidden · Orange cat · Strolling");
+    expect(say("widget", { pet: { kind: "dog", walks: false } })).toBe("Titles shown · Dog · Resting");
+    expect(say("widget", { pet: { kind: "off" } })).toBe("Titles shown · No pet");
   });
 
   test("backup, archive and recovery have a fixed hint", () => {

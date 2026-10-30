@@ -432,3 +432,25 @@ describe("reconcileReminders cycle group", () => {
     expect(calls).toEqual([{ op: "list" }]);
   });
 });
+
+describe("reconcileReminders: special days", () => {
+  test("a special-day notification that is no longer planned is cancelled, a foreign one is not", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:special:s_aaaaaaaa:2026-11-05:x", "dayform:task:t:1", "other:special:1"]);
+    const result = await reconcileReminders(scheduler, []);
+    expect(result.cancelled).toBe(2);
+    expect([...ids]).toEqual(["other:special:1"]);
+  });
+
+  test("keepSpecial leaves them alone while the special days are unknown", async () => {
+    const { scheduler, ids } = fakeScheduler(["dayform:special:s_aaaaaaaa:2026-11-05:x", "dayform:task:old:1"]);
+    await reconcileReminders(scheduler, [], undefined, { keepSpecial: true });
+    expect([...ids]).toEqual(["dayform:special:s_aaaaaaaa:2026-11-05:x"]);
+  });
+
+  test("an already scheduled planned special id is not scheduled twice", async () => {
+    const { scheduler, calls } = fakeScheduler(["dayform:special:s_aaaaaaaa:2026-11-05:x"]);
+    const planned = { id: "dayform:special:s_aaaaaaaa:2026-11-05:x", taskId: "", fireAt: new Date(2026, 10, 5, 8), title: "Linh", body: "Today", kind: "special" as const };
+    await reconcileReminders(scheduler, [planned]);
+    expect(calls).toEqual([{ op: "list" }]);
+  });
+});

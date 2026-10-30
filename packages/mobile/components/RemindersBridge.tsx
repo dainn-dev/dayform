@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { AppState } from "react-native";
 import { useCycle } from "../lib/cycle-context";
+import { useSpecialDays } from "../lib/special-days-context";
+import type { SpecialDay } from "../lib/special-days";
 import { useLanguage } from "../lib/language";
 import { useTasks } from "../lib/tasks-context";
 import { useSettings } from "../lib/settings-context";
@@ -36,6 +38,8 @@ type SyncInput = {
   language: ReminderLanguage;
   notifications: NotificationSettings;
   cycle: CycleSync;
+  /** Undefined while the special days are loading or unreadable: their notifications are then left alone. */
+  specialDays: readonly SpecialDay[] | undefined;
   settingsReady: boolean;
   scope: SyncScope;
 };
@@ -48,16 +52,16 @@ async function syncCycleGroup({ language, notifications, cycle, settingsReady }:
 }
 
 async function syncReminders(input: SyncInput): Promise<string[]> {
-  const { tasks, language, notifications, cycle } = input;
+  const { tasks, language, notifications, cycle, specialDays } = input;
   // Never prompts: the editor asks for permission when the user first picks a reminder.
   if ((await getReminderPermission()) !== "granted") return [];
   if (input.scope === "cycle") return syncCycleGroup(input);
   await ensureReminderChannel(language);
-  const { planned, keepCycle } = planAllReminders({ tasks, language, notifications, cycle, now: new Date() });
+  const { planned, keepCycle, keepSpecial } = planAllReminders({ tasks, language, notifications, cycle, specialDays, now: new Date() });
   if (planned.some((reminder) => reminder.id.startsWith(CYCLE_ID_PREFIX))) await ensureCycleChannel(language);
   // Snoozed notifications of deleted or finished tasks must not fire either.
   const liveTaskIds = new Set(tasks.filter((task) => task.status !== "done").map((task) => task.id));
-  return (await reconcileReminders(createExpoScheduler(), planned, liveTaskIds, { keepCycle })).errors;
+  return (await reconcileReminders(createExpoScheduler(), planned, liveTaskIds, { keepCycle, keepSpecial })).errors;
 }
 
 function warnInDev(message: string): void {
@@ -121,13 +125,15 @@ export function RemindersBridge(): null {
     () => ({ state: cycleState, ready: cycleReady, locked: cycleLocked }),
     [cycleState, cycleReady, cycleLocked],
   );
+  const { items: specialItems, ready: specialReady, locked: specialLocked } = useSpecialDays();
+  const specialDays = specialReady && !specialLocked ? specialItems : undefined;
   const scope = syncScope({ tasksReady: !loading && !writesBlocked, settingsReady, cycle });
-  const latest = useRef<SyncInput>({ tasks, language, notifications, cycle, settingsReady, scope });
+  const latest = useRef<SyncInput>({ tasks, language, notifications, cycle, specialDays, settingsReady, scope });
   const syncer = useRef<Syncer | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, language, notifications, cycle, settingsReady, scope };
-  }, [tasks, language, notifications, cycle, settingsReady, scope]);
+    latest.current = { tasks, language, notifications, cycle, specialDays, settingsReady, scope };
+  }, [tasks, language, notifications, cycle, specialDays, settingsReady, scope]);
 
   // Mount-only: handler, syncer and the foreground subscription stay stable across task changes.
   useEffect(() => {
@@ -146,7 +152,7 @@ export function RemindersBridge(): null {
 
   useEffect(() => {
     if (scope !== "none") syncer.current?.schedule();
-  }, [tasks, language, notifications, cycle, settingsReady, scope]);
+  }, [tasks, language, notifications, cycle, specialDays, settingsReady, scope]);
 
   return null;
 }

@@ -27,6 +27,7 @@ import { vi as reminders } from "./reminders";
 import { vi as search } from "./search";
 import { vi as settingsMenu } from "./settings-menu";
 import { vi as slogans } from "./slogans";
+import { vi as specialDays } from "./special-days";
 import { vi as stats } from "./stats";
 import { vi as store } from "./store";
 import { vi as theme } from "./theme";
@@ -68,6 +69,7 @@ export const extraTranslations: Record<string, string> = {
   ...search,
   ...settingsMenu,
   ...slogans,
+  ...specialDays,
   ...stats,
   ...store,
   ...theme,

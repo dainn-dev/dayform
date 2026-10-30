@@ -1,15 +1,16 @@
 import { PET_KINDS, type PetKind } from "./settings";
 
 /**
- * The pets the widget can show, in the order the Pet page lists them. The drawn cat is ours; the pixel cats and the
+ * The pets the widget can show, in the order the Pet page lists them. The pixel cats and the
  * dog are the CC0 sprites of Shepardskin (opengameart.org/content/cat-sprites, /dog-sprites), the cats recoloured.
+ * The kitsune is the owner's own art, cut into frames (walk/run face a side; sit, look, bark and sleep face the front).
  * Every English label is also its translation key (lib/i18n/pet.ts).
  */
 export const PET_LABELS: Record<PetKind, string> = {
-  "round-cat": "Round cat",
   "gray-cat": "Gray cat",
   "orange-cat": "Orange cat",
   dog: "Dog",
+  kitsune: "Kitsune",
   off: "No pet",
 };
 

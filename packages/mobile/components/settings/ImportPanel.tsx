@@ -54,6 +54,7 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
   return <View style={s.panel}>
     {!trackerOnly && <Text style={s.headline}>{countsLine(stage.parsed.tasks.length, stage.parsed.rejected, t)}</Text>}
     {stage.parsed.cycle !== undefined && <Text style={trackerOnly ? s.headline : s.detail}>{t(IMPORT_HAS_TRACKER_NOTE)}</Text>}
+    {stage.parsed.specialDays !== undefined && <Text style={trackerOnly && stage.parsed.cycle === undefined ? s.headline : s.detail}>{t("This file also has special days.")}</Text>}
     {stage.kind === "confirm-replace" ? <>
       <Text style={s.question}>{t(replaceImportQuestion(stage.parsed))}</Text>
       {replace === null ? null : replace.ok ? <Text style={s.detail}>{detailLine(replace.summary, t)}</Text>

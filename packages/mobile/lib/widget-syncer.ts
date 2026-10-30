@@ -1,4 +1,5 @@
 import type { Task } from "./planner";
+import type { DayMark } from "./day-marks";
 import type { PetKind } from "./settings";
 import {
   buildWidgetSnapshot,
@@ -14,6 +15,8 @@ export type WidgetSyncInput = {
   locale: WidgetLocale;
   pet: PetKind;
   petWalks: boolean;
+  /** The holidays and special days of the given days; undefined leaves the widget without marks. */
+  marksFor?: (keys: readonly string[]) => Record<string, DayMark[]>;
   canSync: boolean;
 };
 export type WidgetSyncerDeps = {
@@ -65,6 +68,7 @@ export function createWidgetSyncer(deps: WidgetSyncerDeps): WidgetSyncer {
       locale: input.locale,
       pet: input.pet,
       petWalks: input.petWalks,
+      marksFor: input.marksFor,
     });
     if (!force && snapshotsEqual(lastSent, snapshot)) return;
     force = false;

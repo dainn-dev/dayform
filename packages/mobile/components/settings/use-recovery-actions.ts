@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { MergeMode } from "../../lib/backup";
 import type { ParsedTasks } from "../../lib/backup-flow";
@@ -17,6 +17,7 @@ import {
   type RecoveryNotice,
 } from "../../lib/recovery-messages";
 import { useCategories } from "../../lib/categories-context";
+import { useSpecialDays } from "../../lib/special-days-context";
 import { useCycle } from "../../lib/cycle-context";
 import { useTasks } from "../../lib/tasks-context";
 import { useCycleAuth } from "./use-cycle-auth";
@@ -54,6 +55,8 @@ const failure = (message: string): RecoveryNotice => ({ tone: "error", parts: [{
 export function useRecoveryActions(): RecoveryActions {
   const { loading, writesBlocked, mutate } = useTasks();
   const { state: categoriesState, importState } = useCategories();
+  const { items: specialItems, importState: importSpecialDays } = useSpecialDays();
+  const specialDays = useMemo(() => ({ items: [...specialItems] }), [specialItems]);
   const { state: cycleState, ready: cycleReady, locked: cycleLocked, importState: importCycle } = useCycle();
   // Until the tracker is read (or if it could not be) the defaults would stand in for it, so no safety copy of it is made.
   const cycle = cycleReady && !cycleLocked ? cycleState : undefined;
@@ -98,7 +101,7 @@ export function useRecoveryActions(): RecoveryActions {
     setPending(null);
     try {
       const outcome = await restoreRecoveryItem(AsyncStorage, mutate, key, mode, new Date(), {
-        categories: categoriesState, importCategories: importState, cycle, importCycle, authorize,
+        categories: categoriesState, importCategories: importState, specialDays, importSpecialDays, cycle, importCycle, authorize,
       });
       setNotice(outcome.ok ? restoredNotice(outcome.summary, outcome.categories, outcome) : failure(restoreErrorMessage(outcome.reason)));
       // A replace saves the current list as a new recovery copy, so the list is out of date now.
@@ -106,7 +109,7 @@ export function useRecoveryActions(): RecoveryActions {
     } finally {
       setBusy(false);
     }
-  }, [mutate, refresh, categoriesState, importState, cycle, importCycle, authorize]);
+  }, [mutate, refresh, categoriesState, importState, specialDays, importSpecialDays, cycle, importCycle, authorize]);
 
   const ask = useCallback(async (action: PendingAction) => {
     setNotice(null);

@@ -2,6 +2,7 @@ import { hasCategoryCustomizations, parseCategoriesState, type CategoriesState }
 import { hasCycleData, parseCycleState, type CycleState } from "./cycle";
 import { parseJson } from "./json";
 import { Task, dateKey } from "./planner";
+import { parseSpecialDaysState, type SpecialDaysState } from "./special-days";
 import { MAX_RECORDS, taskSchema } from "./task-storage";
 
 export const BACKUP_FORMAT = "dayform-backup";
@@ -10,10 +11,10 @@ export const BACKUP_VERSION = 1;
 export type BackupFailure = "invalid-json" | "wrong-format" | "unsupported-version" | "too-large";
 export type ParseResult =
   /**
-   * `categories` / `cycle` are present only when the file carried such an object (validated and capped like stored
+   * `categories` / `specialDays` / `cycle` are present only when the file carried such an object (validated and capped like stored
    * data). `cycle` is the private period tracker (health data) and is read inside the same size cap as the tasks.
    */
-  | { ok: true; tasks: Task[]; rejected: number; categories?: CategoriesState; cycle?: CycleState }
+  | { ok: true; tasks: Task[]; rejected: number; categories?: CategoriesState; specialDays?: SpecialDaysState; cycle?: CycleState }
   | { ok: false; reason: BackupFailure };
 export type MergeMode = "merge" | "replace";
 export type MergeResult = { tasks: Task[]; added: number; updated: number; unchanged: number };
@@ -29,6 +30,8 @@ export type SerializeOptions = {
   compact?: boolean;
   /** Written as `categories` only when it holds custom categories, hidden built-ins or renames. */
   categories?: CategoriesState;
+  /** Written as `specialDays` only when the user keeps at least one special day. */
+  specialDays?: SpecialDaysState;
   /** Written as `cycle` only when the tracker is on or holds a period (`hasCycleData`); marks the file as health data. */
   cycle?: CycleState;
 };
@@ -38,10 +41,11 @@ export const HEALTH_DATA_NOTICE = "Contains health data (period tracker). Not en
 
 /** JSON envelope (pretty by default). `exportedAt` is an ISO instant (informational only, never a task date). */
 export function serializeBackup(tasks: readonly Task[], now: Date, options: SerializeOptions = {}): string {
-  const { categories, cycle } = options;
+  const { categories, specialDays, cycle } = options;
   const envelope = {
     format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now.toISOString(), tasks,
     ...(categories !== undefined && hasCategoryCustomizations(categories) ? { categories } : {}),
+    ...(specialDays !== undefined && specialDays.items.length > 0 ? { specialDays } : {}),
     ...(cycle !== undefined && hasCycleData(cycle)
       ? { containsHealthData: true, notice: HEALTH_DATA_NOTICE, cycle }
       : {}),
@@ -58,7 +62,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 type Extracted =
-  | { ok: true; records: unknown[]; categories?: CategoriesState; cycle?: CycleState }
+  | { ok: true; records: unknown[]; categories?: CategoriesState; specialDays?: SpecialDaysState; cycle?: CycleState }
   | { ok: false; reason: BackupFailure };
 
 function extractRecords(value: unknown): Extracted {
@@ -74,6 +78,7 @@ function extractRecords(value: unknown): Extracted {
     ok: true,
     records: tasks,
     ...(isRecord(value.categories) ? { categories: parseCategoriesState(value.categories) } : {}),
+    ...(isRecord(value.specialDays) ? { specialDays: parseSpecialDaysState(value.specialDays).state } : {}),
     ...(isRecord(value.cycle) ? { cycle: parseCycleState(value.cycle) } : {}),
   };
 }
@@ -102,6 +107,7 @@ export function parseBackup(text: string): ParseResult {
     ok: true as const,
     ...validateRecords(extracted.records),
     ...(extracted.categories === undefined ? {} : { categories: extracted.categories }),
+    ...(extracted.specialDays === undefined ? {} : { specialDays: extracted.specialDays }),
     ...(extracted.cycle === undefined ? {} : { cycle: extracted.cycle }),
   };
 }

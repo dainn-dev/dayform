@@ -41,10 +41,10 @@ describe("defaults", () => {
       defaults: { duration: 30, category: "Focus", remind: null, scheduleNew: false, startMode: "fixed", startFixed: "09:00" },
       notifications: { quietEnabled: false, quietFrom: "22:00", quietTo: "07:00", hideTitles: false, snoozeMinutes: 10, summaryEnabled: false, summaryTime: "08:00" },
       greeting: { showName: true, sloganStyle: "rotate", customSlogan: "" },
-      calendar: { dayStart: 360, dayEnd: 1320, hourHeight: "normal", weekStart: "mon", timeFormat: "auto" },
+      calendar: { dayStart: 360, dayEnd: 1320, hourHeight: "normal", weekStart: "mon", timeFormat: "auto", showHolidays: true, holidayGroups: { national: true, traditional: true, occasion: true }, showLunar: false },
       habits: { hints: true },
       widget: { showTitles: true },
-      pet: { kind: "round-cat", walks: true },
+      pet: { kind: "orange-cat", walks: true },
       updates: { autoOta: true },
     });
     expect(ACCENT_IDS).toEqual(["violet", "ocean", "lagoon", "forest", "sunset", "blossom"]);
@@ -72,13 +72,18 @@ describe("resolveSettings", () => {
       defaults: { duration: 45, category: "Work", remind: 15, scheduleNew: true, startMode: "next-hour", startFixed: "10:30" },
       notifications: { quietEnabled: true, quietFrom: "23:00", quietTo: "06:30", hideTitles: true, snoozeMinutes: 5, summaryEnabled: true, summaryTime: "07:15" },
       greeting: { showName: false, sloganStyle: "custom", customSlogan: "Go go" },
-      calendar: { dayStart: 420, dayEnd: 1260, hourHeight: "roomy", weekStart: "sun", timeFormat: "24h" },
+      calendar: { dayStart: 420, dayEnd: 1260, hourHeight: "roomy", weekStart: "sun", timeFormat: "24h", showHolidays: false, holidayGroups: { national: true, traditional: false, occasion: false }, showLunar: true },
       habits: { hints: false },
       widget: { showTitles: false },
       pet: { kind: "dog", walks: false },
       updates: { autoOta: false },
     };
     expect(resolveSettings(raw)).toEqual(raw as never);
+  });
+
+  test("a pet that no longer exists (the old round cat) becomes the default pet and keeps the walking choice", () => {
+    const result = resolveSettings({ pet: { kind: "round-cat", walks: false } });
+    expect(result.pet).toEqual({ kind: "orange-cat", walks: false });
   });
 
   test("invalid fields fall back individually, valid siblings survive", () => {
@@ -88,7 +93,7 @@ describe("resolveSettings", () => {
       defaults: { duration: 50, category: "", remind: 7, scheduleNew: "yes", startMode: "later", startFixed: "25:00" },
       notifications: { quietFrom: "9:00", snoozeMinutes: 20, hideTitles: true },
       greeting: { sloganStyle: "loud", showName: false },
-      calendar: { hourHeight: "tiny", weekStart: "fri", timeFormat: "36h" },
+      calendar: { hourHeight: "tiny", weekStart: "fri", timeFormat: "36h", showHolidays: "yes", holidayGroups: "all", showLunar: 1 },
       habits: { hints: "no" },
       widget: { showTitles: 0 },
       pet: { kind: "unicorn", walks: "sometimes" },
@@ -151,6 +156,19 @@ describe("resolveSettings", () => {
     expect(resolveSettings({ profile: { name: "  Linh \n  Tran " } }).profile.name).toBe("Linh Tran");
     expect(resolveSettings({ profile: { name: "a".repeat(80) } }).profile.name).toHaveLength(MAX_NAME_LENGTH);
     expect(resolveSettings({ greeting: { customSlogan: "x".repeat(90) } }).greeting.customSlogan).toHaveLength(60);
+  });
+});
+
+describe("holiday settings", () => {
+  test("each holiday group can be switched off on its own", () => {
+    const result = resolveSettings({ calendar: { holidayGroups: { traditional: false } } }).calendar.holidayGroups;
+    expect(result).toEqual({ national: true, traditional: false, occasion: true });
+  });
+
+  test("a bad holiday group value falls back to all on, and a bad flag to its default", () => {
+    expect(resolveSettings({ calendar: { holidayGroups: 5, showLunar: "yes" } }).calendar).toMatchObject({
+      holidayGroups: { national: true, traditional: true, occasion: true }, showLunar: false,
+    });
   });
 });
 

@@ -60,6 +60,29 @@
                 android:visibility="gone" />
         </LinearLayout>
     
+        <TextView
+    
+            android:id="@+id/dayform_widget_marks"
+    
+            android:layout_width="match_parent"
+    
+            android:layout_height="wrap_content"
+    
+            android:layout_marginTop="2dp"
+    
+            android:ellipsize="end"
+    
+            android:maxLines="1"
+    
+            android:textColor="@color/dayform_widget_accent"
+    
+            android:textSize="12sp"
+    
+            android:textStyle="bold"
+    
+            android:visibility="gone" />
+
+    
         <ProgressBar
             android:id="@+id/dayform_widget_progress"
             style="?android:attr/progressBarStyleHorizontal"

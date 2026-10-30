@@ -1,4 +1,5 @@
 import type { CategoriesState } from "./categories";
+import type { SpecialDaysState } from "./special-days";
 import { hasCycleData, type CycleState } from "./cycle";
 import { AUTH_DENIED_MESSAGE } from "./cycle-lock-guard";
 import { mergeBackup, serializeBackup, type BackupFailure, type MergeMode } from "./backup";
@@ -30,14 +31,14 @@ export type ImportPlan =
   | { ok: true; update: (tasks: Task[]) => Task[]; summary: ImportSummary }
   | { ok: false; reason: PlanFailure };
 /** `categories` is set when the file carried a categories object; it is applied after the tasks, in the same mode. */
-export type ParsedTasks = { tasks: readonly Task[]; rejected: number; categories?: CategoriesState; cycle?: CycleState };
+export type ParsedTasks = { tasks: readonly Task[]; rejected: number; categories?: CategoriesState; specialDays?: SpecialDaysState; cycle?: CycleState };
 export type ImportFailure = PlanFailure | "save-failed" | "safety-copy-failed" | "list-changed" | "auth-denied";
 /**
  * `categories` / `cycle` are only set when the file had them and the caller could apply them. `cycle` is the private
  * period tracker: it is applied last, and a failure there never undoes the tasks or the categories.
  */
 export type ImportOutcome =
-  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed"; cycle?: "applied" | "failed"; cycleOnly?: true }
+  | { ok: true; summary: ImportSummary; categories?: "applied" | "failed"; specialDays?: "applied" | "failed"; cycle?: "applied" | "failed"; cycleOnly?: true; specialDaysOnly?: true }
   | { ok: false; reason: ImportFailure };
 /** Where (and when) the safety copy taken before a replace is written. */
 export type SafetyCopyTarget = {
@@ -45,12 +46,15 @@ export type SafetyCopyTarget = {
   now: Date;
   /** The current categories, saved in the copy too (only when customised) so a restore can bring them back. */
   categories?: CategoriesState;
+  /** The current special days, saved in the copy too (only when there are some) so a restore can bring them back. */
+  specialDays?: SpecialDaysState;
   /** The current tracker data, saved in the copy too (only when it holds any) so a restore can bring it back. */
   cycle?: CycleState;
 };
 /** What `runImport` needs besides the task store: the safety-copy target and, optionally, how to apply categories and tracker data. */
 export type ImportTarget = SafetyCopyTarget & {
   importCategories?: (incoming: CategoriesState, mode: MergeMode) => Promise<{ ok: boolean }>;
+  importSpecialDays?: (incoming: SpecialDaysState, mode: MergeMode) => Promise<{ ok: boolean }>;
   importCycle?: (incoming: CycleState, mode: MergeMode) => Promise<{ ok: boolean }>;
   /**
    * Asked once, before anything is read or written, when the import would write tracker data (the file has some and
@@ -134,7 +138,7 @@ async function commitImport(
 
 /** Writes the list as a compact backup under a content-addressed recovery key (same scheme as loadTasks). */
 async function writeSafetyCopy(target: SafetyCopyTarget, tasks: readonly Task[]): Promise<boolean> {
-  const text = serializeBackup(tasks, target.now, { compact: true, categories: target.categories, cycle: target.cycle });
+  const text = serializeBackup(tasks, target.now, { compact: true, categories: target.categories, specialDays: target.specialDays, cycle: target.cycle });
   try {
     await target.storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
     return true;
@@ -209,6 +213,30 @@ export async function runCycleOnlyImport(incoming: CycleState, mode: MergeMode, 
   return { ok: false, reason: "save-failed" };
 }
 
+type SpecialDaysOnlyTarget = SafetyCopyTarget & { importSpecialDays: NonNullable<ImportTarget["importSpecialDays"]> };
+
+/**
+ * A file or copy that holds special days and no task goes straight to the special days: no task is read or written.
+ * A replace overwrites them, so the current ones are first saved as a compact backup (no tasks, only the special
+ * days) under a backup key; a failed copy refuses the replace.
+ */
+export async function runSpecialDaysOnlyImport(incoming: SpecialDaysState, mode: MergeMode, target: SpecialDaysOnlyTarget): Promise<ImportOutcome> {
+  if (mode === "replace" && target.specialDays !== undefined && target.specialDays.items.length > 0) {
+    const text = serializeBackup([], target.now, { compact: true, specialDays: target.specialDays });
+    try {
+      await target.storage.setItem(contentKey(BACKUP_KEY_PREFIX, text), text);
+    } catch {
+      return { ok: false, reason: "safety-copy-failed" };
+    }
+  }
+  try {
+    if ((await target.importSpecialDays(incoming, mode)).ok) return { ok: true, summary: NO_TASKS_SUMMARY, specialDays: "applied", specialDaysOnly: true };
+  } catch {
+    // Reported as a failed save below.
+  }
+  return { ok: false, reason: "save-failed" };
+}
+
 async function authorized(authorize: (() => Promise<boolean>) | undefined): Promise<boolean> {
   if (authorize === undefined) return true;
   try {
@@ -234,13 +262,22 @@ export async function runImport(
   const incomingCycle = importCycle === undefined ? undefined : parsed.cycle;
   if (incomingCycle !== undefined && !(await authorized(target.authorize))) return { ok: false, reason: "auth-denied" };
   if (incomingCycle !== undefined && importCycle !== undefined && parsed.tasks.length === 0) {
-    return runCycleOnlyImport(incomingCycle, mode, { ...target, importCycle });
+    const cycleOnly = await runCycleOnlyImport(incomingCycle, mode, { ...target, importCycle });
+    if (!cycleOnly.ok) return cycleOnly;
+    const withSpecialDays = await applyOptional(parsed.specialDays, target.importSpecialDays, mode);
+    return withSpecialDays === null ? cycleOnly : { ...cycleOnly, specialDays: withSpecialDays };
+  }
+  if (parsed.tasks.length === 0 && parsed.specialDays !== undefined && target.importSpecialDays !== undefined) {
+    return runSpecialDaysOnlyImport(parsed.specialDays, mode, { ...target, importSpecialDays: target.importSpecialDays });
   }
   const outcome = mode === "replace" ? await runReplace(mutate, parsed, target) : await commitImport(mutate, parsed, mode, null);
   if (!outcome.ok) return outcome;
   const categories = await applyOptional(parsed.categories, target.importCategories, mode);
+  const specialDays = await applyOptional(parsed.specialDays, target.importSpecialDays, mode);
   const cycle = await applyOptional(parsed.cycle, importCycle, mode);
-  return { ...outcome, ...(categories === null ? {} : { categories }), ...(cycle === null ? {} : { cycle }) };
+  return {
+    ...outcome, ...(categories === null ? {} : { categories }), ...(specialDays === null ? {} : { specialDays }), ...(cycle === null ? {} : { cycle }),
+  };
 }
 
 // The strings below are translation keys (lib/i18n/backup.ts, lib/i18n/cycle-privacy.ts); keep them in sync.
@@ -249,8 +286,11 @@ export async function runImport(
 export const IMPORT_HAS_TRACKER_NOTE = "This file also has period tracker data.";
 
 /** The confirmation before a replace import. It names the tracker whenever the file carries tracker data. */
-export function replaceImportQuestion(parsed: Pick<ParsedTasks, "tasks" | "cycle">): string {
-  if (parsed.cycle === undefined) return "Replace all your current tasks?";
+export function replaceImportQuestion(parsed: Pick<ParsedTasks, "tasks" | "cycle" | "specialDays">): string {
+  if (parsed.cycle === undefined) {
+    if (parsed.specialDays === undefined) return "Replace all your current tasks?";
+    return parsed.tasks.length === 0 ? "Replace your current special days?" : "Replace all your current tasks and special days?";
+  }
   return parsed.tasks.length === 0
     ? "Replace your current period tracker history?"
     : "Replace all your current tasks and your period tracker history?";
@@ -335,4 +375,12 @@ export function countItem(count: number, one: string, other: string): NoticeItem
 
 export function formatNotice(items: readonly NoticeItem[], t: (text: string) => string): string {
   return items.map(item => (item.count === undefined ? t(item.key) : `${item.count} ${t(item.key)}`)).join(", ");
+}
+
+/** Translation key (lib/i18n/special-days.ts) shown after an import whose special days could not be saved. */
+export const SPECIAL_DAYS_NOT_RESTORED = "Special days could not be restored";
+
+/** `parts` plus a note when the outcome says the file's special days failed to apply; unchanged otherwise. */
+export function withSpecialDaysNote(parts: readonly NoticeItem[], outcome: { specialDays?: "applied" | "failed" }): NoticeItem[] {
+  return outcome.specialDays === "failed" ? [...parts, { key: SPECIAL_DAYS_NOT_RESTORED }] : [...parts];
 }

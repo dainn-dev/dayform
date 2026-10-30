@@ -159,6 +159,7 @@ describe("buildWidgetSnapshot labels", () => {
       today: "Today",
       tasks: "tasks",
       task: "task",
+      special: "Special day",
     });
   });
 
@@ -170,6 +171,7 @@ describe("buildWidgetSnapshot labels", () => {
     expect(snapshot.labels.more).toBe(vi["more"]);
     expect(snapshot.labels.tasks).toBe(vi["tasks"]);
     expect(snapshot.labels.task).toBe(vi["task"]);
+    expect(snapshot.labels.special).toBe(vi["Special day"]);
   });
 
   test("every english label has a vietnamese translation", () => {
@@ -251,9 +253,9 @@ describe("snapshotsEqual", () => {
     expect(snapshotsEqual(base, buildWidgetSnapshot([makeTask()], { ...OPTIONS, showTitles: false }).snapshot)).toBe(false);
   });
 
-  test("carries the chosen pet, defaulting to the round cat that strolls", () => {
+  test("carries the chosen pet, defaulting to the orange cat that strolls", () => {
     const defaults = buildWidgetSnapshot([makeTask()], OPTIONS).snapshot;
-    expect(defaults.pet).toBe("round-cat");
+    expect(defaults.pet).toBe("orange-cat");
     expect(defaults.petWalks).toBe(true);
     const chosen = buildWidgetSnapshot([makeTask()], { ...OPTIONS, pet: "dog", petWalks: false }).snapshot;
     expect(chosen.pet).toBe("dog");
@@ -272,5 +274,56 @@ describe("snapshotsEqual", () => {
     const a = buildWidgetSnapshot([], OPTIONS).snapshot;
     expect(snapshotsEqual(null, a)).toBe(false);
     expect(snapshotsEqual(a, null)).toBe(false);
+  });
+});
+
+describe("buildWidgetSnapshot marks", () => {
+  const holiday = { id: "mid-autumn", kind: "holiday" as const, label: "Tết Trung thu (15/8 ÂL)", userText: false };
+  const birthday = { id: "s_aaaaaaaa", kind: "special" as const, label: "Sinh nhật Linh (turns 30)", userText: true };
+  const marks = (keys: readonly string[]) => ({ [keys[0]]: [birthday, holiday] });
+
+  test("a day's marks become short lines, with a flag for the user's own days", () => {
+    const { snapshot } = buildWidgetSnapshot([makeTask()], { ...OPTIONS, marksFor: marks });
+    const today = snapshot.days["2026-10-29"];
+    expect(today.m).toEqual(["Sinh nhật Linh (turns 30)", "Tết Trung thu (15/8 ÂL)"]);
+    expect(today.sp).toBe(1);
+  });
+
+  test("a holiday alone carries no special flag", () => {
+    const { snapshot } = buildWidgetSnapshot([makeTask()], { ...OPTIONS, marksFor: keys => ({ [keys[0]]: [holiday] }) });
+    expect(snapshot.days["2026-10-29"].m).toEqual([holiday.label]);
+    expect(snapshot.days["2026-10-29"].sp).toBeUndefined();
+  });
+
+  test("hidden titles replace the user's own text by the generic label and keep holidays", () => {
+    const { snapshot, json } = buildWidgetSnapshot([makeTask()], { ...OPTIONS, showTitles: false, marksFor: marks });
+    expect(snapshot.days["2026-10-29"].m).toEqual(["Special day", "Tết Trung thu (15/8 ÂL)"]);
+    expect(json).not.toContain("Linh");
+  });
+
+  test("at most two names, each cut to 40 characters", () => {
+    const long = { ...holiday, label: "x".repeat(80) };
+    const { snapshot } = buildWidgetSnapshot([makeTask()], { ...OPTIONS, marksFor: keys => ({ [keys[0]]: [long, holiday, birthday] }) });
+    const lines = snapshot.days["2026-10-29"].m!;
+    expect(lines).toHaveLength(2);
+    expect(Array.from(lines[0])).toHaveLength(40);
+    expect(lines[0].endsWith("…")).toBe(true);
+  });
+
+  test("a day with no task but a mark still appears, with no items", () => {
+    const { snapshot } = buildWidgetSnapshot([], { ...OPTIONS, marksFor: marks });
+    expect(snapshot.days["2026-10-29"]).toEqual({ n: 0, done: 0, items: [], m: ["Sinh nhật Linh (turns 30)", "Tết Trung thu (15/8 ÂL)"], sp: 1 });
+  });
+
+  test("no marks leaves the snapshot as before", () => {
+    const { snapshot } = buildWidgetSnapshot([makeTask()], OPTIONS);
+    expect(snapshot.days["2026-10-29"].m).toBeUndefined();
+    expect(snapshot.days["2026-10-29"].sp).toBeUndefined();
+  });
+
+  test("a change of marks counts as a change for the sender", () => {
+    const plain = buildWidgetSnapshot([makeTask()], OPTIONS).snapshot;
+    const marked = buildWidgetSnapshot([makeTask()], { ...OPTIONS, marksFor: marks }).snapshot;
+    expect(snapshotsEqual(plain, marked)).toBe(false);
   });
 });

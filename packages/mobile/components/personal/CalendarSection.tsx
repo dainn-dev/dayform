@@ -10,9 +10,18 @@ import { formatTime, resolveTimeFormat } from "../../lib/planner";
 import type { Settings } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
 import { hourLabel } from "../../lib/timeline-config";
+import { SwitchRow } from "./SwitchRow";
 import { fillPlaceholders } from "../../lib/text-template";
+import type { HolidayGroup } from "../../lib/holidays-vn";
 
 type Calendar = Settings["calendar"];
+
+/** The holiday groups that can be switched off, with their labels (translation keys in lib/i18n/calendar.ts). */
+const HOLIDAY_GROUP_ROWS: ReadonlyArray<{ group: HolidayGroup; label: string; hint: string }> = [
+  { group: "national", label: "Public holidays", hint: "Tết, Giỗ Tổ, 30/4, 1/5, 2/9." },
+  { group: "traditional", label: "Lunar festivals", hint: "Rằm, Trung thu, Vu Lan, ông Táo and more." },
+  { group: "occasion", label: "Other occasions", hint: "Valentine, Women's Day, Teachers' Day, Christmas, Mother's Day." },
+];
 const EXAMPLE_TIME = "09:30";
 
 /** "Calendar & time": day window, hour height, week start and time format (settings.calendar). */
@@ -32,7 +41,7 @@ export function CalendarSection() {
     setDraft(next);
     if (isDayWindowValid(next)) void update({ calendar: dayWindowPatch(next) });
   };
-  const change = (patch: Partial<Pick<Calendar, "hourHeight" | "weekStart" | "timeFormat">>) => { void update({ calendar: patch }); };
+  const change = (patch: Partial<Pick<Calendar, "hourHeight" | "weekStart" | "timeFormat" | "showHolidays" | "showLunar">>) => { void update({ calendar: patch }); };
   const example = formatTime(EXAMPLE_TIME, resolveTimeFormat(calendar.timeFormat, language));
 
   const heights: Choice<Calendar["hourHeight"]>[] = [
@@ -60,6 +69,14 @@ export function CalendarSection() {
     <Text style={s.caption}>{t("Time format")}</Text>
     <ChoiceChips choices={formats} value={calendar.timeFormat} onChange={format => change({ timeFormat: format })} />
     <Text style={s.example}>{fillPlaceholders(t("Example: {time}"), { time: example })}</Text>
+    <View style={s.holidays}>
+      <SwitchRow label={t("Show holidays")} hint={t("Marks Vietnamese holidays, solar and lunar, on the week strip and above the day.")}
+        value={calendar.showHolidays} onChange={showHolidays => change({ showHolidays })} />
+      {calendar.showHolidays && HOLIDAY_GROUP_ROWS.map(row => <SwitchRow key={row.group} label={t(row.label)} hint={t(row.hint)}
+        value={calendar.holidayGroups[row.group]} onChange={on => { void update({ calendar: { holidayGroups: { [row.group]: on } } }); }} />)}
+      <SwitchRow label={t("Show lunar date")} hint={t("Shows the lunar day and month under each day of the week.")}
+        value={calendar.showLunar} onChange={showLunar => change({ showLunar })} />
+    </View>
   </View>;
 }
 
@@ -67,4 +84,5 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
   error: { color: c.errorBannerText, fontSize: 12, lineHeight: 17, marginTop: 4 },
   example: { color: c.mutedForeground, fontSize: 12, marginTop: 8 },
+  holidays: { marginTop: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
 });

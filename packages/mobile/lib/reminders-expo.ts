@@ -105,12 +105,12 @@ export async function requestReminderPermission(): Promise<ReminderPermission> {
 }
 
 /**
- * Task reminders carry the task id (never the title) and the Done/Snooze category. Summaries and period-tracker
+ * Task reminders carry the task id (never the title) and the Done/Snooze category. Summaries, special days and period-tracker
  * reminders are plain: no data and no category, so a tap only opens the app (and no handler can read what the
  * notification was about).
  */
 export function contentFor(reminder: PlannedReminder): Notifications.NotificationContentInput {
-  if (reminder.kind === "summary" || reminder.kind === "cycle") return { title: reminder.title, body: reminder.body };
+  if (reminder.kind === "summary" || reminder.kind === "cycle" || reminder.kind === "special") return { title: reminder.title, body: reminder.body };
   return {
     title: reminder.title,
     body: reminder.body,

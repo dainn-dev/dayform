@@ -14,7 +14,7 @@ type Translate = (text: string) => string;
 
 export type MenuGroupId = "personalise" | "tasks" | "reminders" | "health" | "data" | "app";
 export type PageSlug =
-  | "appearance" | "language" | "greeting" | "new-tasks" | "calendar" | "categories" | "habits" | "notifications" | "widget" | "pet"
+  | "appearance" | "language" | "greeting" | "new-tasks" | "calendar" | "categories" | "special-days" | "habits" | "notifications" | "widget"
   | "cycle" | "backup" | "archive" | "recovery" | "updates" | "about";
 export type MenuRowId = PageSlug | "cycle-tracking";
 /** A color slot of `Colors.<scheme>.category`: the chip is drawn with its `bg` and `accent`. */
@@ -42,6 +42,8 @@ export type MenuInputs = {
   /** Categories a picker offers (visible built-ins plus custom ones). */
   categoryCount: number;
   categoryName: (id: string) => string;
+  /** How many special days (birthdays, anniversaries) the user keeps. */
+  specialDayCount: number;
   version: string;
   /** The merged, already translated update status, or null when there is nothing to say. */
   updateLine: string | null;
@@ -65,10 +67,10 @@ export const MENU_ROWS: readonly MenuRow[] = [
   { id: "new-tasks", slug: "new-tasks", group: "tasks", title: "New tasks", icon: "add-circle-outline", tint: "Focus" },
   { id: "calendar", slug: "calendar", group: "tasks", title: "Calendar & time", icon: "calendar-outline", tint: "sky" },
   { id: "categories", slug: "categories", group: "tasks", title: "Categories", icon: "pricetags-outline", tint: "magenta" },
+  { id: "special-days", slug: "special-days", group: "tasks", title: "Special days", icon: "heart-outline", tint: "coral" },
   { id: "habits", slug: "habits", group: "tasks", title: "Habit hints", icon: "bulb-outline", tint: "mint" },
   { id: "notifications", slug: "notifications", group: "reminders", title: "Notifications", icon: "notifications-outline", tint: "coral" },
   { id: "widget", slug: "widget", group: "reminders", title: "Widget", icon: "apps-outline", tint: "Work" },
-  { id: "pet", slug: "pet", group: "reminders", title: "Pet", icon: "paw-outline", tint: "amber" },
   { id: "cycle", slug: "cycle", group: "health", title: "Cycle", icon: "flower-outline", tint: "Wellness" },
   { id: "cycle-tracking", slug: "cycle", group: "health", title: "Cycle tracking", icon: "toggle-outline", tint: "Wellness" },
   { id: "backup", slug: "backup", group: "data", title: "Backup", icon: "save-outline", tint: "slate" },
@@ -134,6 +136,11 @@ function categorySummary(count: number, t: Translate): string {
   return count === 1 ? t("1 category") : fillPlaceholders(t("{count} categories"), { count: String(count) });
 }
 
+function specialDaySummary(count: number, t: Translate): string {
+  if (count === 0) return t("No special days");
+  return count === 1 ? t("1 special day") : fillPlaceholders(t("{count} special days"), { count: String(count) });
+}
+
 function calendarSummary({ settings: { calendar }, timeFormat, t }: MenuInputs): string {
   const window = `${hourLabel(calendar.dayStart / MINUTES_PER_HOUR, timeFormat)} – ${hourLabel(calendar.dayEnd / MINUTES_PER_HOUR, timeFormat)}`;
   return join([window, t(WEEK_START_LABELS[calendar.weekStart])]);
@@ -165,10 +172,10 @@ const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
   "new-tasks": ({ settings: { defaults }, duration, categoryName }) => join([duration(defaults.duration), categoryName(defaults.category)]),
   calendar: calendarSummary,
   categories: ({ categoryCount, t }) => categorySummary(categoryCount, t),
+  "special-days": ({ specialDayCount, t }) => specialDaySummary(specialDayCount, t),
   habits: ({ settings, t }) => t(settings.habits.hints ? "On" : "Off"),
   notifications: notificationsSummary,
-  widget: ({ settings, t }) => t(settings.widget.showTitles ? "Titles shown" : "Titles hidden"),
-  pet: ({ settings: { pet }, t }) => petSummary(pet.kind, pet.walks, t),
+  widget: ({ settings, t }) => join([t(settings.widget.showTitles ? "Titles shown" : "Titles hidden"), petSummary(settings.pet.kind, settings.pet.walks, t)]),
   cycle: cycleSummary,
   "cycle-tracking": ({ t }) => t("Turn tracking off"),
   backup: ({ t }) => t("Export or import your data"),

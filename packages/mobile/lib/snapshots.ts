@@ -1,5 +1,6 @@
 import { serializeBackup } from "./backup";
 import type { CategoriesState } from "./categories";
+import type { SpecialDaysState } from "./special-days";
 import { hasCycleData, type CycleState } from "./cycle";
 import { dateKey, fromKey, type Task } from "./planner";
 import { utf8Length } from "./text-size";
@@ -126,17 +127,19 @@ export async function takeSnapshot(
   now: Date,
   categories?: CategoriesState,
   cycle?: CycleState,
+  specialDays?: SpecialDaysState,
 ): Promise<SnapshotResult> {
   if (Number.isNaN(now.getTime())) return { kind: "failed", reason: "invalid-date" };
   // An empty list is not worth a snapshot (it could replace a good one with nothing), unless the tracker has data.
-  if (tasks.length === 0 && !(cycle !== undefined && hasCycleData(cycle))) return { kind: "skipped", reason: "empty" };
+  const hasSpecialDays = specialDays !== undefined && specialDays.items.length > 0;
+  if (tasks.length === 0 && !(cycle !== undefined && hasCycleData(cycle)) && !hasSpecialDays) return { kind: "skipped", reason: "empty" };
   const keys = await listKeys(storage);
   if (keys === null) return { kind: "failed", reason: "list-failed" };
   const today = dateKey(now);
   if (!shouldSnapshot(keys, today)) return { kind: "skipped", reason: "not-due" };
 
   if (tasks.length * MIN_TASK_JSON_BYTES > MAX_SNAPSHOT_BYTES) return { kind: "skipped", reason: "too-large" };
-  const text = serializeBackup(tasks, now, { compact: true, categories, cycle });
+  const text = serializeBackup(tasks, now, { compact: true, categories, specialDays, cycle });
   if (utf8Length(text) > MAX_SNAPSHOT_BYTES) return { kind: "skipped", reason: "too-large" };
   const key = snapshotKey(today);
   try {
@@ -152,6 +155,8 @@ export type SnapshotInput = {
   tasks: readonly Task[];
   canSnapshot: boolean;
   categories?: CategoriesState;
+  /** Left out until the special days were read (the empty list must never stand in for them). */
+  specialDays?: SpecialDaysState;
   /** Left out until the tracker was read safely (the defaults must never stand in for it). */
   cycle?: CycleState;
 };
@@ -178,7 +183,7 @@ export function createSnapshotRunner(options: {
       if (!input.canSnapshot) return null;
       running = true;
       try {
-        const result = await takeSnapshot(options.storage, input.tasks, options.now(), input.categories, input.cycle);
+        const result = await takeSnapshot(options.storage, input.tasks, options.now(), input.categories, input.cycle, input.specialDays);
         options.onResult?.(result);
         return result;
       } finally {

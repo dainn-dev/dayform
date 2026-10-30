@@ -24,7 +24,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function setup(initial: Partial<WidgetSyncInput> = {}, sendResult: () => Promise<boolean> = async () => true) {
-  let input: WidgetSyncInput = { tasks: [makeTask()], showTitles: true, locale: "en", pet: "round-cat", petWalks: true, canSync: true, ...initial };
+  let input: WidgetSyncInput = { tasks: [makeTask()], showTitles: true, locale: "en", pet: "orange-cat", petWalks: true, canSync: true, ...initial };
   const sent: string[] = [];
   const syncer = createWidgetSyncer({
     read: () => input,
@@ -186,7 +186,7 @@ describe("createWidgetSyncer", () => {
   test("uses the real clock and default delay when none are injected", async () => {
     const sent: string[] = [];
     const syncer = createWidgetSyncer({
-      read: () => ({ tasks: [], showTitles: true, locale: "vi", pet: "round-cat", petWalks: true, canSync: true }),
+      read: () => ({ tasks: [], showTitles: true, locale: "vi", pet: "orange-cat", petWalks: true, canSync: true }),
       send: async (json) => {
         sent.push(json);
         return true;

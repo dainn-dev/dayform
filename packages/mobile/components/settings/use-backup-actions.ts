@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { parseBackup, type MergeMode } from "../../lib/backup";
 import { exportBackupFile, pickBackupText } from "../../lib/backup-expo";
@@ -13,13 +13,15 @@ import {
   type NoticeItem,
   type ParsedTasks,
   withCategoriesNote,
+  withSpecialDaysNote,
   withCycleNote,
 } from "../../lib/backup-flow";
 import { useCategories } from "../../lib/categories-context";
+import { useSpecialDays } from "../../lib/special-days-context";
 import { hasCycleData } from "../../lib/cycle";
 import { useCycle } from "../../lib/cycle-context";
 import { AUTH_DENIED_MESSAGE } from "../../lib/cycle-lock-guard";
-import { PERSONAL_DATA_RESTORED } from "../../lib/recovery-messages";
+import { PERSONAL_DATA_RESTORED, SPECIAL_DAYS_RESTORED } from "../../lib/recovery-messages";
 import { useTasks } from "../../lib/tasks-context";
 import { useCycleAuth } from "./use-cycle-auth";
 
@@ -50,19 +52,22 @@ const failure = (message: string): Notice => ({ tone: "error", parts: [{ key: me
 function importedNotice(
   imported: number,
   skipped: number,
-  extras: { categories?: "applied" | "failed"; cycle?: "applied" | "failed"; cycleOnly?: true },
+  extras: { categories?: "applied" | "failed"; specialDays?: "applied" | "failed"; cycle?: "applied" | "failed"; cycleOnly?: true; specialDaysOnly?: true },
 ): Notice {
   // A file with the tracker alone changed no task.
   if (extras.cycleOnly === true) return { tone: "success", parts: [{ key: PERSONAL_DATA_RESTORED }] };
+  if (extras.specialDaysOnly === true) return { tone: "success", parts: [{ key: SPECIAL_DAYS_RESTORED }] };
   const parts = [countItem(imported, "task imported", "tasks imported")];
   if (skipped > 0) parts.push(countItem(skipped, "task skipped", "tasks skipped"));
-  return { tone: "success", parts: withCycleNote(withCategoriesNote(parts, extras), extras) };
+  return { tone: "success", parts: withCycleNote(withSpecialDaysNote(withCategoriesNote(parts, extras), extras), extras) };
 }
 
 /** State machine behind BackupSection: export, pick + parse, preview, merge or confirmed replace. */
 export function useBackupActions(): BackupActions {
   const { tasks, loading, mutate } = useTasks();
   const { state: categoriesState, importState } = useCategories();
+  const { items: specialItems, importState: importSpecialDays } = useSpecialDays();
+  const specialDays = useMemo(() => ({ items: [...specialItems] }), [specialItems]);
   const { state: cycleState, ready: cycleReady, locked: cycleLocked, importState: importCycle } = useCycle();
   // Until the tracker is read (or if it could not be) the defaults would stand in for it, so it is left out.
   const cycle = cycleReady && !cycleLocked ? cycleState : undefined;
@@ -86,12 +91,12 @@ export function useBackupActions(): BackupActions {
         setNotice(failure(AUTH_DENIED_MESSAGE));
         return;
       }
-      const result = await exportBackupFile(tasks, categoriesState, cycle);
+      const result = await exportBackupFile(tasks, categoriesState, cycle, specialDays);
       setNotice(result.ok ? { tone: "success", parts: [{ key: "Backup exported" }] } : failure(exportErrorMessage(result.reason)));
     } finally {
       setBusy(false);
     }
-  }, [tasks, loading, categoriesState, cycle, includesHealthData, authorize]);
+  }, [tasks, loading, categoriesState, cycle, specialDays, includesHealthData, authorize]);
 
   const startImport = useCallback(async () => {
     setBusy(true);
@@ -117,7 +122,7 @@ export function useBackupActions(): BackupActions {
     setBusy(true);
     try {
       const outcome = await runImport(mutate, stage.parsed, mode, {
-        storage: AsyncStorage, now: new Date(), categories: categoriesState, importCategories: importState,
+        storage: AsyncStorage, now: new Date(), categories: categoriesState, importCategories: importState, specialDays, importSpecialDays,
         cycle, importCycle, authorize,
       });
       setStage(IDLE);
@@ -126,7 +131,7 @@ export function useBackupActions(): BackupActions {
     } finally {
       setBusy(false);
     }
-  }, [stage, mutate, categoriesState, importState, cycle, importCycle, authorize]);
+  }, [stage, mutate, categoriesState, importState, specialDays, importSpecialDays, cycle, importCycle, authorize]);
 
   const askToReplace = useCallback(() => {
     setStage(current => (current.kind === "preview" ? { kind: "confirm-replace", parsed: current.parsed } : current));

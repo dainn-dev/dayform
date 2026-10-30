@@ -219,3 +219,33 @@ describe("cycleGroupScheduler", () => {
     expect(log).toEqual([]);
   });
 });
+
+describe("special-day reminders in the shared budget", () => {
+  const NOW_SPECIAL = new Date(2026, 9, 30, 12, 0);
+  const birthday = { id: "s_aaaaaaaa", title: "Linh", kind: "birthday", calendar: "solar", month: 11, day: 5, startYear: 1996, remind: "same-day" } as const;
+  const base = { tasks: [], language: "en", notifications: { quietEnabled: false, quietFrom: "22:00", quietTo: "07:00", hideTitles: false, snoozeMinutes: 10, summaryEnabled: false, summaryTime: "08:00" }, cycle: { state: { enabled: false, paused: false } as never, ready: true, locked: false }, now: NOW_SPECIAL } as const;
+
+  test("a special day with a reminder takes its share of the budget", () => {
+    expect(taskReminderLimit(false, false, false)).toBe(50);
+    expect(taskReminderLimit(false, false, true)).toBe(42);
+    expect(taskReminderLimit(true, true, true)).toBe(29);
+  });
+
+  test("a due special day is planned and the plan says the special days are known", () => {
+    const result = planAllReminders({ ...base, specialDays: [birthday] });
+    expect(result.planned.filter(item => item.kind === "special")).toHaveLength(1);
+    expect(result.keepSpecial).toBe(false);
+  });
+
+  test("a special day without a reminder plans nothing and reserves nothing", () => {
+    const result = planAllReminders({ ...base, specialDays: [{ ...birthday, remind: "none" }] });
+    expect(result.planned).toEqual([]);
+    expect(result.keepSpecial).toBe(false);
+  });
+
+  test("while the special days are unknown their notifications are to be left alone", () => {
+    const result = planAllReminders({ ...base });
+    expect(result.planned).toEqual([]);
+    expect(result.keepSpecial).toBe(true);
+  });
+});

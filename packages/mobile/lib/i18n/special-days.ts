@@ -1,0 +1,52 @@
+/**
+ * Vietnamese strings for the user's special days (lib/special-days.ts, lib/special-day-draft.ts, the settings page and
+ * its editor, lib/special-reminders.ts). The English text is the key. "Today" and "Cancel" live in other files.
+ */
+export const vi: Record<string, string> = {
+  "Special days": "Ngày đặc biệt",
+  "Add special day": "Thêm ngày đặc biệt",
+  "New special day": "Ngày đặc biệt mới",
+  "Edit special day": "Sửa ngày đặc biệt",
+  "Birthdays, anniversaries and other days that come back every year. They are marked on the Timeline.":
+    "Sinh nhật, kỷ niệm và những ngày lặp lại hằng năm. Chúng được đánh dấu trên lịch trình.",
+  "No special days yet. Tap + to add a birthday or an anniversary.": "Chưa có ngày đặc biệt nào. Chạm + để thêm sinh nhật hoặc kỷ niệm.",
+  "You can keep up to {count} special days.": "Bạn có thể giữ tối đa {count} ngày đặc biệt.",
+  "Your special days could not be read safely, so changes are paused this session.":
+    "Không đọc được ngày đặc biệt một cách an toàn nên tạm dừng thay đổi trong phiên này.",
+  "Could not save your special days. Please try again.": "Không thể lưu ngày đặc biệt. Vui lòng thử lại.",
+  "Name": "Tên",
+  "Kind": "Loại",
+  "Day": "Ngày",
+  "Year": "Năm",
+  "Birthday": "Sinh nhật",
+  "Wedding anniversary": "Kỷ niệm cưới",
+  "Memorial (giỗ)": "Ngày giỗ",
+  "Solar date": "Dương lịch",
+  "Lunar date": "Âm lịch",
+  "No reminder": "Không nhắc",
+  "The day before, 08:00": "Trước 1 ngày, 08:00",
+  "On the day, 08:00": "Đúng ngày, 08:00",
+  "Enter a name.": "Hãy nhập tên.",
+  "Enter a valid day and month.": "Hãy nhập ngày và tháng hợp lệ.",
+  "Enter a four-digit year between 1900 and 2100, or leave it empty.": "Hãy nhập năm gồm bốn chữ số từ 1900 đến 2100, hoặc để trống.",
+  "A lunar day in a leap month is kept in the regular month of the same number.": "Ngày âm lịch ở tháng nhuận được giữ ở tháng thường cùng số.",
+  "Tap again to delete": "Chạm lần nữa để xoá",
+  "{date} lunar": "{date} ÂL",
+  "Tomorrow": "Ngày mai",
+  "in {count} days": "còn {count} ngày",
+  "turns {count}": "{count} tuổi",
+  "{count} years": "{count} năm",
+  "No special days": "Chưa có ngày đặc biệt",
+  "1 special day": "1 ngày đặc biệt",
+  "{count} special days": "{count} ngày đặc biệt",
+  // Notifications (lib/special-reminders.ts)
+  "Special day": "Ngày đặc biệt",
+  "Tomorrow:": "Ngày mai:",
+  "This file also has special days.": "Tệp này còn có các ngày đặc biệt.",
+  "Replace your current special days?": "Thay thế các ngày đặc biệt hiện tại?",
+  "Replace all your current tasks and special days?": "Thay thế toàn bộ công việc và ngày đặc biệt hiện tại?",
+  "Special days restored": "Đã khôi phục ngày đặc biệt",
+  "Special days could not be restored": "Không thể khôi phục ngày đặc biệt",
+  "A special day is coming up": "Sắp đến một ngày đặc biệt",
+  "Today is a special day": "Hôm nay là một ngày đặc biệt",
+};

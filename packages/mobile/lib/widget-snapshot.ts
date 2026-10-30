@@ -1,5 +1,6 @@
 import { addDays, dateKey, minutes, type Task } from "./planner";
 import { vi } from "./i18n/widget";
+import type { DayMark } from "./day-marks";
 import type { PetKind } from "./settings";
 
 /** What the native home-screen widget reads. Titles are already localised or user-written; dates are local. */
@@ -18,8 +19,12 @@ export type WidgetDay = {
   n: number;
   done: number;
   items: WidgetItem[];
+  /** Names of the day's holidays and special days (at most MAX_MARKS), already in the language. Left out when none. */
+  m?: string[];
+  /** 1 when one of the user's own special days falls on this day. */
+  sp?: 1;
 };
-export type WidgetLabels = { empty: string; more: string; today: string; tasks: string; task: string };
+export type WidgetLabels = { empty: string; more: string; today: string; tasks: string; task: string; special: string };
 export type WidgetLocale = "en" | "vi";
 export type WidgetSnapshot = {
   version: 1;
@@ -39,6 +44,8 @@ export type BuildOptions = {
   locale: WidgetLocale;
   pet?: PetKind;
   petWalks?: boolean;
+  /** The holidays and special days of the given days (lib/day-marks.ts); omitted when the widget shows none. */
+  marksFor?: (keys: readonly string[]) => Record<string, DayMark[]>;
   /** Days covered, starting today. */
   days?: number;
   maxPerDay?: number;
@@ -54,6 +61,9 @@ export const MAX_SNAPSHOT_BYTES = 60_000;
 const DEFAULT_DAYS = 14;
 const DEFAULT_MAX_PER_DAY = 12;
 const MAX_TITLE_CHARS = 60;
+/** The widget shows at most this many names under its header, each cut to this many characters. */
+const MAX_MARKS = 2;
+const MAX_MARK_CHARS = 40;
 const TIME_PATTERN = /^\d{2}:\d{2}$/;
 /** Share of a lone oversized day's items dropped per shrink step. */
 const TRIM_KEEP_RATIO = 0.9;
@@ -64,6 +74,7 @@ const ENGLISH_LABELS: WidgetLabels = {
   today: "Today",
   tasks: "tasks",
   task: "task",
+  special: "Special day",
 };
 
 function labelsFor(locale: WidgetLocale): WidgetLabels {
@@ -75,6 +86,7 @@ function labelsFor(locale: WidgetLocale): WidgetLabels {
     today: translated(ENGLISH_LABELS.today),
     tasks: translated(ENGLISH_LABELS.tasks),
     task: translated(ENGLISH_LABELS.task),
+    special: translated(ENGLISH_LABELS.special),
   };
 }
 
@@ -88,9 +100,18 @@ export function utf8ByteLength(text: string): number {
   return bytes;
 }
 
+function shortText(text: string, limit: number): string {
+  const chars = Array.from(text.replace(/\s+/g, " ").trim());
+  return chars.length > limit ? `${chars.slice(0, limit - 1).join("")}…` : chars.join("");
+}
+
 function shortTitle(title: string): string {
-  const chars = Array.from(title.replace(/\s+/g, " ").trim());
-  return chars.length > MAX_TITLE_CHARS ? `${chars.slice(0, MAX_TITLE_CHARS - 1).join("")}…` : chars.join("");
+  return shortText(title, MAX_TITLE_CHARS);
+}
+
+/** The lines shown under the widget's header: a user-written name becomes the generic label when titles are hidden. */
+function markLines(marks: readonly DayMark[], showTitles: boolean, genericLabel: string): string[] {
+  return marks.slice(0, MAX_MARKS).map((mark) => (mark.userText && !showTitles ? genericLabel : shortText(mark.label, MAX_MARK_CHARS)));
 }
 
 function toItem(task: Task, showTitles: boolean): WidgetItem {
@@ -106,17 +127,25 @@ function byStart(a: Task, b: Task): number {
   return minutes(a.start ?? "00:00") - minutes(b.start ?? "00:00") || a.id.localeCompare(b.id);
 }
 
-function buildDays(tasks: readonly Task[], keys: readonly string[], showTitles: boolean, maxPerDay: number) {
+type DayContext = { showTitles: boolean; maxPerDay: number; marks: Record<string, DayMark[]>; genericLabel: string };
+
+function buildDays(tasks: readonly Task[], keys: readonly string[], context: DayContext) {
+  const { showTitles, maxPerDay, marks, genericLabel } = context;
   const days: Record<string, WidgetDay> = {};
   for (const key of keys) {
     const sameDay = tasks
       .filter((task) => task.date === key && task.start !== null && TIME_PATTERN.test(task.start))
       .sort(byStart);
-    if (sameDay.length === 0) continue;
+    const dayMarks = marks[key] ?? [];
+    // A day with nothing scheduled still appears when it has something to mark, so the widget can say what it is.
+    if (sameDay.length === 0 && dayMarks.length === 0) continue;
+    const lines = markLines(dayMarks, showTitles, genericLabel);
     days[key] = {
       n: sameDay.length,
       done: sameDay.filter((task) => task.status === "done").length,
       items: sameDay.slice(0, maxPerDay).map((task) => toItem(task, showTitles)),
+      ...(lines.length > 0 ? { m: lines } : {}),
+      ...(dayMarks.some((mark) => mark.kind === "special") ? { sp: 1 as const } : {}),
     };
   }
   return days;
@@ -145,15 +174,16 @@ function fitSize(snapshot: WidgetSnapshot): WidgetSnapshotResult {
 
 /** Builds the widget payload from the scheduled tasks of today and the following days. */
 export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOptions): WidgetSnapshotResult {
-  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "round-cat", petWalks = true } = options;
+  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "orange-cat", petWalks = true, marksFor } = options;
   const today = dateKey(now);
   const keys = Array.from({ length: days }, (_, index) => addDays(today, index));
+  const labels = labelsFor(locale);
   return fitSize({
     version: 1,
     generatedAt: now.getTime(),
     locale,
-    days: buildDays(tasks, keys, showTitles, maxPerDay),
-    labels: labelsFor(locale),
+    days: buildDays(tasks, keys, { showTitles, maxPerDay, marks: marksFor?.(keys) ?? {}, genericLabel: labels.special }),
+    labels,
     pet,
     petWalks,
   });

@@ -5,14 +5,17 @@ import {
   CYCLE_ID_PREFIX, DEFAULT_REMINDER_LIMIT, planReminders, type PlannedReminder, type ReminderLanguage, type ReminderScheduler,
 } from "./reminders";
 import type { Settings } from "./settings";
+import type { SpecialDay } from "./special-days";
+import { SPECIAL_MAX_REMINDERS, hasSpecialReminders, planSpecialReminders } from "./special-reminders";
 import { planSummary, SUMMARY_DAYS } from "./summary-notification";
 
 /*
  * Notification budget. iOS keeps at most 64 pending local notifications; DEFAULT_REMINDER_LIMIT (50) is the budget
  * for everything this planner schedules, which leaves 14 for snoozed notifications (one per tapped "Snooze").
  *
- *   task reminders + morning summaries + cycle reminders <= 50
+ *   task reminders + morning summaries + cycle reminders + special-day reminders <= 50
  *   tasks = 50 - (summary on ? SUMMARY_DAYS = 7 : 0) - (cycle active ? CYCLE_MAX_REMINDERS = 6 : 0)
+ *                - (a special day asks for a reminder ? SPECIAL_MAX_REMINDERS = 8 : 0)
  *
  *   neither: 50 tasks            summary only: 43 + 7 = 50
  *   cycle only: 44 + 6 = 50      both: 37 + 7 + 6 = 50
@@ -32,8 +35,8 @@ export function cycleActive(cycle: CycleSync): boolean {
   return cycle.ready && !cycle.locked && cycle.state.enabled && !cycle.state.paused;
 }
 
-export function taskReminderLimit(summaryEnabled: boolean, cycleReserved: boolean): number {
-  return DEFAULT_REMINDER_LIMIT - (summaryEnabled ? SUMMARY_DAYS : 0) - (cycleReserved ? CYCLE_MAX_REMINDERS : 0);
+export function taskReminderLimit(summaryEnabled: boolean, cycleReserved: boolean, specialReserved = false): number {
+  return DEFAULT_REMINDER_LIMIT - (summaryEnabled ? SUMMARY_DAYS : 0) - (cycleReserved ? CYCLE_MAX_REMINDERS : 0) - (specialReserved ? SPECIAL_MAX_REMINDERS : 0);
 }
 
 export type PlanAllInput = {
@@ -41,6 +44,8 @@ export type PlanAllInput = {
   language: ReminderLanguage;
   notifications: NotificationSettings;
   cycle: CycleSync;
+  /** The user's special days; undefined while they are still loading or unreadable (their notifications are then left alone). */
+  specialDays?: readonly SpecialDay[];
   now: Date;
 };
 export type PlanAllResult = {
@@ -50,18 +55,22 @@ export type PlanAllResult = {
    * then be left alone. When it is known and off, paused or empty, `planned` has none and they are all cancelled.
    */
   keepCycle: boolean;
+  /** True while the special days are unknown: the scheduled `dayform:special:*` notifications must then be left alone. */
+  keepSpecial?: boolean;
 };
 
-/** Task reminders, the next days' morning summaries and the period-tracker reminders, within one shared budget. */
-export function planAllReminders({ tasks, language, notifications, cycle, now }: PlanAllInput): PlanAllResult {
+/** Task reminders, the next days' morning summaries, the period-tracker reminders and the special-day reminders, within one shared budget. */
+export function planAllReminders({ tasks, language, notifications, cycle, specialDays, now }: PlanAllInput): PlanAllResult {
   const { hideTitles, quietEnabled, quietFrom, quietTo, summaryEnabled, summaryTime } = notifications;
   const quiet = quietEnabled ? { from: quietFrom, to: quietTo } : null;
   const active = cycleActive(cycle);
-  const limit = taskReminderLimit(summaryEnabled, active);
+  const specialReserved = specialDays !== undefined && hasSpecialReminders(specialDays);
+  const limit = taskReminderLimit(summaryEnabled, active, specialReserved);
   const planned = planReminders(tasks, now, { language, hideTitles, quiet, limit });
   if (summaryEnabled) planned.push(...planSummary(tasks, now, { time: summaryTime, language, hideTitles }));
   if (active) planned.push(...planCycleReminders({ state: cycle.state, now, today: dateKey(now), quiet, language }));
-  return { planned, keepCycle: !cycle.ready || cycle.locked };
+  if (specialReserved && specialDays !== undefined) planned.push(...planSpecialReminders({ items: specialDays, now, language, hideTitles, quiet }));
+  return { planned, keepCycle: !cycle.ready || cycle.locked, keepSpecial: specialDays === undefined };
 }
 
 // --- The tracker group on its own ---------------------------------------------------------------------------------

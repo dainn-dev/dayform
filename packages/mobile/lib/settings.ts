@@ -9,8 +9,8 @@ const MAX_CATEGORY_LENGTH = 40;
 
 export const ACCENT_IDS = ["violet", "ocean", "lagoon", "forest", "sunset", "blossom"] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
-/** The home-screen widget's pet: three drawn or pixel cats, a pixel dog, or none. */
-export const PET_KINDS = ["round-cat", "gray-cat", "orange-cat", "dog", "off"] as const;
+/** The home-screen widget's pet: two pixel cats, a pixel dog, a kitsune, or none. */
+export const PET_KINDS = ["gray-cat", "orange-cat", "dog", "kitsune", "off"] as const;
 export type PetKind = (typeof PET_KINDS)[number];
 export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120] as const;
 export const SNOOZE_OPTIONS = [5, 10, 15] as const;
@@ -117,6 +117,13 @@ const calendarSchema = z.preprocess(
     hourHeight: choice(["compact", "normal", "roomy"], "normal"),
     weekStart: choice(["mon", "sun", "sat"], "mon"),
     timeFormat: choice(["auto", "12h", "24h"], "auto"),
+    /** Mark Vietnamese holidays (solar and lunar) on the week strip and the day header. */
+    showHolidays: flag(true),
+    /** Which kinds of holiday are marked (lib/holidays-vn.ts groups). */
+    holidayGroups: z.object({ national: flag(true), traditional: flag(true), occasion: flag(true) })
+      .catch({ national: true, traditional: true, occasion: true }),
+    /** Show the lunar date under each day of the week strip. */
+    showLunar: flag(false),
   }),
 );
 
@@ -134,7 +141,7 @@ const settingsSchema = z.object({
   habits: group(z.object({ hints: flag(true) })),
   widget: group(z.object({ showTitles: flag(true) })),
   /** The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. */
-  pet: group(z.object({ kind: choice(PET_KINDS, "round-cat"), walks: flag(true) })),
+  pet: group(z.object({ kind: choice(PET_KINDS, "orange-cat"), walks: flag(true) })),
   /** App content (over-the-air) updates; the APK update check keeps its own preference in update-state. */
   updates: group(z.object({ autoOta: flag(true) })),
 });

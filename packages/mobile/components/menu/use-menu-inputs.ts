@@ -4,6 +4,7 @@ import { useCycle } from "../../lib/cycle-context";
 import { useLanguage } from "../../lib/language";
 import { useOta } from "../../lib/ota-context";
 import { useSettings } from "../../lib/settings-context";
+import { useSpecialDays } from "../../lib/special-days-context";
 import type { MenuInputs } from "../../lib/settings-menu";
 import { useThemePreference } from "../../lib/theme-context";
 import { useUpdates } from "../../lib/update-context";
@@ -18,6 +19,7 @@ export function useMenuInputs(): MenuInputs {
   const { t, duration, time, timeFormat, language } = useLanguage();
   const { preference } = useThemePreference();
   const categories = useCategories();
+  const specialDays = useSpecialDays();
   const apk = useUpdates();
   const ota = useOta();
   const { state, ready } = useCycle();
@@ -31,6 +33,7 @@ export function useMenuInputs(): MenuInputs {
     language,
     categoryCount: categories.visible.length,
     categoryName: categories.label,
+    specialDayCount: specialDays.items.length,
     version: apk.currentVersion,
     updateLine,
     cycle: { ready, enabled: cycleEnabled, lockEnabled },
@@ -38,6 +41,6 @@ export function useMenuInputs(): MenuInputs {
     duration,
     time,
     t,
-  }), [settings, preference, language, categories.visible.length, categories.label, apk.currentVersion, updateLine,
+  }), [settings, preference, language, categories.visible.length, categories.label, specialDays.items.length, apk.currentVersion, updateLine,
     ready, cycleEnabled, lockEnabled, timeFormat, duration, time, t]);
 }

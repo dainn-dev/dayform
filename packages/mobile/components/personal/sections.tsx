@@ -8,13 +8,13 @@ import { AboutSection } from "./AboutSection";
 import { AppearanceSection } from "./AppearanceSection";
 import { CalendarSection } from "./CalendarSection";
 import { CategoriesSection } from "./CategoriesSection";
+import { SpecialDaysSection } from "./SpecialDaysSection";
 import { CycleSection } from "./CycleSection";
 import { DefaultsSection } from "./DefaultsSection";
 import { GreetingSection } from "./GreetingSection";
 import { HabitsSection } from "./HabitsSection";
 import { LanguageSection } from "./LanguageSection";
 import { NotificationsSection } from "./NotificationsSection";
-import { PetSection } from "./PetSection";
 import { WidgetSection } from "./WidgetSection";
 
 export type SettingsPageEntry = {
@@ -36,10 +36,10 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   "new-tasks": { Component: DefaultsSection, hasTextInput: true },
   calendar: { Component: CalendarSection },
   categories: { Component: CategoriesSection },
+  "special-days": { Component: SpecialDaysSection },
   habits: { Component: HabitsSection },
   notifications: { Component: NotificationsSection },
   widget: { Component: WidgetSection },
-  pet: { Component: PetSection },
   cycle: { Component: CycleSection },
   backup: { Component: BackupSection },
   archive: { Component: ArchiveSection },

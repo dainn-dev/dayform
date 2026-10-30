@@ -5,7 +5,8 @@ import org.json.JSONObject
 
 internal data class WidgetItem(val title: String?, val start: String, val durationMin: Int, val done: Boolean)
 
-internal data class WidgetDay(val total: Int, val done: Int, val items: List<WidgetItem>)
+/** `marks` are the lines under the header (holidays and special days); `special` is true when one is the user's own. */
+internal data class WidgetDay(val total: Int, val done: Int, val items: List<WidgetItem>, val marks: List<String>, val special: Boolean)
 
 internal data class WidgetLabels(
   val empty: String,
@@ -13,9 +14,10 @@ internal data class WidgetLabels(
   val today: String,
   val tasks: String,
   val task: String,
+  val special: String,
 )
 
-/** `pet` is a kind id of the Pet settings page ("round-cat", "gray-cat", "orange-cat", "dog" or "off"); both pet fields are optional so an older app still works. */
+/** `pet` is a kind id of the Pet settings page ("gray-cat", "orange-cat", "dog" or "off"); both pet fields are optional so an older app still works. */
 internal data class WidgetSnapshot(
   val locale: String,
   val labels: WidgetLabels,
@@ -55,6 +57,7 @@ internal object WidgetSnapshotParser {
         today = labels.getString("today"),
         tasks = labels.getString("tasks"),
         task = labels.optString("task", labels.getString("tasks")),
+        special = labels.optString("special", "Special day"),
       ),
       days = days,
       pet = root.optString("pet", WidgetPet.DEFAULT_KIND),
@@ -68,7 +71,9 @@ internal object WidgetSnapshotParser {
     for (index in 0 until itemsJson.length()) {
       items.add(readItem(itemsJson.getJSONObject(index)))
     }
-    return WidgetDay(total = day.getInt("n"), done = day.optInt("done", 0), items = items)
+    val marksJson = day.optJSONArray("m")
+    val marks = if (marksJson == null) emptyList() else List(marksJson.length()) { marksJson.optString(it) }.filter { it.isNotEmpty() }
+    return WidgetDay(total = day.getInt("n"), done = day.optInt("done", 0), items = items, marks = marks, special = day.optInt("sp", 0) == 1)
   }
 
   private fun readItem(item: JSONObject): WidgetItem = WidgetItem(

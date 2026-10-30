@@ -1,6 +1,7 @@
 import { MAX_BACKUP_BYTES, parseBackup, type BackupFailure, type MergeMode } from "./backup";
 import { runImport, type ImportMutate, type ImportOutcome, type ImportSummary, type ImportTarget } from "./backup-flow";
 import type { CategoriesState } from "./categories";
+import type { SpecialDaysState } from "./special-days";
 import { parseCycleText, type CycleState } from "./cycle";
 import { CYCLE_CORRUPT_PREFIX } from "./cycle-store";
 import type { Task } from "./planner";
@@ -47,12 +48,12 @@ export type PreviewFailure =
   | "copy-too-large";
 /** A `cycle` copy previews as zero tasks plus the tracker data it holds. */
 export type PreviewResult =
-  | { ok: true; tasks: Task[]; rejected: number; categories?: CategoriesState; cycle?: CycleState }
+  | { ok: true; tasks: Task[]; rejected: number; categories?: CategoriesState; specialDays?: SpecialDaysState; cycle?: CycleState }
   | { ok: false; reason: PreviewFailure };
 export type DeleteOutcome = "deleted" | "refused" | "failed";
 export type DeleteResult = { key: string; outcome: DeleteOutcome };
 /** Restoring a copy that holds only tracker data touches no task: `cycleOnly` is set and the summary is all zeros. */
-export type CycleOnlyOutcome = { ok: true; summary: ImportSummary; cycle: "applied"; cycleOnly: true; categories?: undefined };
+export type CycleOnlyOutcome = { ok: true; summary: ImportSummary; cycle: "applied"; cycleOnly: true; categories?: undefined; specialDays?: undefined };
 export type RecoveryRestoreOutcome = ImportOutcome | CycleOnlyOutcome | { ok: false; reason: PreviewFailure };
 
 const PREFIXES: readonly { prefix: string; kind: RecoveryKind }[] = [
@@ -149,6 +150,7 @@ export async function previewRecoveryItem(storage: RecoveryStorage, key: string)
     tasks: parsed.tasks,
     rejected: parsed.rejected,
     ...(parsed.categories === undefined ? {} : { categories: parsed.categories }),
+    ...(parsed.specialDays === undefined ? {} : { specialDays: parsed.specialDays }),
     ...(parsed.cycle === undefined ? {} : { cycle: parsed.cycle }),
   };
 }
@@ -185,7 +187,7 @@ export async function restoreRecoveryItem(
   key: string,
   mode: MergeMode,
   now: Date,
-  hooks: Pick<ImportTarget, "categories" | "importCategories" | "cycle" | "importCycle" | "authorize"> = {},
+  hooks: Pick<ImportTarget, "categories" | "importCategories" | "specialDays" | "importSpecialDays" | "cycle" | "importCycle" | "authorize"> = {},
 ): Promise<RecoveryRestoreOutcome> {
   const preview = await previewRecoveryItem(storage, key);
   if (!preview.ok) return preview;

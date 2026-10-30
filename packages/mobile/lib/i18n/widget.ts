@@ -5,4 +5,5 @@ export const vi: Record<string, string> = {
   "more": "việc khác",
   "tasks": "công việc",
   "task": "công việc",
+  "Special day": "Ngày đặc biệt",
 };

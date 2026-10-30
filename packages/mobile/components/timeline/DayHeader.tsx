@@ -4,6 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
 import { useTimelineConfig } from "../../hooks/use-timeline-config";
 import type { ThemeColors } from "../../constants/theme";
+import { useDayMarks } from "../../hooks/use-day-marks";
+import { markKinds, marksLine } from "../../lib/day-marks";
+import { solarToLunar } from "../../lib/lunar";
 import { greetingText, sloganText } from "../../lib/greeting";
 import { useLanguage } from "../../lib/language";
 import { fromKey, type Task } from "../../lib/planner";
@@ -53,15 +56,23 @@ export function DayHeader({ selected, today, scheduled, onAdd }: DayHeaderProps)
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const selectedDate = fromKey(selected);
+  const selectedKeys = useMemo(() => [selected], [selected]);
+  const marks = useDayMarks(selectedKeys)[selected];
   const dateTitle = selected === today ? tr("Today") : selectedDate.toLocaleDateString(locale, { weekday: "long" });
+  const lunar = useSettings().settings.calendar.showLunar ? solarToLunar(selected) : null;
+  const lunarText = lunar === null ? "" : ` · ${tr("LUNAR")} ${lunar.day}/${lunar.month}`;
   const completed = scheduled.filter(t => t.status === "done").length;
   const total = scheduled.reduce((sum, t) => sum + t.duration, 0);
   const progress = scheduled.length ? completed / scheduled.length * 100 : 0;
   return <>
     <View style={s.dailyTop}>
-      <View><Text style={s.panelEyebrow}>{selectedDate.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }).toUpperCase()}</Text><Text accessibilityRole="header" style={s.dailyTitle}>{dateTitle}<Text style={{ color: colors.punctuation }}>.</Text></Text></View>
+      <View><Text style={s.panelEyebrow}>{selectedDate.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }).toUpperCase()}{lunarText}</Text><Text accessibilityRole="header" style={s.dailyTitle}>{dateTitle}<Text style={{ color: colors.punctuation }}>.</Text></Text></View>
       <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
     </View>
+    {marks && <View style={s.marksRow} accessible accessibilityLabel={marksLine(marks)}>
+      <Ionicons name={markKinds(marks).holiday ? "flag" : "heart"} size={12} color={markKinds(marks).holiday ? colors.sun : colors.primary} />
+      <Text numberOfLines={2} style={s.marksText}>{marksLine(marks)}</Text>
+    </View>}
     <Text style={s.summary}>{summary(completed, scheduled.length, total)}</Text>
     <View style={s.progressTrack}><View style={[s.progressFill, { width: `${progress}%` }]} /></View>
     <View style={s.timelineHeading}><View style={s.liveDot} /><Text accessibilityRole="header" style={s.timelineHeadingText}>{tr("DAILY TIMELINE")}</Text><Text style={s.timelineHint}>{windowLabel(config, timeFormat)}</Text></View>
@@ -80,6 +91,8 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   panelEyebrow: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginBottom: 6 },
   dailyTitle: { fontSize: 26, color: c.foreground, fontWeight: "800", letterSpacing: -0.9 },
   addSmall: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.primarySoft, alignItems: "center", justifyContent: "center" },
+  marksRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginLeft: 4 },
+  marksText: { flexShrink: 1, color: c.accentForeground, fontSize: 12, fontWeight: "700" },
   summary: { color: c.mutedForeground, fontSize: 12, marginTop: 10, marginLeft: 4 },
   progressTrack: { marginTop: 17, height: 5, borderRadius: 4, backgroundColor: c.track, overflow: "hidden", marginHorizontal: 4 },
   progressFill: { height: 5, borderRadius: 4, backgroundColor: c.primary },

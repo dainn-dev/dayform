@@ -36,8 +36,11 @@ internal object WidgetRenderer {
   private const val PET_HEADER_DP = 47
   private const val PET_ROW_DP = 23
   private const val PET_BOTTOM_PADDING_DP = 10
-  /** The pet (44) and the gap under it (8) need this much free height, or it stays away. */
+  /** The pet (44) and the gap under it (8) need this much free height, or it stays away. It walks over the rows when the space under them is smaller. */
   private const val PET_MIN_FREE_DP = 60
+
+  /** The marks line (holidays and special days) under the header takes about this much height. */
+  private const val MARKS_DP = 18
 
   /**
    * vivo's launcher reports a widget about 25 dp narrower than it is drawn and counts the app label under it (about
@@ -60,9 +63,10 @@ internal object WidgetRenderer {
     val day = snapshot?.days?.get(WidgetClock.todayKey(nowMs))
     val views = RemoteViews(context.packageName, R.layout.dayform_widget)
     bindHeader(context, views, snapshot, day, nowMs)
-    val capacity = lineCapacity(options)
+    val hasMarks = day?.marks?.isNotEmpty() == true
+    val capacity = lineCapacity(options, hasMarks)
     bindRows(context, views, snapshot, day, capacity, nowMs)
-    bindPet(context, views, snapshot, day, capacity, options)
+    bindPet(context, views, snapshot, day, capacity, options, hasMarks)
     bindClick(context, views)
     return views
   }
@@ -71,7 +75,7 @@ internal object WidgetRenderer {
    * Shows the pet when there is room below the rows, in the mood of the day: it roams the free area while tasks are
    * left, plays when all are done and mostly sleeps when nothing is planned (see WidgetPet).
    */
-  private fun bindPet(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, capacity: Int, options: Bundle?) {
+  private fun bindPet(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, capacity: Int, options: Bundle?, hasMarks: Boolean) {
     val total = day?.total ?: 0
     val plan = planRows(total, day?.items?.size ?: 0, capacity)
     val usedLines = plan.shown + if (plan.showMore) 1 else 0
@@ -79,13 +83,17 @@ internal object WidgetRenderer {
     val reportedHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
     val widthDp = if (reportedWidth > 0) reportedWidth + launcherWidthFixDp else 0
     // The card's height minus its header, its bottom padding and the rows shown is the room left for the pet.
-    val freeHeightDp = if (reportedHeight > 0) {
-      reportedHeight - launcherLabelDp - PET_HEADER_DP - PET_BOTTOM_PADDING_DP - usedLines * PET_ROW_DP
+    val bodyHeightDp = if (reportedHeight > 0) reportedHeight - launcherLabelDp - PET_HEADER_DP - PET_BOTTOM_PADDING_DP else capacity * LINE_DP
+    val roomBelowRowsDp = if (reportedHeight > 0) {
+      bodyHeightDp - usedLines * PET_ROW_DP - (if (hasMarks) MARKS_DP else 0)
     } else {
       (capacity - usedLines) * LINE_DP
     }
+    // With no room under the rows the pet walks over them (the whole body of the card) instead of staying away.
+    val freeHeightDp = if (roomBelowRowsDp >= PET_MIN_FREE_DP) roomBelowRowsDp else bodyHeightDp
     val mood = when {
       freeHeightDp < PET_MIN_FREE_DP -> null
+      day?.special == true -> PetMood.CHEERING
       total <= 0 -> PetMood.RESTING
       (day?.done ?: 0) >= total -> PetMood.CHEERING
       else -> PetMood.WALKING
@@ -93,10 +101,23 @@ internal object WidgetRenderer {
     WidgetPet.bind(context, views, snapshot?.pet ?: WidgetPet.DEFAULT_KIND, snapshot?.petWalks ?: true, mood, widthDp, freeHeightDp)
   }
 
+  /** The names of the day's holidays and special days, on one line under the header (hidden when there are none). */
+  private fun bindMarks(views: RemoteViews, day: WidgetDay?) {
+    val marks = day?.marks.orEmpty()
+    if (marks.isEmpty()) {
+      views.setViewVisibility(R.id.dayform_widget_marks, View.GONE)
+      return
+    }
+    views.setTextViewText(R.id.dayform_widget_marks, marks.joinToString(" · "))
+    views.setViewVisibility(R.id.dayform_widget_marks, View.VISIBLE)
+  }
+
   private fun bindHeader(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, nowMs: Long) {
     val languageTag = snapshot?.locale ?: Locale.getDefault().toLanguageTag()
     views.setTextViewText(R.id.dayform_widget_title, snapshot?.labels?.today ?: context.getString(R.string.dayform_widget_today))
     views.setTextViewText(R.id.dayform_widget_date, WidgetClock.headerDate(nowMs, languageTag))
+
+    bindMarks(views, day)
 
     val total = day?.total ?: 0
     if (snapshot == null || total <= 0) {
@@ -201,10 +222,10 @@ internal object WidgetRenderer {
   }
 
   /** Lines that fit, from the smallest height the launcher reports (so rows are never clipped). */
-  private fun lineCapacity(options: Bundle?): Int {
+  private fun lineCapacity(options: Bundle?, hasMarks: Boolean): Int {
     val minHeightDp = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
     if (minHeightDp <= 0) return DEFAULT_CAPACITY
-    return ((minHeightDp - HEADER_DP) / LINE_DP).coerceIn(1, ROWS.size + 1)
+    return ((minHeightDp - HEADER_DP - (if (hasMarks) MARKS_DP else 0)) / LINE_DP).coerceIn(1, ROWS.size + 1)
   }
 
   /** The title, struck through when the task is done; empty when the user hides titles on the widget. */
