@@ -23,7 +23,7 @@ internal object WidgetPet {
   const val DEFAULT_KIND = "orange-cat"
 
   /** Pet kinds of the settings page mapped to the name part of their drawables; "off" and unknown kinds draw nothing. */
-  private val ART = mapOf("gray-cat" to "gray", "orange-cat" to "orange", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "paimon" to "paimon")
+  private val ART = mapOf("gray-cat" to "gray", "orange-cat" to "orange", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "paimon" to "paimon", "goku" to "goku")
 
   private const val SPRITE_DP = 44
   /** The card's left and right padding, and the gap kept under the pet. */
@@ -146,8 +146,12 @@ internal object WidgetPet {
     val sprites = Sprites(context, art)
     val random = Random(System.currentTimeMillis())
     val roams = walks && areaW >= MIN_TRIP_DP
-    // Paimon floats and has its own poses, so she has her own script (PaimonPet.kt) instead of the walking one.
-    val frames = if (art == PaimonPet.ART) PaimonPet.script(sprites, mood, roams, areaW, areaH, random) else script(sprites, mood, roams, areaW, areaH, random)
+    // Paimon floats and Goku fights, so each has their own script (PaimonPet.kt, GokuPet.kt) instead of the walking one.
+    val frames = when (art) {
+      PaimonPet.ART -> PaimonPet.script(sprites, mood, roams, areaW, areaH, random)
+      GokuPet.ART -> GokuPet.script(sprites, mood, roams, areaW, areaH, random)
+      else -> script(sprites, mood, roams, areaW, areaH, random)
+    }
     if (frames.isEmpty()) return
     val density = context.resources.displayMetrics.density
     for (frame in frames) {
