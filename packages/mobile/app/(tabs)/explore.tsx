@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,8 @@ import { filterTasks } from "../../lib/search";
 import { SearchBar } from "../../components/tasks/SearchBar";
 import { CategoryFilter } from "../../components/tasks/CategoryFilter";
 import { buildExploreSections, conflictIds, taskStats, type ExploreFilter } from "../../lib/explore-groups";
+import { initialDays, nextDays, pageScheduled, shownScheduled } from "../../lib/explore-paging";
+import { EarlierTasksToggle, ShowNextDays } from "../../components/tasks/ScheduledControls";
 import { useHabitHints } from "../../components/habits/useHabitHints";
 import { StaleBanner, StaleReviewStrip } from "../../components/habits/StaleBanner";
 import { showStaleBanner } from "../../lib/habits-copy";
@@ -24,7 +26,12 @@ import { useTodayKey } from "../../components/stats/use-today-key";
 const FILTERS: readonly ExploreFilter[] = ["all", "active", "done"];
 const MIN_TOUCH_TARGET = 44;
 
+const END_REACHED_THRESHOLD = 0.6;
+
 type ExploreSection = { key: "backlog" | "scheduled"; data: Task[] };
+/** What the Scheduled group needs besides its visible rows. Paged is false while searching or filtering (everything is listed). */
+type ScheduledMeta = { total: number; paged: boolean; earlierCount: number; hasMore: boolean; nextDays: number };
+const ALL_SCHEDULED: ScheduledMeta = { total: 0, paged: false, earlierCount: 0, hasMore: false, nextDays: 0 };
 type RowProps = { task: Task; conflict: boolean; dateLabel: string | null; backlog: boolean; highlight: string; onEdit: (task: Task) => void; onToggle: (id: string) => void; labelStyle: StyleProp<TextStyle>; wrapStyle: StyleProp<ViewStyle> };
 
 /** One task row. Memoised so toggling or filtering does not re-render every card in the list. */
@@ -56,13 +63,36 @@ export default function TasksScreen() {
   const stats = useMemo(() => taskStats(tasks), [tasks]);
   const conflicts = useMemo(() => conflictIds(tasks), [tasks]);
   const visibleTasks = useMemo(() => filterTasks(tasks, { query, categories: selectedCategories, status: filter, onlyIds }), [tasks, query, selectedCategories, filter, onlyIds]);
-  const sections = useMemo<ExploreSection[]>(() => {
-    if (loading) return [];
+  // The Scheduled group is paged by calendar days from today, only in the plain view. Searching or filtering lists every match.
+  const paged = !searching && filter === "all";
+  const pageKey = paged ? today : "all";
+  // Days the user has paged to, valid for one key only: a new day or leaving a search/filter starts again at today + tomorrow.
+  const [loaded, setLoaded] = useState<{ key: string; days: number }>({ key: "", days: 0 });
+  const [showEarlier, setShowEarlier] = useState(false);
+  const userScrolledKey = useRef("");
+  // Leaving the plain view (search, filter) or a new day forgets the paging, so coming back starts at today + tomorrow.
+  useEffect(() => {
+    setLoaded({ key: "", days: 0 });
+    userScrolledKey.current = "";
+  }, [pageKey]);
+  const { sections, meta } = useMemo<{ sections: ExploreSection[]; meta: ScheduledMeta }>(() => {
+    if (loading) return { sections: [], meta: ALL_SCHEDULED };
     const { backlog, scheduled } = buildExploreSections(visibleTasks, "all");
-    const all: ExploreSection[] = [{ key: "backlog", data: backlog }, { key: "scheduled", data: scheduled }];
+    let rows = scheduled;
+    let scheduledMeta: ScheduledMeta = { ...ALL_SCHEDULED, total: scheduled.length };
+    if (paged) {
+      const daysShown = Math.max(initialDays(scheduled, today), loaded.key === pageKey ? loaded.days : 0);
+      const page = pageScheduled(scheduled, today, daysShown);
+      rows = shownScheduled(page, showEarlier);
+      scheduledMeta = { total: scheduled.length, paged: true, earlierCount: page.earlierCount, hasMore: page.hasMore, nextDays: nextDays(scheduled, today, daysShown) };
+    }
+    const all: ExploreSection[] = [{ key: "backlog", data: backlog }, { key: "scheduled", data: rows }];
     // While searching, a section without matches is noise (its empty-state copy talks about adding tasks).
-    return searching ? all.filter(section => section.data.length > 0) : all;
-  }, [visibleTasks, loading, searching]);
+    return { sections: searching ? all.filter(section => section.data.length > 0) : all, meta: scheduledMeta };
+  }, [visibleTasks, loading, searching, paged, today, pageKey, loaded, showEarlier]);
+  const loadMoreDays = useCallback(() => setLoaded({ key: pageKey, days: meta.nextDays }), [pageKey, meta.nextDays]);
+  // The list is short right after a reset, which would fire onEndReached by itself: only a user scroll may page.
+  const onEndReached = () => { if (meta.paged && meta.hasMore && userScrolledKey.current === pageKey) loadMoreDays(); };
   // The new list is derived from the committed one inside the store, never from a render-time task snapshot.
   const toggle = useCallback((id: string) => {
     void mutate(list => list.map(item => item.id === id ? { ...item, status: item.status === "done" ? "todo" : "done" } : item));
@@ -82,17 +112,28 @@ export default function TasksScreen() {
       : null;
     return <TaskRow task={item} conflict={conflicts.has(item.id)} dateLabel={dateLabel} backlog={section.key === "backlog"} highlight={query} onEdit={edit} onToggle={toggle} labelStyle={s.dateLabel} wrapStyle={s.cardWrap} />;
   };
+  const earlierToggle = meta.paged && meta.earlierCount > 0
+    ? <EarlierTasksToggle count={meta.earlierCount} expanded={showEarlier} onToggle={() => setShowEarlier(current => !current)} />
+    : null;
   const renderSectionHeader = ({ section }: { section: ExploreSection }) => {
     const isBacklog = section.key === "backlog";
-    return <View style={[s.groupHeading, !isBacklog && { marginTop: 30 }]}>
-      <View style={[s.groupIcon, !isBacklog && { backgroundColor: colors.tealTint }]}><Ionicons name={isBacklog ? "albums-outline" : "calendar-outline"} size={18} color={isBacklog ? colors.primary : colors.tealAccent} /></View>
-      <Text accessibilityRole="header" style={s.groupTitle}>{isBacklog ? t("Backlog") : t("Scheduled")}</Text>
-      <Text style={s.count}>{section.data.length}</Text>
+    return <View>
+      <View style={[s.groupHeading, !isBacklog && { marginTop: 30 }]}>
+        <View style={[s.groupIcon, !isBacklog && { backgroundColor: colors.tealTint }]}><Ionicons name={isBacklog ? "albums-outline" : "calendar-outline"} size={18} color={isBacklog ? colors.primary : colors.tealAccent} /></View>
+        <Text accessibilityRole="header" style={s.groupTitle}>{isBacklog ? t("Backlog") : t("Scheduled")}</Text>
+        <Text style={s.count}>{isBacklog ? section.data.length : meta.total}</Text>
+      </View>
+      {!isBacklog && earlierToggle}
     </View>;
   };
-  const renderSectionFooter = ({ section }: { section: ExploreSection }) => section.data.length ? null : <View style={s.empty}>
-    <Text style={s.emptyText}>{section.key === "backlog" ? t("Nothing waiting here. Add a task whenever inspiration strikes.") : t("No scheduled tasks in this view yet.")}</Text>
-  </View>;
+  const renderSectionFooter = ({ section }: { section: ExploreSection }) => {
+    if (section.key === "scheduled" && section.data.length > 0) return meta.paged && meta.hasMore ? <ShowNextDays onPress={loadMoreDays} /> : null;
+    if (section.data.length > 0) return null;
+    const upcomingOnly = section.key === "scheduled" && meta.paged && meta.earlierCount > 0;
+    return <View style={s.empty}>
+      <Text style={s.emptyText}>{section.key === "backlog" ? t("Nothing waiting here. Add a task whenever inspiration strikes.") : t(upcomingOnly ? "No upcoming scheduled tasks." : "No scheduled tasks in this view yet.")}</Text>
+    </View>;
+  };
 
   const resultCountLabel = `${visibleTasks.length} ${t(visibleTasks.length === 1 ? "result" : "results")}`;
   const noMatches = <View style={s.noMatches}>
@@ -129,6 +170,7 @@ export default function TasksScreen() {
       renderItem={renderItem} renderSectionHeader={renderSectionHeader} renderSectionFooter={renderSectionFooter}
       ListHeaderComponent={header} ListEmptyComponent={searching && !loading ? noMatches : null}
       contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
+      onScrollBeginDrag={() => { userScrolledKey.current = pageKey; }} onEndReached={onEndReached} onEndReachedThreshold={END_REACHED_THRESHOLD}
       initialNumToRender={12} windowSize={7} maxToRenderPerBatch={10}
     />
     <Pressable onPress={() => setEditing(null)} accessibilityRole="button" accessibilityLabel={t("Create a new task")} style={s.fab}><Ionicons name="add" size={30} color={colors.onPrimary} /></Pressable>
