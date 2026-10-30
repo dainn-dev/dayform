@@ -10,4 +10,5 @@
     <string name="dayform_widget_preview_task_1">Plan the week ahead</string>
     <string name="dayform_widget_preview_task_2">Deep work session</string>
     <string name="dayform_widget_preview_task_3">Lunch &amp; reset</string>
+    <string name="dayform_fx_caption" translatable="false">ULTRA INSTINCT</string>
 </resources>

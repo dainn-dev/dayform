@@ -106,7 +106,23 @@ internal object WidgetPet {
   private enum class Action { WALK, RUN, SIT, LOOK, BARK, SLEEP, JUMP }
 
   /** One frame of the script: the drawable, how far along the width it is (0..STEPS) and its height above the bottom, in dp. */
-  internal data class Frame(val drawable: Int, val step: Int, val yDp: Int)
+  internal data class Frame(val drawable: Int, val step: Int, val yDp: Int, val fx: Int = FX_NONE)
+
+  /** The full-card layer of a frame (`Frame.fx`): nothing, a white flash of 25 / 50 / 75 / 100 %, or a caption. */
+  internal const val FX_NONE = 0
+  internal const val FX_FLASH_25 = 1
+  internal const val FX_FLASH_50 = 2
+  internal const val FX_FLASH_75 = 3
+  internal const val FX_FLASH_100 = 4
+  internal const val FX_CAPTION = 5
+  private val FX_LAYOUTS = intArrayOf(
+    R.layout.dayform_fx_none,
+    R.layout.dayform_fx_flash_25,
+    R.layout.dayform_fx_flash_50,
+    R.layout.dayform_fx_flash_75,
+    R.layout.dayform_fx_flash_100,
+    R.layout.dayform_fx_text,
+  )
 
   /** The drawables of one art, looked up by name once. */
   internal class Sprites(private val context: Context, private val art: String) {
@@ -138,6 +154,8 @@ internal object WidgetPet {
   fun bind(context: Context, views: RemoteViews, kind: String, walks: Boolean, mood: PetMood?, widthDp: Int, freeHeightDp: Int) {
     views.removeAllViews(R.id.dayform_widget_pet)
     views.setViewVisibility(R.id.dayform_widget_pet, View.GONE)
+    views.removeAllViews(R.id.dayform_widget_fx)
+    views.setViewVisibility(R.id.dayform_widget_fx, View.GONE)
     val art = ART[kind] ?: return
     if (mood == null) return
     val width = if (widthDp > 0) widthDp else DEFAULT_WIDTH_DP
@@ -161,6 +179,11 @@ internal object WidgetPet {
       views.addView(R.id.dayform_widget_pet, view)
     }
     views.setViewVisibility(R.id.dayform_widget_pet, View.VISIBLE)
+    // The full-card layer flips in step with the pet (same interval, one child per frame), and only a script that uses it adds it.
+    if (frames.any { it.fx != FX_NONE }) {
+      for (frame in frames) views.addView(R.id.dayform_widget_fx, RemoteViews(context.packageName, FX_LAYOUTS[frame.fx.coerceIn(0, FX_LAYOUTS.size - 1)]))
+      views.setViewVisibility(R.id.dayform_widget_fx, View.VISIBLE)
+    }
   }
 
   /** Which actions the mood allows, with their weights; poses the art lacks are dropped later. */
