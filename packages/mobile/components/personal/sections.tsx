@@ -1,4 +1,11 @@
 import type { ComponentType } from "react";
+import type { PageSlug } from "../../lib/settings-menu";
+import { ArchiveSection } from "../settings/ArchiveSection";
+import { BackupSection } from "../settings/BackupSection";
+import { RecoverySection } from "../settings/RecoverySection";
+import { UpdateSection } from "../update/UpdateSection";
+import { AboutSection } from "./AboutSection";
+import { AppearanceSection } from "./AppearanceSection";
 import { CalendarSection } from "./CalendarSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { CycleSection } from "./CycleSection";
@@ -8,24 +15,31 @@ import { HabitsSection } from "./HabitsSection";
 import { NotificationsSection } from "./NotificationsSection";
 import { WidgetSection } from "./WidgetSection";
 
-export type PersonalSectionEntry = {
-  key: string;
-  /** English card title; also the translation key. */
-  title: string;
+export type SettingsPageEntry = {
+  /** The body of the page, drawn inside one card under the page header. */
   Component: ComponentType;
+  /** The body has a text field, so the page keeps room for the on-screen keyboard. */
+  hasTextInput?: boolean;
 };
 
 /**
- * Preference cards of the Personal tab, in display order (after Appearance, before Updates). To fill a stub, edit
- * its own file; to add a card, add one entry here. The card frame and title come from the screen.
+ * Bodies of the settings pages, one per slug of lib/settings-menu.ts (the menu rows, their titles, icons, groups and
+ * summaries live there). `Record<PageSlug, ...>` makes a menu row without a body a compile error. To add a Personal
+ * page: add its row in lib/settings-menu.ts and its body here.
  */
-export const PERSONAL_SECTIONS: readonly PersonalSectionEntry[] = [
-  { key: "defaults", title: "New tasks", Component: DefaultsSection },
-  { key: "categories", title: "Categories", Component: CategoriesSection },
-  { key: "calendar", title: "Calendar & time", Component: CalendarSection },
-  { key: "notifications", title: "Notifications", Component: NotificationsSection },
-  { key: "widget", title: "Widget", Component: WidgetSection },
-  { key: "greeting", title: "Greeting", Component: GreetingSection },
-  { key: "cycle", title: "Cycle", Component: CycleSection },
-  { key: "habits", title: "Habit hints", Component: HabitsSection },
-];
+export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
+  appearance: { Component: AppearanceSection },
+  greeting: { Component: GreetingSection, hasTextInput: true },
+  "new-tasks": { Component: DefaultsSection, hasTextInput: true },
+  calendar: { Component: CalendarSection },
+  categories: { Component: CategoriesSection },
+  habits: { Component: HabitsSection },
+  notifications: { Component: NotificationsSection },
+  widget: { Component: WidgetSection },
+  cycle: { Component: CycleSection },
+  backup: { Component: BackupSection },
+  archive: { Component: ArchiveSection },
+  recovery: { Component: RecoverySection },
+  updates: { Component: UpdateSection },
+  about: { Component: AboutSection },
+};

@@ -3,12 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 
-/** One settings card with its small uppercase label; the same look as the cards in components/settings. */
-export function PersonalCard({ title, children }: { title: string; children: ReactNode }) {
+/** One settings card with an optional small uppercase label (a settings page has its title in the header instead). */
+export function PersonalCard({ title, children }: { title?: string; children: ReactNode }) {
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return <View style={s.card}>
-    <Text accessibilityRole="header" style={s.label}>{title}</Text>
+    {title !== undefined && <Text accessibilityRole="header" style={s.label}>{title}</Text>}
     {children}
   </View>;
 }
