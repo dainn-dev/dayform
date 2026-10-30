@@ -5,6 +5,7 @@ export const vi: Record<string, string> = {
   "Orange cat": "Mèo cam",
   "Dog": "Chó",
   "Kitsune": "Hồ ly",
+  "Chicken": "Gà",
   "No pet": "Không có thú cưng",
   "Strolling": "Đi dạo",
   "Resting": "Nghỉ ngơi",

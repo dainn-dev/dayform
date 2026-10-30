@@ -9,8 +9,8 @@ const MAX_CATEGORY_LENGTH = 40;
 
 export const ACCENT_IDS = ["violet", "ocean", "lagoon", "forest", "sunset", "blossom"] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
-/** The home-screen widget's pet: two pixel cats, a pixel dog, a kitsune, or none. */
-export const PET_KINDS = ["gray-cat", "orange-cat", "dog", "kitsune", "off"] as const;
+/** The home-screen widget's pet: two pixel cats, a pixel dog, a kitsune, a chick, or none. */
+export const PET_KINDS = ["gray-cat", "orange-cat", "dog", "kitsune", "chicken", "off"] as const;
 export type PetKind = (typeof PET_KINDS)[number];
 export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120] as const;
 export const SNOOZE_OPTIONS = [5, 10, 15] as const;
@@ -140,8 +140,11 @@ const settingsSchema = z.object({
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
   widget: group(z.object({ showTitles: flag(true) })),
-  /** The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. */
-  pet: group(z.object({ kind: choice(PET_KINDS, "orange-cat"), walks: flag(true) })),
+  /**
+   * The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. `kind` is "off" while the
+   * Pet switch is off and `last` keeps the animal picked before that, so switching on again brings the same pet back.
+   */
+  pet: group(z.object({ kind: choice(PET_KINDS, "orange-cat"), walks: flag(true), last: choice(PET_KINDS, "orange-cat") })),
   /** App content (over-the-air) updates; the APK update check keeps its own preference in update-state. */
   updates: group(z.object({ autoOta: flag(true) })),
 });

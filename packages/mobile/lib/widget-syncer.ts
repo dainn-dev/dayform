@@ -1,6 +1,7 @@
 import type { Task } from "./planner";
 import type { DayMark } from "./day-marks";
 import type { PetKind } from "./settings";
+import type { WidgetAccent } from "./widget-accent";
 import {
   buildWidgetSnapshot,
   snapshotsEqual,
@@ -15,6 +16,8 @@ export type WidgetSyncInput = {
   locale: WidgetLocale;
   pet: PetKind;
   petWalks: boolean;
+  /** The accent colours of the Theme page, drawn on the widget's progress bar, badge and next task. */
+  accent?: WidgetAccent;
   /** The holidays and special days of the given days; undefined leaves the widget without marks. */
   marksFor?: (keys: readonly string[]) => Record<string, DayMark[]>;
   canSync: boolean;
@@ -68,6 +71,7 @@ export function createWidgetSyncer(deps: WidgetSyncerDeps): WidgetSyncer {
       locale: input.locale,
       pet: input.pet,
       petWalks: input.petWalks,
+      accent: input.accent,
       marksFor: input.marksFor,
     });
     if (!force && snapshotsEqual(lastSent, snapshot)) return;

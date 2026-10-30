@@ -44,7 +44,7 @@ describe("defaults", () => {
       calendar: { dayStart: 360, dayEnd: 1320, hourHeight: "normal", weekStart: "mon", timeFormat: "auto", showHolidays: true, holidayGroups: { national: true, traditional: true, occasion: true }, showLunar: false },
       habits: { hints: true },
       widget: { showTitles: true },
-      pet: { kind: "orange-cat", walks: true },
+      pet: { kind: "orange-cat", walks: true, last: "orange-cat" },
       updates: { autoOta: true },
     });
     expect(ACCENT_IDS).toEqual(["violet", "ocean", "lagoon", "forest", "sunset", "blossom"]);
@@ -75,7 +75,7 @@ describe("resolveSettings", () => {
       calendar: { dayStart: 420, dayEnd: 1260, hourHeight: "roomy", weekStart: "sun", timeFormat: "24h", showHolidays: false, holidayGroups: { national: true, traditional: false, occasion: false }, showLunar: true },
       habits: { hints: false },
       widget: { showTitles: false },
-      pet: { kind: "dog", walks: false },
+      pet: { kind: "off", walks: false, last: "dog" },
       updates: { autoOta: false },
     };
     expect(resolveSettings(raw)).toEqual(raw as never);
@@ -83,7 +83,11 @@ describe("resolveSettings", () => {
 
   test("a pet that no longer exists (the old round cat) becomes the default pet and keeps the walking choice", () => {
     const result = resolveSettings({ pet: { kind: "round-cat", walks: false } });
-    expect(result.pet).toEqual({ kind: "orange-cat", walks: false });
+    expect(result.pet).toEqual({ kind: "orange-cat", walks: false, last: "orange-cat" });
+  });
+
+  test("settings saved before the Pet switch have no remembered pet and get the default one", () => {
+    expect(resolveSettings({ pet: { kind: "kitsune", walks: true } }).pet).toEqual({ kind: "kitsune", walks: true, last: "orange-cat" });
   });
 
   test("invalid fields fall back individually, valid siblings survive", () => {

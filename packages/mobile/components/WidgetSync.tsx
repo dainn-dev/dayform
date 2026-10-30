@@ -8,6 +8,7 @@ import { useSettings } from "../lib/settings-context";
 import { useSpecialDays } from "../lib/special-days-context";
 import { useTasks } from "../lib/tasks-context";
 import { createWidgetSyncer, type WidgetSyncInput, type WidgetSyncer } from "../lib/widget-syncer";
+import { widgetAccent } from "../lib/widget-accent";
 import { isWidgetSupported, setWidgetSnapshot } from "../modules/dayform-widget";
 
 type WidgetSyncProps = {
@@ -34,13 +35,14 @@ export function WidgetSync({ showTitles = true, pet = "orange-cat", petWalks = t
     const groups = new Set(HOLIDAY_GROUPS.filter(group => holidayGroups[group]));
     return (keys: readonly string[]) => dayMarks(keys, { holidays: showHolidays, groups, language, specials: specialItems, t });
   }, [showHolidays, holidayGroups, language, specialItems, t]);
+  const accent = useMemo(() => widgetAccent(settings.accent), [settings.accent]);
   const canSync = !loading && !writesBlocked && specialReady;
-  const latest = useRef<WidgetSyncInput>({ tasks, showTitles, locale: language, pet, petWalks, marksFor, canSync });
+  const latest = useRef<WidgetSyncInput>({ tasks, showTitles, locale: language, pet, petWalks, accent, marksFor, canSync });
   const syncer = useRef<WidgetSyncer | null>(null);
 
   useLayoutEffect(() => {
-    latest.current = { tasks, showTitles, locale: language, pet, petWalks, marksFor, canSync };
-  }, [tasks, showTitles, language, pet, petWalks, marksFor, canSync]);
+    latest.current = { tasks, showTitles, locale: language, pet, petWalks, accent, marksFor, canSync };
+  }, [tasks, showTitles, language, pet, petWalks, accent, marksFor, canSync]);
 
   // Mount-only: the syncer and the foreground subscription stay stable across task changes.
   useEffect(() => {
@@ -59,7 +61,7 @@ export function WidgetSync({ showTitles = true, pet = "orange-cat", petWalks = t
 
   useEffect(() => {
     if (canSync) syncer.current?.schedule();
-  }, [tasks, showTitles, language, pet, petWalks, marksFor, canSync]);
+  }, [tasks, showTitles, language, pet, petWalks, accent, marksFor, canSync]);
 
   return null;
 }

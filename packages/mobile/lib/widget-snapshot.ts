@@ -2,6 +2,7 @@ import { addDays, dateKey, minutes, type Task } from "./planner";
 import { vi } from "./i18n/widget";
 import type { DayMark } from "./day-marks";
 import type { PetKind } from "./settings";
+import { isHexColor, type WidgetAccent } from "./widget-accent";
 
 /** What the native home-screen widget reads. Titles are already localised or user-written; dates are local. */
 export type WidgetItem = {
@@ -37,6 +38,8 @@ export type WidgetSnapshot = {
   pet: PetKind;
   /** Whether the pet strolls along the bottom (true) or stays in the corner (false). */
   petWalks: boolean;
+  /** The user's accent as `#rrggbb` (`p` strong, `t` tint); left out when unknown, so an older widget keeps its own colours. */
+  ac?: { p: string; t: string };
 };
 export type BuildOptions = {
   now: Date;
@@ -44,6 +47,8 @@ export type BuildOptions = {
   locale: WidgetLocale;
   pet?: PetKind;
   petWalks?: boolean;
+  /** The accent colours of the Theme page; omitted when not given or not valid hex. */
+  accent?: WidgetAccent;
   /** The holidays and special days of the given days (lib/day-marks.ts); omitted when the widget shows none. */
   marksFor?: (keys: readonly string[]) => Record<string, DayMark[]>;
   /** Days covered, starting today. */
@@ -174,7 +179,7 @@ function fitSize(snapshot: WidgetSnapshot): WidgetSnapshotResult {
 
 /** Builds the widget payload from the scheduled tasks of today and the following days. */
 export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOptions): WidgetSnapshotResult {
-  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "orange-cat", petWalks = true, marksFor } = options;
+  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "orange-cat", petWalks = true, accent, marksFor } = options;
   const today = dateKey(now);
   const keys = Array.from({ length: days }, (_, index) => addDays(today, index));
   const labels = labelsFor(locale);
@@ -186,6 +191,7 @@ export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOption
     labels,
     pet,
     petWalks,
+    ...(accent && isHexColor(accent.primary) && isHexColor(accent.tint) ? { ac: { p: accent.primary, t: accent.tint } } : {}),
   });
 }
 

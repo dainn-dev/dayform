@@ -1,5 +1,6 @@
 package dev.dayform.widget
 
+import android.graphics.Color
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -17,6 +18,9 @@ internal data class WidgetLabels(
   val special: String,
 )
 
+/** The user's accent from the Theme page: the strong colour (progress, times, badge text) and its tint (badge and next-row background). */
+internal data class WidgetAccent(val primary: Int, val tint: Int)
+
 /** `pet` is a kind id of the Pet settings page ("gray-cat", "orange-cat", "dog" or "off"); both pet fields are optional so an older app still works. */
 internal data class WidgetSnapshot(
   val locale: String,
@@ -24,6 +28,8 @@ internal data class WidgetSnapshot(
   val days: Map<String, WidgetDay>,
   val pet: String,
   val petWalks: Boolean,
+  /** Null when the app sent no (valid) accent, e.g. an older app: the widget then keeps the colours of its resources. */
+  val accent: WidgetAccent?,
 )
 
 /** Reads the JSON written by lib/widget-snapshot.ts. Anything unexpected yields null, never a crash. */
@@ -62,7 +68,18 @@ internal object WidgetSnapshotParser {
       days = days,
       pet = root.optString("pet", WidgetPet.DEFAULT_KIND),
       petWalks = root.optBoolean("petWalks", true),
+      accent = readAccent(root),
     )
+  }
+
+  private val HEX_COLOR = Regex("^#[0-9A-Fa-f]{6}$")
+
+  private fun readAccent(root: JSONObject): WidgetAccent? {
+    val accent = root.optJSONObject("ac") ?: return null
+    val primary = accent.optString("p")
+    val tint = accent.optString("t")
+    if (!HEX_COLOR.matches(primary) || !HEX_COLOR.matches(tint)) return null
+    return WidgetAccent(primary = Color.parseColor(primary), tint = Color.parseColor(tint))
   }
 
   private fun readDay(day: JSONObject): WidgetDay {

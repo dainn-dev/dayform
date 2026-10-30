@@ -15,18 +15,21 @@ private val PROVIDERS = listOf(TodayWidgetProvider::class.java, TodayWidgetProvi
 
 internal object WidgetUpdater {
   fun updateOne(context: Context, manager: AppWidgetManager, widgetId: Int, options: Bundle?) {
-    val views = WidgetRenderer.render(context, options)
     Log.d(TAG, "widget $widgetId sized by the launcher: $options")
-    logIfNotApplicable(context, views)
+    var views = WidgetRenderer.render(context, options)
+    // A launcher that cannot apply the accent tints would show an endless spinner, so those widgets get the plain colours.
+    if (!applies(context, views)) views = WidgetRenderer.render(context, options, tints = false).also { applies(context, it) }
     manager.updateAppWidget(widgetId, views)
   }
 
   /** Applies the views once here: a launcher that cannot apply them shows a spinner and says nothing, this says why. */
-  private fun logIfNotApplicable(context: Context, views: RemoteViews) {
-    try {
+  private fun applies(context: Context, views: RemoteViews): Boolean {
+    return try {
       views.apply(context, FrameLayout(context))
+      true
     } catch (error: RuntimeException) {
       Log.e(TAG, "The widget views cannot be applied", error)
+      false
     }
   }
 
