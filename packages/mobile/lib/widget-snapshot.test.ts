@@ -253,9 +253,9 @@ describe("snapshotsEqual", () => {
     expect(snapshotsEqual(base, buildWidgetSnapshot([makeTask()], { ...OPTIONS, showTitles: false }).snapshot)).toBe(false);
   });
 
-  test("carries the chosen pet, defaulting to the orange cat that strolls", () => {
+  test("carries the chosen pet, defaulting to the gray cat that strolls", () => {
     const defaults = buildWidgetSnapshot([makeTask()], OPTIONS).snapshot;
-    expect(defaults.pet).toBe("orange-cat");
+    expect(defaults.pet).toBe("gray-cat");
     expect(defaults.petWalks).toBe(true);
     const chosen = buildWidgetSnapshot([makeTask()], { ...OPTIONS, pet: "dog", petWalks: false }).snapshot;
     expect(chosen.pet).toBe("dog");

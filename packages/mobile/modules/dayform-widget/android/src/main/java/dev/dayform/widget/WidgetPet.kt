@@ -20,10 +20,10 @@ internal enum class PetMood { WALKING, CHEERING, RESTING }
  * face a side, `dayform_pet_<art>_<set>_<n>`; a pose the art lacks falls back to a similar one.
  */
 internal object WidgetPet {
-  const val DEFAULT_KIND = "orange-cat"
+  const val DEFAULT_KIND = "gray-cat"
 
   /** Pet kinds of the settings page mapped to the name part of their drawables; "off" and unknown kinds draw nothing. */
-  private val ART = mapOf("gray-cat" to "gray", "orange-cat" to "orange", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "paimon" to "paimon", "goku" to "goku")
+  private val ART = mapOf("gray-cat" to "gray", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "paimon" to "paimon", "goku" to "goku")
 
   private const val SPRITE_DP = 44
   /** The card's left and right padding, and the gap kept under the pet. */

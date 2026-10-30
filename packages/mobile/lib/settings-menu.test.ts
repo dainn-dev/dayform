@@ -180,8 +180,8 @@ describe("summaries", () => {
   });
 
   test("widget says whether titles show and names its pet", () => {
-    expect(say("widget")).toBe("Titles shown · Orange cat · Strolling");
-    expect(say("widget", { widget: { showTitles: false } })).toBe("Titles hidden · Orange cat · Strolling");
+    expect(say("widget")).toBe("Titles shown · Gray cat · Strolling");
+    expect(say("widget", { widget: { showTitles: false } })).toBe("Titles hidden · Gray cat · Strolling");
     expect(say("widget", { pet: { kind: "dog", walks: false } })).toBe("Titles shown · Dog · Resting");
     expect(say("widget", { pet: { kind: "off" } })).toBe("Titles shown · No pet");
   });

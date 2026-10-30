@@ -2,7 +2,6 @@
 export const vi: Record<string, string> = {
   "Pet": "Thú cưng",
   "Gray cat": "Mèo xám",
-  "Orange cat": "Mèo cam",
   "Dog": "Chó",
   "Kitsune": "Hồ ly",
   "Chicken": "Gà",

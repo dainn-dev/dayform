@@ -19,7 +19,7 @@ export function PetSection() {
   const enabled = settings.pet.kind !== "off";
   const setEnabled = (on: boolean) => {
     // Off keeps the animal in `last`, so switching on again brings the same pet back.
-    if (on) void update({ pet: { kind: settings.pet.last === "off" ? "orange-cat" : settings.pet.last } });
+    if (on) void update({ pet: { kind: settings.pet.last === "off" ? "gray-cat" : settings.pet.last } });
     else void update({ pet: { kind: "off", last: settings.pet.kind } });
   };
   return <View style={s.stack}>

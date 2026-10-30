@@ -179,7 +179,7 @@ function fitSize(snapshot: WidgetSnapshot): WidgetSnapshotResult {
 
 /** Builds the widget payload from the scheduled tasks of today and the following days. */
 export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOptions): WidgetSnapshotResult {
-  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "orange-cat", petWalks = true, accent, marksFor } = options;
+  const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "gray-cat", petWalks = true, accent, marksFor } = options;
   const today = dateKey(now);
   const keys = Array.from({ length: days }, (_, index) => addDays(today, index));
   const labels = labelsFor(locale);

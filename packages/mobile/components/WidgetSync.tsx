@@ -24,7 +24,7 @@ type WidgetSyncProps = {
  * the tasks are loading or writes are blocked (the list is then empty or partial). Does nothing on
  * platforms or builds without the native widget module.
  */
-export function WidgetSync({ showTitles = true, pet = "orange-cat", petWalks = true }: WidgetSyncProps): null {
+export function WidgetSync({ showTitles = true, pet = "gray-cat", petWalks = true }: WidgetSyncProps): null {
   const { tasks, loading, writesBlocked } = useTasks();
   const { language, t } = useLanguage();
   const { settings } = useSettings();

@@ -21,7 +21,7 @@ internal data class WidgetLabels(
 /** The user's accent from the Theme page: the strong colour (progress, times, badge text) and its tint (badge and next-row background). */
 internal data class WidgetAccent(val primary: Int, val tint: Int)
 
-/** `pet` is a kind id of the Pet settings page ("gray-cat", "orange-cat", "dog" or "off"); both pet fields are optional so an older app still works. */
+/** `pet` is a kind id of the Pet settings page ("gray-cat", "dog", "kitsune", "chicken", "paimon", "goku" or "off"); both pet fields are optional so an older app still works. */
 internal data class WidgetSnapshot(
   val locale: String,
   val labels: WidgetLabels,
