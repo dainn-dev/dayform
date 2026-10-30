@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { PET_CHOICES } from "./pet";
 
 const ROOT = join(import.meta.dir, "..");
-const ART_OF = { "gray-cat": "gray", "orange-cat": "orange", dog: "dog", kitsune: "kitsune", chicken: "chicken" } as const;
+const ART_OF = { "gray-cat": "gray", "orange-cat": "orange", dog: "dog", kitsune: "kitsune", chicken: "chicken", paimon: "paimon" } as const;
 const source = readFileSync(join(ROOT, "lib", "pet-images.ts"), "utf8");
 
 // Bun cannot load PNGs, so this checks the asset folders and the require list in pet-images.ts against each other.

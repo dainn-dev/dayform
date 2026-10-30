@@ -23,7 +23,7 @@ internal object WidgetPet {
   const val DEFAULT_KIND = "orange-cat"
 
   /** Pet kinds of the settings page mapped to the name part of their drawables; "off" and unknown kinds draw nothing. */
-  private val ART = mapOf("gray-cat" to "gray", "orange-cat" to "orange", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken")
+  private val ART = mapOf("gray-cat" to "gray", "orange-cat" to "orange", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "paimon" to "paimon")
 
   private const val SPRITE_DP = 44
   /** The card's left and right padding, and the gap kept under the pet. */
