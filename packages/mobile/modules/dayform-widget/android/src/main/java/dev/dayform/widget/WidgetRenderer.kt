@@ -80,8 +80,27 @@ internal object WidgetRenderer {
     val capacity = lineCapacity(options, hasMarks)
     bindRows(context, views, snapshot, day, capacity, nowMs, accent, tints)
     bindPet(context, views, snapshot, day, capacity, options, hasMarks)
+    bindBackground(context, views, options)
     bindClick(context, views)
     return views
+  }
+
+  private const val DEFAULT_CARD_WIDTH_DP = 280
+  private const val DEFAULT_CARD_HEIGHT_DP = 120
+
+  /** Draws the user's own picture behind the card (see WidgetBackground); without one the plain card shows. */
+  private fun bindBackground(context: Context, views: RemoteViews, options: Bundle?) {
+    val reportedWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) ?: 0
+    val reportedHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
+    val widthDp = if (reportedWidth > 0) reportedWidth + launcherWidthFixDp else DEFAULT_CARD_WIDTH_DP
+    val heightDp = if (reportedHeight > 0) reportedHeight - launcherLabelDp else DEFAULT_CARD_HEIGHT_DP
+    val picture = if (WidgetBackground.exists(context)) WidgetBackground.render(context, widthDp, heightDp, WidgetStore.loadVeil(context)) else null
+    if (picture == null) {
+      views.setViewVisibility(R.id.dayform_widget_photo, View.GONE)
+      return
+    }
+    views.setImageViewBitmap(R.id.dayform_widget_photo, picture)
+    views.setViewVisibility(R.id.dayform_widget_photo, View.VISIBLE)
   }
 
   /**

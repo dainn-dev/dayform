@@ -14,6 +14,34 @@ class DayformWidgetModule : Module() {
     AsyncFunction("setSnapshot") { json: String ->
       storeSnapshot(json)
     }
+
+    // The widget's custom background picture: the file and its veil live natively, the app only asks for changes.
+    AsyncFunction("setBackground") { uri: String ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val saved = WidgetBackground.save(context, uri)
+      if (saved) WidgetUpdater.updateAll(context)
+      saved
+    }
+
+    AsyncFunction("clearBackground") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetBackground.clear(context)
+      WidgetUpdater.updateAll(context)
+      true
+    }
+
+    AsyncFunction("setBackgroundVeil") { percent: Int ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetStore.saveVeil(context, percent.coerceIn(0, WidgetBackground.MAX_VEIL))
+      WidgetUpdater.updateAll(context)
+      true
+    }
+
+    // [1 when a picture is set else 0, the veil in percent]
+    Function("getBackground") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      listOf(if (WidgetBackground.exists(context)) 1 else 0, WidgetStore.loadVeil(context))
+    }
   }
 
   private fun storeSnapshot(json: String): Boolean {
