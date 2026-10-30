@@ -58,7 +58,7 @@ internal object WidgetPet {
    * dayform_pet_frame_NN.xml), not a padding in dp: a launcher may report a stale or too small width after the
    * widget is resized, and a weight still takes the pet all the way to both edges of the real card.
    */
-  private const val STEPS = 40
+  internal const val STEPS = 40
   private val FRAME_LAYOUTS = intArrayOf(
     R.layout.dayform_pet_frame_00,
     R.layout.dayform_pet_frame_01,
@@ -106,10 +106,10 @@ internal object WidgetPet {
   private enum class Action { WALK, RUN, SIT, LOOK, BARK, SLEEP, JUMP }
 
   /** One frame of the script: the drawable, how far along the width it is (0..STEPS) and its height above the bottom, in dp. */
-  private data class Frame(val drawable: Int, val step: Int, val yDp: Int)
+  internal data class Frame(val drawable: Int, val step: Int, val yDp: Int)
 
   /** The drawables of one art, looked up by name once. */
-  private class Sprites(private val context: Context, private val art: String) {
+  internal class Sprites(private val context: Context, private val art: String) {
     private val cache = HashMap<String, List<Int>>()
 
     fun frames(set: String, right: Boolean): List<Int> = cache.getOrPut("$set/$right") {
@@ -143,7 +143,11 @@ internal object WidgetPet {
     val width = if (widthDp > 0) widthDp else DEFAULT_WIDTH_DP
     val areaW = (width - CARD_PADDING_DP - SPRITE_DP).coerceAtLeast(0).toFloat()
     val areaH = (freeHeightDp - SPRITE_DP - BOTTOM_MARGIN_DP).coerceAtLeast(0).toFloat()
-    val frames = script(Sprites(context, art), mood, walks && areaW >= MIN_TRIP_DP, areaW, areaH, Random(System.currentTimeMillis()))
+    val sprites = Sprites(context, art)
+    val random = Random(System.currentTimeMillis())
+    val roams = walks && areaW >= MIN_TRIP_DP
+    // Paimon floats and has its own poses, so she has her own script (PaimonPet.kt) instead of the walking one.
+    val frames = if (art == PaimonPet.ART) PaimonPet.script(sprites, mood, roams, areaW, areaH, random) else script(sprites, mood, roams, areaW, areaH, random)
     if (frames.isEmpty()) return
     val density = context.resources.displayMetrics.density
     for (frame in frames) {
