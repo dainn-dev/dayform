@@ -3,7 +3,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 52,
+      "versionCode": 53,
       "allowBackup": true,
       "permissions": [
         "android.permission.USE_EXACT_ALARM"
@@ -42,7 +42,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.2.40",
+    "version": "1.2.41",
     "runtimeVersion": {
       "policy": "appVersion"
     },

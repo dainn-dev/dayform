@@ -1,90 +1,121 @@
 package dev.dayform.widget
 
 import java.util.Random
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
- * Goku's script is a short film, not a stroll: six scenes of about 15 seconds that repeat. One tick is one flip of the
- * widget (300 ms), so the scenes take 7 + 10 + 7 + 7 + 10 + 10 = 51 ticks.
+ * Goku's script is a short film, not a stroll: six scenes that repeat (about 36 seconds; one tick is one flip of the widget,
+ * 300 ms). Every character frame of the sprite sheet is in it.
  *
- *  1. Start (0-2 s): the fighting stance, hair and clothes stirring, grey energy starting to gather.
- *  2. Combo (2-5 s): a dash forward, three punches, a spinning kick that shakes and sparks.
- *  3. Charge (5-7 s): back to the stance, a blue ball grows between the hands, the aura shakes, a white flash.
- *  4. Transformation (7-9 s): head bowed, a burst under a white screen, the hair turns white, the blue aura, a zoom in.
- *  5. Finisher (9-12 s): a big ball, the beam, an explosion and a flash.
- *  6. End (12-15 s): the flash fades, the aura calms, a victory pose held for a second.
+ *  1. Start: stances, hair and clothes stirring (the blurred frames), grey energy gathering.
+ *  2. Combo: a dash behind speed lines, punches, uppercuts, a jump, spinning kicks with a spark; the blue-skinned
+ *     opponent is hit, thrown back, lies down and is dizzy.
+ *  3. Charge: he turns away, charges a growing blue ball, fires a first black beam, raises the spirit-bomb pose, the
+ *     grey aura shakes and the screen flashes white.
+ *  4. Transformation: head bowed, eyes flaring red, a burst under the white screen, the hair turns white, the blue aura,
+ *     a zoomed-in sprite, white stances.
+ *  5. Finisher: a white-haired fight, the big ball, thin then big beams, an explosion with flashes, the recoil.
+ *  6. End: the flash fades, the aura calms, the stance, victory poses.
  *
- * A launcher cannot shake the screen or zoom a camera, so the shake is the sprite jittering, the zoom is a bigger sprite,
- * and the white flashes are the full-card layer of the widget (WidgetPet.Frame.fx). The art faces right.
- * Frames are `dayform_pet_goku_<set>_<n>`; the mood of the day does not change the film. A pet that does not stroll
- * plays it in the corner without the dash.
+ * Fighting-game timing: a hit frame is held one extra tick (hit-stop), a flash lasts one or two ticks, a shake is a few
+ * ticks of the sprite jittering. A launcher cannot shake the screen or zoom a camera, so the shake is the sprite
+ * jittering, the zoom is a bigger sprite, and the white flashes are the full-card layer of the widget (WidgetPet.Frame.fx).
+ * The art faces right. Frames are `dayform_pet_goku_<set>_<n>`; the mood of the day does not change the film. A pet that
+ * does not stroll plays it in the corner without the moves along the card.
  */
 internal object GokuPet {
   const val ART = "goku"
 
   private const val DASH_SHARE = 0.45f
   private const val LUNGE_DP = 4f
-  private const val SHAKE_DP = 3f
+  private const val JUMP_DP = 22f
 
-  /** Ticks of one scene's set, in the order of the set. */
+  private enum class Pos { HOME, DASH }
+
+  /**
+   * One set of frames played in order. `from`..`to` is how far along the card it moves while it plays; `lunge` pushes
+   * every other frame forward; frames from `shakeFrom` up to `shakeTo` jitter by `shake` dp; `arc` lifts the middle of the set;
+   * `fx` gives the full-card layer of each frame; `stops` are frames held one extra tick (hit-stop).
+   */
+  private class Seg(
+    val set: String,
+    val from: Pos,
+    val to: Pos = from,
+    val lunge: Float = 0f,
+    val shake: Float = 0f,
+    val shakeFrom: Int = 0,
+    val shakeTo: Int = Int.MAX_VALUE,
+    val arc: Float = 0f,
+    val fx: IntArray? = null,
+    val stops: Set<Int> = emptySet(),
+  )
+
+  private const val N = WidgetPet.FX_NONE
+  private const val F25 = WidgetPet.FX_FLASH_25
+  private const val F50 = WidgetPet.FX_FLASH_50
+  private const val F75 = WidgetPet.FX_FLASH_75
+  private const val F100 = WidgetPet.FX_FLASH_100
+
+  private val FILM = listOf(
+    // 1. Start
+    Seg("intro", Pos.HOME, shake = 1.5f, shakeFrom = 9),
+    // 2. Combo
+    Seg("dash", Pos.HOME, Pos.DASH),
+    Seg("punch", Pos.DASH, lunge = LUNGE_DP, stops = setOf(1)),
+    Seg("upper", Pos.DASH, lunge = LUNGE_DP),
+    Seg("air", Pos.DASH, arc = JUMP_DP),
+    Seg("kick", Pos.DASH, lunge = LUNGE_DP, shake = 3f, shakeFrom = 2, fx = intArrayOf(N, N, F25, N, N), stops = setOf(2)),
+    Seg("duel", Pos.DASH, shake = 2f, shakeTo = 3, stops = setOf(0)),
+    // 3. Charge
+    Seg("back", Pos.DASH, Pos.HOME),
+    Seg("charge", Pos.HOME),
+    Seg("shot", Pos.HOME, shake = 3f),
+    Seg("bomb", Pos.HOME, shake = 2f),
+    Seg("gather", Pos.HOME, shake = 2f, fx = intArrayOf(N, N, F75)),
+    // 4. Transformation
+    Seg("bow", Pos.HOME, shake = 3f, shakeFrom = 1, fx = intArrayOf(N, F50, F75, F100, F75)),
+    Seg("rise", Pos.HOME, fx = intArrayOf(F50)),
+    Seg("aura", Pos.HOME, fx = intArrayOf(F25, N, N)),
+    Seg("poses", Pos.HOME),
+    // 5. Finisher
+    Seg("wfight", Pos.HOME, Pos.DASH, lunge = LUNGE_DP, stops = setOf(3)),
+    Seg("wkick", Pos.DASH, Pos.HOME, lunge = LUNGE_DP),
+    Seg("cast", Pos.HOME),
+    Seg("bombw", Pos.HOME),
+    Seg("thin", Pos.HOME, shake = 2f),
+    Seg("beam", Pos.HOME, shake = 3f),
+    Seg("boom", Pos.HOME, shake = 3f, shakeTo = 2, fx = intArrayOf(F50, F100, F100), stops = setOf(1)),
+    Seg("recoil", Pos.HOME, shake = 3f, shakeTo = 2, fx = intArrayOf(F75, F50, F25) + IntArray(8) { N }),
+    // 6. End
+    Seg("fade", Pos.HOME, fx = intArrayOf(F75, F50, F25)),
+    Seg("stand", Pos.HOME),
+    Seg("win", Pos.HOME),
+  )
+
   fun script(sprites: WidgetPet.Sprites, mood: PetMood, roams: Boolean, areaW: Float, areaH: Float, random: Random): List<WidgetPet.Frame> {
-    val sets = SETS.associateWith { sprites.frames(it, true) }
+    val sets = FILM.map { it.set }.distinct().associateWith { sprites.frames(it, true) }
     // A build whose art lacks any set of the film cannot play it.
     if (sets.values.any { it.isEmpty() }) return emptyList()
-    val out = ArrayList<WidgetPet.Frame>(51)
+    val home = if (roams) areaW * 0.4f else areaW
+    val dash = if (roams) (home + areaW * DASH_SHARE).coerceAtMost(areaW) else home
+    fun at(pos: Pos) = if (pos == Pos.HOME) home else dash
+    val out = ArrayList<WidgetPet.Frame>(130)
 
-    val homeX = if (roams) areaW * 0.4f else areaW
-    val dashX = if (roams) (homeX + areaW * DASH_SHARE).coerceAtMost(areaW) else homeX
-
-    fun add(set: String, index: Int, x: Float, fx: Int = WidgetPet.FX_NONE, shake: Float = 0f) {
-      val frames = sets.getValue(set)
-      val jitter = if (shake != 0f) (if (out.size % 2 == 0) shake else -shake) else 0f
-      val at = (x + jitter).coerceIn(0f, areaW)
-      val step = if (areaW <= 0f) WidgetPet.STEPS else (at / areaW * WidgetPet.STEPS + 0.5f).toInt().coerceIn(0, WidgetPet.STEPS)
-      out.add(WidgetPet.Frame(frames[index % frames.size], step, 0, fx))
+    for (seg in FILM) {
+      val frames = sets.getValue(seg.set)
+      val x0 = at(seg.from)
+      val x1 = at(seg.to)
+      for (i in frames.indices) {
+        val along = x0 + (x1 - x0) * (i + 1) / frames.size
+        val jitter = if (seg.shake != 0f && i >= seg.shakeFrom && i < seg.shakeTo) (if (out.size % 2 == 0) seg.shake else -seg.shake) else 0f
+        val x = (along + (if (i % 2 == 1) seg.lunge else 0f) + jitter).coerceIn(0f, areaW)
+        val lift = if (seg.arc != 0f) sin(PI * (i + 0.5) / frames.size).toFloat() * seg.arc else 0f
+        val step = if (areaW <= 0f) WidgetPet.STEPS else (x / areaW * WidgetPet.STEPS + 0.5f).toInt().coerceIn(0, WidgetPet.STEPS)
+        val fx = seg.fx?.getOrNull(i) ?: N
+        repeat(if (i in seg.stops) 2 else 1) { out.add(WidgetPet.Frame(frames[i], step, lift.toInt(), fx)) }
+      }
     }
-
-    fun lerp(from: Float, to: Float, i: Int, n: Int) = from + (to - from) * (i + 1) / n
-
-    // 1. Start: stance, the blurred frame stirs hair and clothes, the grey aura grows (7 ticks).
-    for (i in 0 until 7) add("intro", i, homeX)
-
-    // 2. Combo (10 ticks): dash forward, three punches that lunge, a spinning kick that shakes and sparks.
-    for (i in 0 until 4) add("dash", i, lerp(homeX, dashX, i, 4))
-    for (i in 0 until 3) add("punch", i, dashX + (if (i % 2 == 1) LUNGE_DP else 0f))
-    add("kick", 0, dashX)
-    add("kick", 1, dashX + LUNGE_DP, shake = SHAKE_DP)
-    add("kick", 2, dashX + LUNGE_DP * 2f, fx = WidgetPet.FX_FLASH_25, shake = SHAKE_DP * 1.5f)
-
-    // 3. Charge (7 ticks): step back, the ball grows, the aura shakes, a white flash at the end.
-    for (i in 0 until 2) add("back", i, lerp(dashX, homeX, i, 2))
-    for (i in 0 until 3) add("charge", i, homeX)
-    add("charge", 3, homeX, shake = SHAKE_DP / 2f)
-    add("charge", 4, homeX, fx = WidgetPet.FX_FLASH_75, shake = SHAKE_DP / 2f)
-
-    // 4. Transformation (7 ticks): bow, burst under a white screen, the hair turns white, the blue aura.
-    add("bow", 0, homeX)
-    add("bow", 1, homeX, fx = WidgetPet.FX_FLASH_50, shake = SHAKE_DP)
-    add("bow", 2, homeX, fx = WidgetPet.FX_FLASH_100, shake = SHAKE_DP)
-    add("rise", 0, homeX, fx = WidgetPet.FX_FLASH_75)
-    add("aura", 0, homeX, fx = WidgetPet.FX_FLASH_25)
-    add("aura", 1, homeX)
-    add("aura", 2, homeX)
-
-    // 5. Finisher (10 ticks): the big ball, the beam, the explosion and its flash.
-    for (i in 0 until 3) add("cast", i, homeX)
-    for (i in 0 until 4) add("beam", i, homeX, shake = SHAKE_DP)
-    add("boom", 0, homeX, fx = WidgetPet.FX_FLASH_50, shake = SHAKE_DP * 1.5f)
-    add("boom", 1, homeX, fx = WidgetPet.FX_FLASH_100, shake = SHAKE_DP * 1.5f)
-    add("boom", 2, homeX, fx = WidgetPet.FX_FLASH_100)
-
-    // 6. End (10 ticks): the flash fades, the aura shrinks, the stance, the victory pose.
-    add("fade", 0, homeX, fx = WidgetPet.FX_FLASH_75)
-    add("fade", 1, homeX, fx = WidgetPet.FX_FLASH_50)
-    add("fade", 2, homeX, fx = WidgetPet.FX_FLASH_25)
-    for (i in 0 until 3) add("idle", 0, homeX)
-    for (i in 0 until 4) add("win", 0, homeX)
     return out
   }
-
-  private val SETS = listOf("intro", "dash", "punch", "kick", "back", "charge", "bow", "rise", "aura", "cast", "beam", "boom", "fade", "idle", "win")
 }
