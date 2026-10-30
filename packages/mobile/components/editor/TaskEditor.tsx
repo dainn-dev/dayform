@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
 import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
 import { useRevealFocusedInput } from "../../hooks/use-reveal-focused-input";
-import { footerLift } from "../../lib/keyboard-inset";
+import { liftCorrection } from "../../lib/keyboard-inset";
 import type { ThemeColors } from "../../constants/theme";
 import type { Category, Repeat, Status, Task } from "../../lib/planner";
 import { useCategories } from "../../lib/categories-context";
@@ -48,6 +48,8 @@ const PICKER_ERROR = "Could not open the picker. Please try again.";
 
 const FALLBACK_TIME = "09:00";
 const CONTENT_BOTTOM_PADDING = 32;
+/** Wait for the keyboard animation and the layout after the previous lift before measuring the bar. */
+const FOOTER_MEASURE_DELAY_MS = 90;
 const SCROLL_EVENT_THROTTLE_MS = 16;
 /** A focus change reports before the new input is registered as focused, and before its layout settles. */
 const REVEAL_ON_FOCUS_DELAY_MS = 60;
@@ -91,8 +93,18 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const { reveal, onScroll } = useRevealFocusedInput(scrollRef, viewportRef, keyboard);
   const revealOnFocus = useCallback(() => { setTimeout(reveal, REVEAL_ON_FOCUS_DELAY_MS); }, [reveal]);
   // The action bar rises with the keyboard, so the scroll area already ends above it: no extra bottom padding needed.
-  const insets = useSafeAreaInsets();
-  const footerMargin = keyboard.top === null ? 0 : footerLift(keyboard.height, insets.bottom);
+  // Its lift is MEASURED (bar bottom vs keyboard top in window coordinates) rather than derived from the keyboard
+  // height, which includes the navigation bar on some devices and not on others; re-measured until it is stable.
+  const footerRef = useRef<View>(null);
+  const [footerMargin, setFooterMargin] = useState(0);
+  useEffect(() => {
+    if (keyboard.top === null) { setFooterMargin(0); return undefined; }
+    const keyboardTop = keyboard.top;
+    const timer = setTimeout(() => {
+      footerRef.current?.measureInWindow((_x, y, _width, height) => setFooterMargin(current => liftCorrection(current, y + height, keyboardTop)));
+    }, FOOTER_MEASURE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [keyboard.top, footerMargin]);
   const contentStyle = useMemo(() => [s.content, { paddingBottom: CONTENT_BOTTOM_PADDING }], [s.content]);
   const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil } });
 
@@ -128,7 +140,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
         </View>
         {/* Pinned below the scroll area so Save / Delete (and the message that explains a refusal) are always in reach;
             it rises above the keyboard, and the scroll area above it shrinks to fit. */}
-        <View style={[s.footer, { marginBottom: footerMargin }]}>
+        <View ref={footerRef} collapsable={false} style={[s.footer, { marginBottom: footerMargin }]}>
           <FormMessages validation={actions.validation} error={error} />
           {actions.confirmConflict && <ConflictWarning />}
           <FormActions saving={actions.saving} isEditing={Boolean(task)} confirmConflict={actions.confirmConflict} onSave={actions.save} onDelete={actions.deleteTask} />

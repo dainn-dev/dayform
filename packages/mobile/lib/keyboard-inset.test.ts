@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HIDDEN_KEYBOARD, contentBottomPadding, footerLift, keyboardFromMetrics, nextScrollY, revealDelta } from "./keyboard-inset";
+import { HIDDEN_KEYBOARD, contentBottomPadding, keyboardFromMetrics, liftCorrection, nextScrollY, revealDelta } from "./keyboard-inset";
 
 describe("keyboardFromMetrics", () => {
   test("reports the height and the top edge of a visible keyboard", () => {
@@ -21,20 +21,23 @@ describe("keyboardFromMetrics", () => {
   });
 });
 
-describe("footerLift", () => {
-  test("the bar rises by the part of the keyboard above the navigation-bar inset", () => {
-    expect(footerLift(300, 48)).toBe(252);
-    expect(footerLift(300, 0)).toBe(300);
+describe("liftCorrection", () => {
+  test("an unlifted bar whose bottom is below the keyboard top rises by the overlap", () => {
+    expect(liftCorrection(0, 900, 600)).toBe(300);
   });
 
-  test("never negative: a short keyboard or a large inset gives no lift, and a hidden keyboard gives none", () => {
-    expect(footerLift(40, 48)).toBe(0);
-    expect(footerLift(0, 48)).toBe(0);
-    expect(footerLift(-5, 0)).toBe(0);
+  test("a bar already sitting on the keyboard keeps its lift (stable once placed)", () => {
+    expect(liftCorrection(300, 600, 600)).toBe(300);
   });
 
-  test("a negative inset is treated as none", () => {
-    expect(footerLift(300, -10)).toBe(300);
+  test("a bar lifted too much comes back down by the gap", () => {
+    expect(liftCorrection(340, 560, 600)).toBe(300);
+  });
+
+  test("never negative, and rounded to whole pixels", () => {
+    expect(liftCorrection(0, 500, 600)).toBe(0);
+    expect(liftCorrection(10, 100, 600)).toBe(0);
+    expect(liftCorrection(0, 900.4, 600)).toBe(300);
   });
 });
 

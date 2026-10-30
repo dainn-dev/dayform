@@ -17,11 +17,13 @@ export function keyboardFromMetrics(metrics: KeyboardMetrics, windowHeight: numb
 }
 
 /**
- * How far a bar pinned to the bottom of a screen must rise so it sits just above the keyboard. The screen already
- * keeps `bottomInset` (the navigation bar) free, so only the part of the keyboard above that inset counts.
+ * The lift a bar pinned to the bottom needs so its bottom edge sits at the keyboard's top edge, from where it was
+ * MEASURED (window coordinates, with `currentLift` already applied). Measuring beats computing from the keyboard
+ * height: whether that height includes the navigation bar differs between devices and Android versions, while the
+ * window position of the bar and of the keyboard are always in the same coordinate system.
  */
-export function footerLift(keyboardHeight: number, bottomInset: number): number {
-  return Math.max(0, keyboardHeight - Math.max(0, bottomInset));
+export function liftCorrection(currentLift: number, barBottom: number, keyboardTop: number): number {
+  return Math.max(0, Math.round(currentLift + barBottom - keyboardTop));
 }
 
 /** Bottom padding of the scrolled content: the normal padding plus the room the keyboard takes. */
