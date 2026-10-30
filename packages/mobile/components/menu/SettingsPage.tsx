@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackToPersonal } from "../../hooks/use-back-to-personal";
@@ -10,6 +10,7 @@ import { useSettings } from "../../lib/settings-context";
 import type { MenuRow } from "../../lib/settings-menu";
 import { PersonalCard } from "../personal/PersonalCard";
 import { SETTINGS_PAGES } from "../personal/sections";
+import { FLOATING_ACTION_CLEARANCE, FloatingActionProvider, FloatingAddButton, type FloatingAction } from "./floating-action";
 import { PageHeader } from "./PageHeader";
 
 const CONTENT_PADDING_BOTTOM = 40;
@@ -22,19 +23,23 @@ export function SettingsPage({ row }: { row: MenuRow }) {
   const keyboard = useKeyboardInset();
   useBackToPersonal();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const [floating, setFloating] = useState<FloatingAction | null>(null);
   const { Component, hasTextInput } = SETTINGS_PAGES[row.slug];
-  // Pages with a text field keep the field reachable above the keyboard.
-  const bottom = CONTENT_PADDING_BOTTOM + (hasTextInput ? keyboard.height : 0);
+  // Pages with a text field keep the field reachable above the keyboard; a floating button gets room under the last row.
+  const bottom = CONTENT_PADDING_BOTTOM + (hasTextInput ? keyboard.height : 0) + (floating ? FLOATING_ACTION_CLEARANCE : 0);
 
   return <SafeAreaView edges={["top", "left", "right", "bottom"]} style={s.root}>
-    <ScrollView contentContainerStyle={[s.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      <PageHeader title={t(row.title)} />
-      {saveError && <View accessibilityRole="alert" style={s.error}>
-        <Text style={{ color: colors.errorMessage }}>{t("Could not save your settings. They will reset when you reopen the app.")}</Text>
-      </View>}
-      <PersonalCard><Component /></PersonalCard>
-    </ScrollView>
+    <FloatingActionProvider register={setFloating}>
+      <ScrollView contentContainerStyle={[s.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <PageHeader title={t(row.title)} />
+        {saveError && <View accessibilityRole="alert" style={s.error}>
+          <Text style={{ color: colors.errorMessage }}>{t("Could not save your settings. They will reset when you reopen the app.")}</Text>
+        </View>}
+        <PersonalCard><Component /></PersonalCard>
+      </ScrollView>
+    </FloatingActionProvider>
+    {floating && <FloatingAddButton action={floating} />}
   </SafeAreaView>;
 }
 

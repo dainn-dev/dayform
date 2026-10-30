@@ -9,7 +9,7 @@ import java.util.Locale
 /** Local-time helpers; the app's dates are local wall-clock `YYYY-MM-DD` strings, never UTC. */
 internal object WidgetClock {
   private const val REFRESH_MINUTE_OF_DAY = 1
-  private const val DATE_SKELETON = "EEEMMMd"
+  private const val DATE_SKELETON = "EEEMd"
 
   fun todayKey(nowMs: Long): String {
     val calendar = Calendar.getInstance()
@@ -35,7 +35,7 @@ internal object WidgetClock {
     return calendar.timeInMillis
   }
 
-  /** Short weekday + month + day in the app's language, e.g. "Thu, Oct 29". */
+  /** Short weekday + month + day in the app's language, e.g. "Thu, 10/29". */
   fun headerDate(nowMs: Long, languageTag: String): String {
     val locale = Locale.forLanguageTag(languageTag)
     val pattern = DateFormat.getBestDateTimePattern(locale, DATE_SKELETON)

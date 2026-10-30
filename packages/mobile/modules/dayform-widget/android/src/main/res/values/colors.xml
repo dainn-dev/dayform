@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="dayform_widget_bg">#FFFFFFFF</color>
+    <color name="dayform_widget_stroke">#FFEDEEF4</color>
     <color name="dayform_widget_text_primary">#FF1F2230</color>
     <color name="dayform_widget_text_secondary">#FF6B7080</color>
-    <color name="dayform_widget_accent">#FF6565E8</color>
+    <color name="dayform_widget_text_done">#FF9A9EAE</color>
+    <color name="dayform_widget_accent">#FFBF520D</color>
+    <color name="dayform_widget_accent_tint">#FFFDEEE4</color>
+    <color name="dayform_widget_track">#FFE9EAF2</color>
+    <color name="dayform_widget_done_bar">#FFD3D5E0</color>
 </resources>

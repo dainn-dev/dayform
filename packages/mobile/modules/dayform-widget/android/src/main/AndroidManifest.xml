@@ -14,6 +14,19 @@
         android:resource="@xml/dayform_widget_info" />
     </receiver>
 
+    <!-- The same widget as a 4x3 entry of the picker. -->
+    <receiver
+      android:name="dev.dayform.widget.TodayWidgetProviderLarge"
+      android:exported="true"
+      android:label="@string/dayform_widget_label_large">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/dayform_widget_info_large" />
+    </receiver>
+
     <!-- Midnight alarm (explicit PendingIntent) and system time/boot broadcasts. Not reachable by other apps. -->
     <receiver
       android:name="dev.dayform.widget.WidgetRefreshReceiver"

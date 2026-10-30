@@ -1,5 +1,5 @@
 import React, { useMemo, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { CategoryColors } from "../../hooks/use-category-colors";
 import { useColors } from "../../hooks/use-colors";
@@ -12,6 +12,8 @@ import { SwipeActionRow } from "./SwipeActionRow";
 /** Width of the delete action uncovered by swiping the row to the left. */
 const DELETE_ACTION_WIDTH = 84;
 const ICON_BUTTON = 36;
+/** Swipe progress (0..1) at which the edit and hide buttons are fully faded out. */
+const FADE_END = 0.35;
 /** 36 px button + 4 px above and below = the 44 px minimum touch target (sideways it stays inside the gap). */
 const ICON_HIT_SLOP = { top: 4, bottom: 4, left: 2, right: 2 } as const;
 
@@ -68,7 +70,7 @@ export function CategoryRow({ label, colors, taskCount, hidden, builtin, lastVis
 
   return <View style={s.row}>
     <SwipeActionRow enabled={canDelete} open={open} onOpenChange={onOpenChange} actionWidth={DELETE_ACTION_WIDTH} backgroundColor={palette.card} action={deleteAction}>
-      <View style={s.line}>
+      {progress => <View style={s.line}>
         <CategoryBadge colors={colors} />
         <View style={s.texts} accessible accessibilityLabel={summary}
           accessibilityActions={canDelete ? [{ name: "delete", label: deleteLabel }] : undefined}
@@ -79,10 +81,13 @@ export function CategoryRow({ label, colors, taskCount, hidden, builtin, lastVis
           </View>
           <Text style={s.meta}>{countText}</Text>
         </View>
-        <IconButton icon="create-outline" a11y={fillPlaceholders(t("Edit {category}"), { category: label })} disabled={disabled} onPress={onEdit} styles={s} color={palette.accentForeground} />
-        <IconButton icon={hidden ? "eye-outline" : "eye-off-outline"} a11y={toggleLabel} hint={hideBlocked ? hint : undefined}
-          disabled={disabled || hideBlocked} onPress={onToggleHidden} styles={s} color={palette.accentForeground} />
-      </View>
+        {/* The two icon buttons fade out as the row slides, so only the delete action is seen beside the name. */}
+        <Animated.View pointerEvents={open ? "none" : "auto"} style={[s.buttons, { opacity: progress.interpolate({ inputRange: [0, FADE_END], outputRange: [1, 0], extrapolate: "clamp" }) }]}>
+          <IconButton icon="create-outline" a11y={fillPlaceholders(t("Edit {category}"), { category: label })} disabled={disabled} onPress={onEdit} styles={s} color={palette.accentForeground} />
+          <IconButton icon={hidden ? "eye-outline" : "eye-off-outline"} a11y={toggleLabel} hint={hideBlocked ? hint : undefined}
+            disabled={disabled || hideBlocked} onPress={onToggleHidden} styles={s} color={palette.accentForeground} />
+        </Animated.View>
+      </View>}
     </SwipeActionRow>
     {lastVisible && <Text style={s.hint}>{hint}</Text>}
     {children}
@@ -105,6 +110,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   row: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
   line: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
   texts: { flex: 1 },
+  buttons: { flexDirection: "row", alignItems: "center", gap: 10 },
   nameLine: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: { flexShrink: 1, color: c.foreground, fontSize: 15, fontWeight: "700" },
   dim: { color: c.mutedForeground },

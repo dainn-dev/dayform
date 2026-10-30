@@ -7,7 +7,8 @@ export const vi: Record<string, string> = {
   // List
   "Hidden": "Đã ẩn",
   "Add category": "Thêm nhóm",
-  "Swipe a custom category to the left to delete it": "Vuốt nhóm tuỳ chỉnh sang trái để xoá",
+  "Swipe a custom category to the left to delete it. The built-in ones can only be hidden.": "Vuốt nhóm tuỳ chỉnh sang trái để xoá. Nhóm có sẵn chỉ có thể ẩn đi.",
+  "Categories you add can be deleted by swiping them to the left. The built-in ones can only be hidden.": "Nhóm bạn thêm có thể xoá bằng cách vuốt sang trái. Nhóm có sẵn chỉ có thể ẩn đi.",
   "No tasks": "Không có việc",
   "1 task": "1 việc",
   "{count} tasks": "{count} việc",

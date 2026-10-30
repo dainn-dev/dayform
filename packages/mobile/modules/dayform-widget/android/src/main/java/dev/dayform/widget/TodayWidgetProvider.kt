@@ -5,7 +5,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
 
-class TodayWidgetProvider : AppWidgetProvider() {
+/** The 4x2 widget; [TodayWidgetProviderLarge] is the same widget offered as a separate 4x3 entry. */
+open class TodayWidgetProvider : AppWidgetProvider() {
   override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
     for (id in appWidgetIds) {
       WidgetUpdater.updateOne(context, appWidgetManager, id, appWidgetManager.getAppWidgetOptions(id))

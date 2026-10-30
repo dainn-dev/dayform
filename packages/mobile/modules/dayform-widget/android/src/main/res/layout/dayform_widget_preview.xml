@@ -4,53 +4,165 @@
     android:layout_height="match_parent"
     android:background="@drawable/dayform_widget_bg"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="14dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:text="@string/dayform_widget_today"
+            android:textColor="@color/dayform_widget_text_primary"
+            android:textSize="17sp"
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="@string/dayform_widget_preview_title"
-            android:textColor="@color/dayform_widget_accent"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:text="@string/dayform_widget_preview_date"
+            android:textColor="@color/dayform_widget_text_secondary"
+            android:textSize="12sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
+            android:background="@drawable/dayform_widget_pill"
             android:maxLines="1"
+            android:paddingStart="9dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="9dp"
+            android:paddingBottom="2dp"
             android:text="@string/dayform_widget_preview_count"
-            android:textColor="@color/dayform_widget_text_secondary"
-            android:textSize="12sp" />
+            android:textColor="@color/dayform_widget_accent"
+            android:textSize="12sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
-    <TextView
-        style="@style/DayformWidgetRow"
+    <ProgressBar
+        style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="@string/dayform_widget_preview_row_1" />
+        android:layout_height="4dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="3dp"
+        android:max="100"
+        android:progress="34"
+        android:progressDrawable="@drawable/dayform_widget_progress" />
 
-    <TextView
-        style="@style/DayformWidgetRow"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="@string/dayform_widget_preview_row_2" />
+        android:layout_marginTop="3dp"
+        android:background="@drawable/dayform_widget_row_plain"
+        style="@style/DayformWidgetRowBox">
 
-    <TextView
-        style="@style/DayformWidgetRow"
+        <ImageView
+            style="@style/DayformWidgetBar"
+            android:layout_width="3dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="9dp"
+            android:background="@drawable/dayform_widget_bar_done" />
+
+        <TextView
+            style="@style/DayformWidgetTime"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:text="08:00" />
+
+        <TextView
+            style="@style/DayformWidgetRowTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/dayform_widget_preview_task_1" />
+
+        <TextView
+            style="@style/DayformWidgetDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="45m" />
+    </LinearLayout>
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="@string/dayform_widget_preview_row_3" />
+        android:layout_marginTop="3dp"
+        android:background="@drawable/dayform_widget_row_next"
+        style="@style/DayformWidgetRowBox">
+
+        <ImageView
+            style="@style/DayformWidgetBar"
+            android:layout_width="3dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="9dp"
+            android:background="@drawable/dayform_widget_bar_next" />
+
+        <TextView
+            style="@style/DayformWidgetTime"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:text="09:30" />
+
+        <TextView
+            style="@style/DayformWidgetRowTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/dayform_widget_preview_task_2" />
+
+        <TextView
+            style="@style/DayformWidgetDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="1h30m" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:background="@drawable/dayform_widget_row_plain"
+        style="@style/DayformWidgetRowBox">
+
+        <ImageView
+            style="@style/DayformWidgetBar"
+            android:layout_width="3dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="9dp"
+            android:background="@drawable/dayform_widget_bar_upcoming" />
+
+        <TextView
+            style="@style/DayformWidgetTime"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:text="13:00" />
+
+        <TextView
+            style="@style/DayformWidgetRowTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/dayform_widget_preview_task_3" />
+
+        <TextView
+            style="@style/DayformWidgetDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="1h" />
+    </LinearLayout>
 </LinearLayout>

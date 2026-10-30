@@ -14,7 +14,8 @@ type Props = {
   /** An opaque colour for the row, so the action underneath is hidden while closed. */
   backgroundColor: string;
   action: ReactNode;
-  children: ReactNode;
+  /** The row content; a function gets the swipe progress (0 closed, 1 fully open) to fade parts out while sliding. */
+  children: ReactNode | ((progress: Animated.AnimatedInterpolation<number>) => ReactNode);
 };
 
 /**
@@ -57,12 +58,14 @@ export function SwipeActionRow({ enabled, open, onOpenChange, actionWidth, backg
     });
   }, [x]);
 
+  const progress = useMemo(() => x.interpolate({ inputRange: [-actionWidth, 0], outputRange: [1, 0], extrapolate: "clamp" }), [x, actionWidth]);
+
   return <View style={s.container}>
     <View style={[s.action, { width: actionWidth }]} accessibilityElementsHidden={!open} importantForAccessibility={open ? "auto" : "no-hide-descendants"}>
       {action}
     </View>
     <Animated.View {...pan.panHandlers} style={{ backgroundColor, transform: [{ translateX: x }] }}>
-      {children}
+      {typeof children === "function" ? children(progress) : children}
     </Animated.View>
   </View>;
 }

@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- One timeline row of the widget: "09:30  Title  · 45m". -->
-    <style name="DayformWidgetRow">
+    <!-- One timeline row: a status bar, the start time, the title and the duration. -->
+    <style name="DayformWidgetRowBox">
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
+    <style name="DayformWidgetBar" />
+    <style name="DayformWidgetTime">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/dayform_widget_text_primary</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+    <style name="DayformWidgetRowTitle">
         <item name="android:ellipsize">end</item>
         <item name="android:maxLines">1</item>
         <item name="android:textColor">@color/dayform_widget_text_primary</item>
         <item name="android:textSize">13sp</item>
+    </style>
+    <style name="DayformWidgetDuration">
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/dayform_widget_text_secondary</item>
+        <item name="android:textSize">12sp</item>
     </style>
 </resources>

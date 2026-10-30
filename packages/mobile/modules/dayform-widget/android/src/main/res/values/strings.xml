@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="dayform_widget_label">Dayform — Today</string>
+    <string name="dayform_widget_label">Dayform — Today · 4×2</string>
+    <string name="dayform_widget_label_large">Dayform — Today · 4×3</string>
     <string name="dayform_widget_description">Your plan for today at a glance.</string>
     <string name="dayform_widget_today">Today</string>
     <string name="dayform_widget_empty">Nothing planned today</string>
-    <string name="dayform_widget_preview_title">Today · Thu, Oct 29</string>
-    <string name="dayform_widget_preview_count">3 tasks</string>
-    <string name="dayform_widget_preview_row_1">08:00  Plan the week ahead  · 45m</string>
-    <string name="dayform_widget_preview_row_2">09:30  Deep work session  · 1h30m</string>
-    <string name="dayform_widget_preview_row_3">13:00  Lunch &amp; reset  · 1h</string>
+    <string name="dayform_widget_preview_date">Thu, 10/29</string>
+    <string name="dayform_widget_preview_count">✓ 1/3</string>
+    <string name="dayform_widget_preview_task_1">Plan the week ahead</string>
+    <string name="dayform_widget_preview_task_2">Deep work session</string>
+    <string name="dayform_widget_preview_task_3">Lunch &amp; reset</string>
 </resources>
