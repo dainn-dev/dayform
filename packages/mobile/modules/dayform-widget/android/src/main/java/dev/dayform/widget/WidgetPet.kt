@@ -108,20 +108,18 @@ internal object WidgetPet {
   /** One frame of the script: the drawable, how far along the width it is (0..STEPS) and its height above the bottom, in dp. */
   internal data class Frame(val drawable: Int, val step: Int, val yDp: Int, val fx: Int = FX_NONE)
 
-  /** The full-card layer of a frame (`Frame.fx`): nothing, a white flash of 25 / 50 / 75 / 100 %, or a caption. */
+  /** The full-card layer of a frame (`Frame.fx`): nothing or a white flash of 25 / 50 / 75 / 100 %. */
   internal const val FX_NONE = 0
   internal const val FX_FLASH_25 = 1
   internal const val FX_FLASH_50 = 2
   internal const val FX_FLASH_75 = 3
   internal const val FX_FLASH_100 = 4
-  internal const val FX_CAPTION = 5
   private val FX_LAYOUTS = intArrayOf(
     R.layout.dayform_fx_none,
     R.layout.dayform_fx_flash_25,
     R.layout.dayform_fx_flash_50,
     R.layout.dayform_fx_flash_75,
     R.layout.dayform_fx_flash_100,
-    R.layout.dayform_fx_text,
   )
 
   /** The drawables of one art, looked up by name once. */

@@ -11,10 +11,10 @@ import java.util.Random
  *  3. Charge (5-7 s): back to the stance, a blue ball grows between the hands, the aura shakes, a white flash.
  *  4. Transformation (7-9 s): head bowed, a burst under a white screen, the hair turns white, the blue aura, a zoom in.
  *  5. Finisher (9-12 s): a big ball, the beam, an explosion and a flash.
- *  6. End (12-15 s): the flash fades, the aura calms, the "ULTRA INSTINCT" caption, a victory pose held for a second.
+ *  6. End (12-15 s): the flash fades, the aura calms, a victory pose held for a second.
  *
  * A launcher cannot shake the screen or zoom a camera, so the shake is the sprite jittering, the zoom is a bigger sprite,
- * and the white flashes and the caption are the full-card layer of the widget (WidgetPet.Frame.fx). The art faces right.
+ * and the white flashes are the full-card layer of the widget (WidgetPet.Frame.fx). The art faces right.
  * Frames are `dayform_pet_goku_<set>_<n>`; the mood of the day does not change the film. A pet that does not stroll
  * plays it in the corner without the dash.
  */
@@ -77,12 +77,12 @@ internal object GokuPet {
     add("boom", 1, homeX, fx = WidgetPet.FX_FLASH_100, shake = SHAKE_DP * 1.5f)
     add("boom", 2, homeX, fx = WidgetPet.FX_FLASH_100)
 
-    // 6. End (10 ticks): the flash fades, the aura shrinks, the caption, the victory pose.
+    // 6. End (10 ticks): the flash fades, the aura shrinks, the stance, the victory pose.
     add("fade", 0, homeX, fx = WidgetPet.FX_FLASH_75)
     add("fade", 1, homeX, fx = WidgetPet.FX_FLASH_50)
     add("fade", 2, homeX, fx = WidgetPet.FX_FLASH_25)
-    for (i in 0 until 3) add("idle", 0, homeX, fx = WidgetPet.FX_CAPTION)
-    for (i in 0 until 4) add("win", 0, homeX, fx = WidgetPet.FX_CAPTION)
+    for (i in 0 until 3) add("idle", 0, homeX)
+    for (i in 0 until 4) add("win", 0, homeX)
     return out
   }
 

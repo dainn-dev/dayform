@@ -328,7 +328,7 @@
         android:flipInterval="300"
         android:visibility="gone" />
 
-    <!-- A full-card layer that flips in step with the pet: Goku's script uses it for white flashes and a caption. -->
+    <!-- A full-card layer that flips in step with the pet: Goku's script uses it for white flashes. -->
     <ViewFlipper
         android:id="@+id/dayform_widget_fx"
         android:layout_width="match_parent"
