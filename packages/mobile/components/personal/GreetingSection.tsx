@@ -17,7 +17,7 @@ const STYLE_CHOICES: readonly Choice<SloganStyle>[] = [
 ];
 const DISABLED_OPACITY = 0.5;
 
-/** "Greeting": show name, slogan style and custom slogan (settings.greeting), with a live preview of the header. */
+/** "Greeting": the assistant switch (settings.assistant), then show name, slogan style and custom slogan (settings.greeting), with a live preview of the header. */
 export function GreetingSection() {
   const { settings, hasName, update } = useSettings();
   const { t } = useLanguage();
@@ -34,6 +34,9 @@ export function GreetingSection() {
   };
 
   return <View>
+    <SwitchRow label={t("Assistant Leo")} value={settings.assistant.enabled}
+      onChange={next => { void update({ assistant: { enabled: next } }); }}
+      hint={t("A little helper in the corner who greets you and answers a few questions about your day. Everything stays on this device.")} />
     <View style={!hasName && s.disabled} pointerEvents={hasName ? "auto" : "none"}>
       <SwitchRow label={t("Show my name in the greeting")} value={showName && hasName}
         onChange={next => { void update({ greeting: { showName: next } }); }}

@@ -1,4 +1,5 @@
 import { vi as archive } from "./archive";
+import { vi as assistant } from "./assistant";
 import { vi as backup } from "./backup";
 import { vi as calendar } from "./calendar";
 import { vi as carryOver } from "./carry-over";
@@ -41,6 +42,7 @@ import { vi as widget } from "./widget";
  */
 export const extraTranslations: Record<string, string> = {
   ...archive,
+  ...assistant,
   ...backup,
   ...calendar,
   ...carryOver,

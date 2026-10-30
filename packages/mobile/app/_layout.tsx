@@ -9,6 +9,7 @@ import { RemindersBridge } from "../components/RemindersBridge";
 import { SeriesExtender } from "../components/SeriesExtender";
 import { SnapshotScheduler } from "../components/SnapshotScheduler";
 import { UndoBar } from "../components/UndoBar";
+import { AssistantOverlay } from "../components/assistant/AssistantOverlay";
 import { OtaAutoCheck } from "../components/OtaAutoCheck";
 import { UpdatePrompt } from "../components/update/UpdatePrompt";
 import { OtaProvider } from "../lib/ota-context";
@@ -57,7 +58,7 @@ function WidgetBridge() {
   return ready ? <WidgetSync showTitles={settings.widget.showTitles} pet={settings.pet.kind} petWalks={settings.pet.walks} /> : null;
 }
 
-// Provider chain: ErrorBoundary → SafeArea → Settings → Theme → Language → Tasks → Updates → Ota → Slot (+ UndoBar, helpers, the UpdatePrompt dialog and the OTA auto-check).
+// Provider chain: ErrorBoundary → SafeArea → Settings → Theme → Language → Tasks → Updates → Ota → Slot (+ UndoBar, the assistant, helpers, the UpdatePrompt dialog and the OTA auto-check).
 export default function RootLayout() {
   // Lives outside the providers so a provider that fails to mount can never leave the splash stuck.
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function RootLayout() {
                     <NamePrompt />
                     <Slot />
                     <UndoBar />
+                    <AssistantOverlay />
                     <RemindersBridge />
                     <NotificationActions />
                     <SeriesExtender />

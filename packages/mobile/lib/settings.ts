@@ -139,6 +139,8 @@ const settingsSchema = z.object({
   greeting: group(greetingSchema),
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
+  /** The assistant in the corner of the app (components/assistant/); on by default. */
+  assistant: group(z.object({ enabled: flag(true) })),
   widget: group(z.object({ showTitles: flag(true) })),
   /**
    * The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. `kind` is "off" while the
