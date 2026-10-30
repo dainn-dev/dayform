@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { MIN_EVENT_PX, makeTimelineConfig, eventGeometry } from "./timeline-config";
 import {
-  COMPACT_MAX_HEIGHT, FULL_MIN_HEIGHT, MIN_ICON_BLOCK_WIDTH, MIN_TITLE_PX, compactMeta, eventDensity, showCompactIcon,
+  COMPACT_MAX_HEIGHT, CONFLICT_MARK_PX, FULL_MIN_HEIGHT, MIN_ICON_BLOCK_WIDTH, MIN_TITLE_PX, compactMeta, eventDensity, showCompactIcon,
 } from "./event-density";
 import type { Task } from "./planner";
 
@@ -47,8 +47,14 @@ describe("compactMeta", () => {
   });
 
   test("shows nothing when even the shortest variant would squeeze the title", () => {
-    expect(compactMeta(110, variants)).toBeNull();
+    expect(compactMeta(100, variants)).toBeNull();
     expect(compactMeta(0, variants)).toBeNull();
+  });
+
+  test("a block of about 113 dp (two lanes) still shows the start time, unless the overlap mark takes the room", () => {
+    expect(compactMeta(113, variants)).toBe("09:00");
+    expect(compactMeta(113, variants, CONFLICT_MARK_PX)).toBeNull();
+    expect(compactMeta(135, variants, CONFLICT_MARK_PX)).toBe("09:00");
   });
 
   test("the title width is protected: a variant is used only while at least MIN_TITLE_PX is left", () => {

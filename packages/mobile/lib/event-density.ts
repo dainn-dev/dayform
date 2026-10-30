@@ -21,15 +21,18 @@ export function eventDensity(height: number): EventDensity {
 const META_CHAR_PX = 5.8;
 const META_GAP_PX = 8;
 /** The title is kept at least this wide before any meta text is shown. */
-export const MIN_TITLE_PX = 64;
+export const MIN_TITLE_PX = 56;
 const ROW_PADDING_PX = 16;
+/** Width of the overlap warning mark (and its gap) when it shares the row. */
+export const CONFLICT_MARK_PX = 17;
 
 /**
  * The right-hand text of a compact row: the first variant that still leaves the title `MIN_TITLE_PX`, or null when
- * even the shortest does not fit (several tasks side by side). Variants go from richest to shortest.
+ * even the shortest does not fit (several tasks side by side). Variants go from richest to shortest. `reservedPx` is
+ * room already taken in the row by something else (the overlap mark).
  */
-export function compactMeta(blockWidth: number, variants: readonly string[]): string | null {
-  const room = blockWidth - ROW_PADDING_PX - MIN_TITLE_PX - META_GAP_PX;
+export function compactMeta(blockWidth: number, variants: readonly string[], reservedPx = 0): string | null {
+  const room = blockWidth - ROW_PADDING_PX - MIN_TITLE_PX - META_GAP_PX - reservedPx;
   for (const text of variants) {
     if (text !== "" && text.length * META_CHAR_PX <= room) return text;
   }

@@ -9,7 +9,7 @@ import { useLanguage } from "../../lib/language";
 import type { Task } from "../../lib/planner";
 import { formatMinutes, SNAP_MINUTES } from "../../lib/timeline-gestures";
 import { useTimelineConfig } from "../../hooks/use-timeline-config";
-import { compactMeta, eventDensity, showCompactIcon } from "../../lib/event-density";
+import { CONFLICT_MARK_PX, compactMeta, eventDensity, showCompactIcon } from "../../lib/event-density";
 import { eventGeometry } from "../../lib/timeline-config";
 import { EdgeHandle } from "./EdgeHandle";
 import type { TaskPatch } from "./drag-controller";
@@ -65,7 +65,7 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
   const strike = done ? s.strike : null;
   const startText = time(shown.start!);
   // A short block is ONE row (its height only fits one): the icon, the title and as much of the time as the width allows.
-  const compactText = density === "compact" ? compactMeta(blockWidth, [`${startText} · ${duration(shown.duration)}`, startText]) : null;
+  const compactText = density === "compact" ? compactMeta(blockWidth, [`${startText} · ${duration(shown.duration)}`, startText], conflict ? CONFLICT_MARK_PX : 0) : null;
 
   return <>
     <View {...drag.body} onLayout={onLayout} style={[s.wrapper, { top, height, ...place }, lifted && s.liftedWrapper]}>
