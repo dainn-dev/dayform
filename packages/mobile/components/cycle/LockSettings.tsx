@@ -51,7 +51,7 @@ export function LockSettings({ state, onEraseAll }: Props) {
         <ChoiceChips choices={choices} value={timeoutSec} onChange={next => { void run(() => updateLock({ timeoutSec: next })); }} />
       </View>}
       {message !== null && <Text accessibilityRole="alert" style={s.error}>{message}</Text>}
-      <Text style={s.note}>{t("Your cycle data stays on this device and is never sent anywhere.")}</Text>
+      <Text style={s.note}>{t("Your cycle data stays on this device. If your phone's backup is on, Android also keeps an encrypted copy in your own Google account; you can turn that off in your phone's Backup settings.")}</Text>
       <CycleButton variant="danger" label={t("Delete all cycle data")} onPress={onEraseAll} />
     </View>
   </CycleCard>;

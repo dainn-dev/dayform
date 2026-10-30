@@ -36,8 +36,8 @@ export const vi: Record<string, string> = {
   "Old completed tasks": "Công việc đã xong từ lâu",
   "Restore a saved copy": "Khôi phục từ bản đã lưu",
   "Version {version}": "Phiên bản {version}",
-  "Your data stays on this device": "Dữ liệu của bạn chỉ nằm trên thiết bị này",
+  "Your data stays with you": "Dữ liệu của bạn ở lại với bạn",
   // About page
-  "Your tasks, categories and settings are stored only on this device. The only network requests check for app updates, and they carry no task data.":
-    "Công việc, nhóm và cài đặt của bạn chỉ được lưu trên thiết bị này. Các yêu cầu mạng duy nhất là kiểm tra cập nhật ứng dụng và chúng không mang theo dữ liệu công việc.",
+  "Your tasks, categories and settings are stored on this device. If your phone's backup is on, Android also keeps an encrypted copy in your own Google account (turn it off in your phone's Backup settings). The only network requests Dayform makes check for app updates, and they carry no task data.":
+    "Công việc, nhóm và cài đặt của bạn được lưu trên thiết bị này. Nếu bạn bật sao lưu của điện thoại, Android cũng giữ một bản sao đã mã hoá trong tài khoản Google của chính bạn (tắt trong cài đặt Sao lưu của điện thoại). Các yêu cầu mạng duy nhất của Dayform là kiểm tra cập nhật và chúng không mang theo dữ liệu công việc.",
 };

@@ -3,8 +3,8 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 15,
-      "allowBackup": false,
+      "versionCode": 16,
+      "allowBackup": true,
       "permissions": [
         "android.permission.USE_EXACT_ALARM"
       ],
@@ -42,7 +42,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -79,6 +79,7 @@
       "expo-font",
       "expo-system-ui",
       "./plugins/with-release-signing",
+      "./plugins/with-backup-rules",
       [
         "expo-local-authentication",
         {

@@ -31,7 +31,7 @@ export const vi: Record<string, string> = {
   "Replace all your current tasks?": "Thay thế toàn bộ công việc hiện tại?",
   "Yes, replace": "Đúng, thay thế",
   "Cancel": "Hủy",
-  "Your tasks stay on this device. Export a copy to keep it safe or move it elsewhere.": "Công việc được lưu trên thiết bị này. Hãy xuất một bản sao để cất giữ hoặc chuyển sang nơi khác.",
+  "Your tasks are stored on this device (and in your phone's encrypted backup, if it is on). Export a copy to keep it safe or move it elsewhere.": "Công việc được lưu trên thiết bị này (và trong bản sao lưu mã hoá của điện thoại, nếu bạn bật). Hãy xuất một bản sao để cất giữ hoặc chuyển sang nơi khác.",
   "Could not share the backup file.": "Không thể chia sẻ tệp sao lưu.",
   "This backup is too big to store on this device.": "Bản sao lưu này quá lớn để lưu trên thiết bị.",
   "No valid tasks were found in this file.": "Không tìm thấy công việc hợp lệ nào trong tệp này.",

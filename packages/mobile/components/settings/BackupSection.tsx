@@ -17,7 +17,7 @@ export function BackupSection() {
   const importBlocked = busy || stage.kind !== "idle";
 
   return <View>
-    <Text style={s.hint}>{t("Your tasks stay on this device. Export a copy to keep it safe or move it elsewhere.")}</Text>
+    <Text style={s.hint}>{t("Your tasks are stored on this device (and in your phone's encrypted backup, if it is on). Export a copy to keep it safe or move it elsewhere.")}</Text>
     <Text style={s.note}>{t("The backup file is not encrypted. Keep it somewhere safe.")}</Text>
     {includesHealthData && <Text style={s.healthNote}>{t(HEALTH_DATA_WARNING)}</Text>}
     <View style={s.row}>

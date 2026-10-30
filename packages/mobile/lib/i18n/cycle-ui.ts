@@ -4,14 +4,15 @@
  */
 export const vi: Record<string, string> = {
   // Personal card, disclaimer
-  "Keep a private record of your periods and see when the next one may start. Everything stays on this device and is off until you turn it on.":
-    "Ghi lại kỳ kinh của bạn một cách riêng tư và xem kỳ tiếp theo có thể bắt đầu khi nào. Mọi dữ liệu chỉ nằm trên thiết bị này và được tắt cho đến khi bạn bật.",
+  "Keep a private record of your periods and see when the next one may start. Everything stays on this device (and in your phone's encrypted backup, if it is on) and is off until you turn it on.":
+    "Ghi lại kỳ kinh của bạn một cách riêng tư và xem kỳ tiếp theo có thể bắt đầu khi nào. Mọi dữ liệu nằm trên thiết bị này (và trong bản sao lưu mã hoá của điện thoại, nếu bạn bật) và được tắt cho đến khi bạn bật.",
   "Turn on": "Bật",
   "Turn off": "Tắt",
   "Open": "Mở",
   "Tracking is on": "Đang theo dõi",
   "Before you start": "Trước khi bắt đầu",
-  "Your cycle data stays on this device and is never sent anywhere.": "Dữ liệu chu kỳ của bạn chỉ nằm trên thiết bị này và không bao giờ được gửi đi đâu.",
+  "Your cycle data stays on this device. If your phone's backup is on, Android also keeps an encrypted copy in your own Google account; you can turn that off in your phone's Backup settings.":
+    "Dữ liệu chu kỳ của bạn nằm trên thiết bị này. Nếu bạn bật sao lưu của điện thoại, Android cũng giữ một bản sao đã mã hoá trong tài khoản Google của chính bạn; bạn có thể tắt trong cài đặt Sao lưu của điện thoại.",
   "Predictions are estimates calculated from the dates you enter.": "Dự đoán chỉ là ước tính, được tính từ các ngày bạn nhập.",
   "The lower-risk days estimate uses a calendar method. It is not a contraceptive and it can be wrong.":
     "Ước tính ngày nguy cơ thấp hơn dùng phương pháp tính theo lịch. Đây không phải biện pháp tránh thai và có thể sai.",

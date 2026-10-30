@@ -8,7 +8,7 @@ import { CycleButton } from "./CycleButton";
 
 /** The points the user must accept before tracking turns on. Plain statements, no assumptions about the user. */
 export const DISCLAIMER_POINTS: readonly string[] = [
-  tx("Your cycle data stays on this device and is never sent anywhere."),
+  tx("Your cycle data stays on this device. If your phone's backup is on, Android also keeps an encrypted copy in your own Google account; you can turn that off in your phone's Backup settings."),
   tx("Predictions are estimates calculated from the dates you enter."),
   tx("The lower-risk days estimate uses a calendar method. It is not a contraceptive and it can be wrong."),
   tx("Do not rely on it to prevent pregnancy."),

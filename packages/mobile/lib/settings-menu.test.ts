@@ -189,7 +189,7 @@ describe("summaries", () => {
   });
 
   test("about hints at privacy", () => {
-    expect(say("about")).toBe("Your data stays on this device");
+    expect(say("about")).toBe("Your data stays with you");
   });
 });
 

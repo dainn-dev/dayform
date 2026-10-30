@@ -172,7 +172,7 @@ const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
   archive: ({ t }) => t("Old completed tasks"),
   recovery: ({ t }) => t("Restore a saved copy"),
   updates: ({ updateLine, version, t }) => updateLine ?? fillPlaceholders(t("Version {version}"), { version }),
-  about: ({ t }) => t("Your data stays on this device"),
+  about: ({ t }) => t("Your data stays with you"),
 };
 
 /** The short, already translated line under a row's title. */

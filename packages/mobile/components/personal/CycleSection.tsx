@@ -51,7 +51,7 @@ export function CycleSection() {
 
   if (!state.enabled) {
     return <View style={s.stack}>
-      <Text style={s.text}>{t("Keep a private record of your periods and see when the next one may start. Everything stays on this device and is off until you turn it on.")}</Text>
+      <Text style={s.text}>{t("Keep a private record of your periods and see when the next one may start. Everything stays on this device (and in your phone's encrypted backup, if it is on) and is off until you turn it on.")}</Text>
       {error !== null && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
       <CycleButton label={t("Turn on")} disabled={!ready} onPress={() => { setError(null); setAsking(true); }} />
       <CycleDisclaimer visible={asking} busy={busy} error={error} onAccept={() => { void accept(); }} onCancel={() => { setAsking(false); setError(null); }} />
