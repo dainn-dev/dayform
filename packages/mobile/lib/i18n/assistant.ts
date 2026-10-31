@@ -30,6 +30,7 @@ export const vi: Record<string, string> = {
   "on this phone": "trên máy",
   "needs internet": "cần mạng",
   "Listen": "Nghe thử",
+  "Stop": "Dừng",
   "Hi, I'm Leo! Shall we plan your day?": "Xin chào, mình là Leo! Mình cùng lên kế hoạch cho hôm nay nhé?",
   "Looking for voices…": "Đang tìm giọng đọc…",
   "This phone has no voice for the app's language, so Leo only shows its lines. Install Speech Services by Google from the Play Store, download the Vietnamese voice in it, then choose it as the preferred engine in the phone's text-to-speech settings.":
