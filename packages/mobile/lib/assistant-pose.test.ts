@@ -56,6 +56,11 @@ describe("assistant pose", () => {
     expect(poseAt({ state: "idle", t: 0, now: 0, sinceDrop: 700 }).dy).toBe(-0);
   });
 
+  test("talking lifts on each syllable and rests between them", () => {
+    expect(poseAt({ state: "talking", t: 0, now: 0, talk: 1 }).dy).toBeLessThan(poseAt({ state: "talking", t: 0, now: 0, talk: 0 }).dy);
+    expect(poseAt({ state: "talking", t: 0, now: 0, talk: 1 }).scaleY).toBeGreaterThan(1);
+  });
+
   test("reduced motion keeps the poses but makes them much smaller", () => {
     const full = poseAt({ state: "happy", t: 300, now: 0 });
     const calm = poseAt({ state: "happy", t: 300, now: 0, motion: 0.3 });

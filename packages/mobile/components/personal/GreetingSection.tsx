@@ -37,6 +37,9 @@ export function GreetingSection() {
     <SwitchRow label={t("Assistant Leo")} value={settings.assistant.enabled}
       onChange={next => { void update({ assistant: { enabled: next } }); }}
       hint={t("A little helper in the corner who greets you and answers a few questions about your day. Everything stays on this device.")} />
+    {settings.assistant.enabled && <SwitchRow label={t("Read Leo's lines aloud")} value={settings.assistant.voice}
+      onChange={next => { void update({ assistant: { voice: next } }); }}
+      hint={t("Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.")} />}
     <View style={!hasName && s.disabled} pointerEvents={hasName ? "auto" : "none"}>
       <SwitchRow label={t("Show my name in the greeting")} value={showName && hasName}
         onChange={next => { void update({ greeting: { showName: next } }); }}

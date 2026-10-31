@@ -6,6 +6,8 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
+import { mouthAt, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
+import { speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { INACTIVE_AFTER_MS, INITIAL_MACHINE, nextState, ONE_SHOT_MS, registerTap, THINKING_MS, type AssistantState } from "../../lib/assistant-state";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
@@ -31,11 +33,12 @@ export function AssistantOverlay() {
   const { settings, ready } = useSettings();
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
-  return <Assistant name={settings.profile.name} />;
+  return <Assistant name={settings.profile.name} voice={settings.assistant.voice} />;
 }
 
-function Assistant({ name }: { name: string }) {
-  const { t, time } = useLanguage();
+function Assistant({ name, voice }: { name: string; voice: boolean }) {
+  const { t, time, language } = useLanguage();
+  const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -63,6 +66,30 @@ function Assistant({ name }: { name: string }) {
   const dragVx = useRef(0);
   const droppedAt = useRef<number | null>(null);
   const motion = useRef(1);
+  const screenReader = useRef(false);
+  // The line being said: its estimated syllables, and when the engine started saying it (null until it does).
+  const speech = useRef<{ spans: Span[]; start: number | null } | null>(null);
+
+  /**
+   * Shows the line's syllable beat and reads it aloud when the voice is on. Resolves true once the engine has taken it;
+   * `onDone` then runs when it has finished. With the voice off, a screen reader on or no voice for the language, it
+   * resolves false and the beat simply starts now.
+   */
+  const say = (text: string, onDone?: () => void): Promise<boolean> => {
+    const current = { spans: speechTimeline(text, speechLanguage), start: null as number | null };
+    speech.current = current;
+    if (!voice || screenReader.current) {
+      current.start = Date.now();
+      return Promise.resolve(false);
+    }
+    return speakLine(text, speechLanguage, {
+      onStart: () => { current.start = Date.now(); },
+      onDone: () => onDone?.(),
+    }).then(started => {
+      if (!started) current.start = Date.now();
+      return started;
+    });
+  };
   const anim = useRef({
     dx: new Animated.Value(0), dy: new Animated.Value(0), rotate: new Animated.Value(0),
     scaleX: new Animated.Value(1), scaleY: new Animated.Value(1),
@@ -77,9 +104,28 @@ function Assistant({ name }: { name: string }) {
     const oneShot = ONE_SHOT_MS[machine.state];
     if (oneShot) later(oneShot, "done");
     if (machine.state === "thinking") later(THINKING_MS, "answerStarted");
-    if (machine.state === "talking") later(talkMs(spoken ? t(spoken.text) : ""), "answerDone");
+    let cancelled = false;
+    if (machine.state === "talking") {
+      // The answer ends when the voice has finished it; without a voice, after a time that fits its length.
+      const text = spoken ? fill(t(spoken.text), spoken.vars) : "";
+      const finish = () => { if (!cancelled) dispatch({ type: "answerDone" }); };
+      const fallback = setTimeout(finish, talkMs(text));
+      timers.push(fallback);
+      void say(text, finish).then(started => {
+        if (cancelled || !started) return;
+        clearTimeout(fallback);
+        // In case the engine never reports the end.
+        timers.push(setTimeout(finish, speechMs(speechTimeline(text, speechLanguage)) * 2 + 3000));
+      });
+    }
+    // Greetings and reactions are said too, but they never wait for the voice: their state ends on its own timer.
+    const reaction = machine.state === "greeting" || machine.state === "happy" || machine.state === "angry" ? lineFor(machine.state, name, null) : null;
+    if (reaction) void say(fill(t(reaction.text), reaction.vars));
     if (machine.state === "idle") later(INACTIVE_AFTER_MS, "inactive");
-    return () => timers.forEach(clearTimeout);
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
     // `activity` restarts the idle countdown after every touch.
   }, [machine.state, activity]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -99,6 +145,17 @@ function Assistant({ name }: { name: string }) {
     lastDone.current = doneCount;
   }, [doneCount, loading]);
 
+  // With a screen reader on, the bubble is read by it, so Leo does not speak over it.
+  useEffect(() => {
+    void AccessibilityInfo.isScreenReaderEnabled().then(on => { screenReader.current = on; });
+    const sub = AccessibilityInfo.addEventListener("screenReaderChanged", on => { screenReader.current = on; if (on) stopSpeaking(); });
+    return () => sub.remove();
+  }, []);
+
+  // Switching the voice off, or Leo going away, stops what it was saying.
+  useEffect(() => { if (!voice) stopSpeaking(); }, [voice]);
+  useEffect(() => () => stopSpeaking(), []);
+
   // Smaller movements when the system asks to reduce motion.
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(on => { motion.current = on ? REDUCED_MOTION : 1; });
@@ -111,9 +168,11 @@ function Assistant({ name }: { name: string }) {
     let frame: number | null = null;
     const tick = () => {
       const now = Date.now();
+      const said = speech.current;
+      const talk = stateRef.current === "talking" && said && said.start !== null ? mouthAt(said.spans, now - said.start) : undefined;
       const pose = poseAt({
         state: stateRef.current, t: now - stateStart.current, now, dragVx: dragVx.current,
-        sinceDrop: droppedAt.current === null ? null : now - droppedAt.current, motion: motion.current,
+        sinceDrop: droppedAt.current === null ? null : now - droppedAt.current, motion: motion.current, talk,
       });
       anim.dx.setValue(pose.dx);
       anim.dy.setValue(pose.dy);
@@ -123,7 +182,12 @@ function Assistant({ name }: { name: string }) {
       frame = requestAnimationFrame(tick);
     };
     const start = () => { if (frame === null) frame = requestAnimationFrame(tick); };
-    const stop = () => { if (frame !== null) cancelAnimationFrame(frame); frame = null; };
+    const stop = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = null;
+      // Leaving the app also silences Leo.
+      stopSpeaking();
+    };
     if (AppState.currentState === "active") start();
     const sub = AppState.addEventListener("change", next => (next === "active" ? start() : stop()));
     return () => { stop(); sub.remove(); };
@@ -134,6 +198,7 @@ function Assistant({ name }: { name: string }) {
     // Capture once the finger really moves, so a tap still reaches the picture.
     onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) + Math.abs(g.dy) > 6,
     onPanResponderGrant: () => {
+      stopSpeaking();
       drag.current = { ...current.current };
       droppedAt.current = null;
       dispatch({ type: "dragStarted" });
@@ -169,6 +234,7 @@ function Assistant({ name }: { name: string }) {
     if (machine.state === "idle") dispatch({ type: "asked" });
     else if (machine.state === "sleepy") dispatch({ type: "poked" });
     else if (machine.state === "listening") dispatch({ type: "cancelled" });
+    else stopSpeaking();
   };
 
   const ask = (id: QuestionId) => {

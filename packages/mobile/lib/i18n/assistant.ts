@@ -24,6 +24,9 @@ export const vi: Record<string, string> = {
   "Tap to ask a question. Drag to move.": "Chạm để hỏi. Kéo để di chuyển.",
   "Close": "Đóng",
   "Assistant Leo": "Trợ lý Leo",
+  "Read Leo's lines aloud": "Leo đọc thành tiếng",
+  "Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.":
+    "Dùng giọng đọc có sẵn của điện thoại. Tự tắt khi bật trình đọc màn hình để không đọc hai lần.",
   "A little helper in the corner who greets you and answers a few questions about your day. Everything stays on this device.":
     "Một trợ lý nhỏ ở góc màn hình, chào bạn và trả lời vài câu hỏi về ngày của bạn. Mọi thứ đều ở trên máy này.",
 };

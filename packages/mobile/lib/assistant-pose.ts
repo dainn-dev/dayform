@@ -19,6 +19,8 @@ export type PoseInput = {
   sinceDrop?: number | null;
   /** 1 = full motion; less when the system asks to reduce motion. */
   motion?: number;
+  /** While talking: how open the mouth is now (0..1, from the speech timeline); without it the talking bob keeps a steady beat. */
+  talk?: number;
 };
 
 export const REST_POSE: Pose = { dx: 0, dy: 0, rotate: 0, scaleX: 1, scaleY: 1, flip: false };
@@ -72,10 +74,14 @@ export function poseAt(input: PoseInput): Pose {
       pose.dy -= 2;
       pose.scaleX = 0.98;
       break;
-    case "talking":
-      pose.rotate = Math.sin((TAU * t) / 700) * 2.5;
-      pose.dy -= Math.abs(Math.sin((TAU * t) / 700)) * 1.5;
+    case "talking": {
+      // A small lift on every syllable, and a slow sway of the head through the sentence.
+      const beat = input.talk ?? Math.abs(Math.sin((TAU * t) / 700));
+      pose.rotate = Math.sin((TAU * t) / 1400) * 2.5;
+      pose.dy -= beat * 2;
+      pose.scaleY = 1 + 0.02 * beat;
       break;
+    }
     case "angry":
       if (t < ANGRY_SHAKE_MS) {
         pose.dx = Math.sin((TAU * t) / 80) * 3;
