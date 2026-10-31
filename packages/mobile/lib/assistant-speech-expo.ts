@@ -1,5 +1,5 @@
 import * as Speech from "expo-speech";
-import { pickVoice, speechLocale, type SpeechLanguage } from "./assistant-speech";
+import { pickVoice, speakableText, speechLocale, voicePitch, voicesFor, type SpeechLanguage, type VoiceInfo } from "./assistant-speech";
 
 /** expo-speech glue for the assistant (untested); the choices are made in assistant-speech.ts. */
 
@@ -16,14 +16,20 @@ async function voicesNow(): Promise<Speech.Voice[]> {
   return voices;
 }
 
+/** The phone's voices for the language, best first. Empty when there are none (or the engine is not ready). */
+export async function listVoices(language: SpeechLanguage): Promise<VoiceInfo[]> {
+  return voicesFor(await voicesNow(), language);
+}
+
 export type SpeakHandlers = { onStart: () => void; onDone: () => void };
 
 /**
- * Reads `text` aloud, cutting off anything Leo was still saying. Resolves false (and calls nothing) when there is no
- * voice for the language or the engine fails, so the caller falls back to its own timing.
+ * Reads `text` aloud with the chosen voice (`preferred`, "" = automatic), cutting off anything Leo was still saying.
+ * Resolves false (and calls nothing) when there is no voice for the language or the engine fails, so the caller falls
+ * back to its own timing.
  */
-export async function speakLine(text: string, language: SpeechLanguage, handlers: SpeakHandlers): Promise<boolean> {
-  const voice = pickVoice(await voicesNow(), language);
+export async function speakLine(text: string, language: SpeechLanguage, handlers: SpeakHandlers, preferred = ""): Promise<boolean> {
+  const voice = pickVoice(await voicesNow(), language, preferred);
   if (!voice) return false;
   try {
     Speech.stop();
@@ -33,10 +39,10 @@ export async function speakLine(text: string, language: SpeechLanguage, handlers
       ended = true;
       handlers.onDone();
     };
-    Speech.speak(text, {
+    Speech.speak(speakableText(text, language), {
       language: speechLocale(language),
       voice,
-      pitch: 1.25,
+      pitch: voicePitch(language),
       rate: 1.0,
       onStart: handlers.onStart,
       onDone: end,

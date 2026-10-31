@@ -17,20 +17,63 @@ export function speechLocale(language: SpeechLanguage): string {
   return language === "vi" ? "vi-VN" : "en-US";
 }
 
-/** The best voice for the language, or null when the phone has none. */
-export function pickVoice(voices: readonly VoiceInfo[], language: SpeechLanguage): string | null {
+/** The voices of the language, the best first (on-device before network ones). */
+export function voicesFor(voices: readonly VoiceInfo[], language: SpeechLanguage): VoiceInfo[] {
   const own = voices.filter(voice => voice.language.toLowerCase().replace("_", "-").startsWith(language));
+  return [...own].sort((a, b) => voiceScore(b, language) - voiceScore(a, language));
+}
+
+/** Whether a voice needs the network, going by the id the engine gives it (null when the id does not say). */
+export function voiceNeedsNetwork(voice: VoiceInfo): boolean | null {
+  const id = voice.identifier.toLowerCase();
+  if (id.includes("network")) return true;
+  if (id.includes("local")) return false;
+  return null;
+}
+
+/**
+ * The voice to use: the one the user chose when the phone still has it for this language, otherwise the best one;
+ * null when the phone has no voice for the language.
+ */
+export function pickVoice(voices: readonly VoiceInfo[], language: SpeechLanguage, preferred = ""): string | null {
+  const own = voicesFor(voices, language);
   if (own.length === 0) return null;
-  const score = (voice: VoiceInfo) => {
-    const id = voice.identifier.toLowerCase();
-    let value = 0;
-    if (id.includes("network")) value -= 10;
-    if (id.includes("local")) value += 5;
-    if (voice.language.toLowerCase().replace("_", "-") === speechLocale(language).toLowerCase()) value += 2;
-    if (voice.quality === "Enhanced") value += 1;
-    return value;
-  };
-  return [...own].sort((a, b) => score(b) - score(a))[0].identifier;
+  if (preferred && own.some(voice => voice.identifier === preferred)) return preferred;
+  return own[0].identifier;
+}
+
+function voiceScore(voice: VoiceInfo, language: SpeechLanguage): number {
+  const id = voice.identifier.toLowerCase();
+  let value = 0;
+  if (id.includes("network")) value -= 10;
+  if (id.includes("local")) value += 5;
+  if (voice.language.toLowerCase().replace("_", "-") === speechLocale(language).toLowerCase()) value += 2;
+  if (voice.quality === "Enhanced") value += 1;
+  return value;
+}
+
+/**
+ * Pitch of Leo's voice. A raised pitch made the Vietnamese voices sound squeezed, so Vietnamese keeps the natural one
+ * and only English is a little higher.
+ */
+export function voicePitch(language: SpeechLanguage): number {
+  return language === "vi" ? 1.0 : 1.1;
+}
+
+/**
+ * The text as it should be said, which is not always how it is shown: "3/5" becomes "3 trên 5" / "3 of 5", "09:45"
+ * becomes "9 giờ 45" in Vietnamese, and ellipses become a plain pause, which some engines spelled out or skipped.
+ */
+export function speakableText(text: string, language: SpeechLanguage): string {
+  let out = text.replace(/(\d+)\s*\/\s*(\d+)/g, (_, a: string, b: string) => `${a} ${language === "vi" ? "trên" : "of"} ${b}`);
+  if (language === "vi") {
+    out = out.replace(/\b(\d{1,2}):(\d{2})\b/g, (_, h: string, m: string) => {
+      const hour = Number(h);
+      const minute = Number(m);
+      return minute === 0 ? `${hour} giờ` : `${hour} giờ ${minute}`;
+    });
+  }
+  return out.replace(/\s*(…|\.\.\.)\s*/g, ", ").replace(/,\s*$/, ".").replace(/\s{2,}/g, " ").trim();
 }
 
 export type Span = { start: number; end: number };

@@ -8,6 +8,7 @@ import { MAX_SLOGAN_LENGTH, normalizeSlogan } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
 import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
 import { GreetingLines } from "../timeline/DayHeader";
+import { AssistantVoicePicker } from "./AssistantVoicePicker";
 import { SwitchRow } from "./SwitchRow";
 
 const STYLE_CHOICES: readonly Choice<SloganStyle>[] = [
@@ -40,6 +41,7 @@ export function GreetingSection() {
     {settings.assistant.enabled && <SwitchRow label={t("Read Leo's lines aloud")} value={settings.assistant.voice}
       onChange={next => { void update({ assistant: { voice: next } }); }}
       hint={t("Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.")} />}
+    {settings.assistant.enabled && settings.assistant.voice && <AssistantVoicePicker />}
     <View style={!hasName && s.disabled} pointerEvents={hasName ? "auto" : "none"}>
       <SwitchRow label={t("Show my name in the greeting")} value={showName && hasName}
         onChange={next => { void update({ greeting: { showName: next } }); }}

@@ -20,10 +20,10 @@ export const LINES = {
   greeting: { text: "Oh! You're finally here!" },
   greetingNamed: { text: "Oh! You're finally here, {name}!" },
   listening: { text: "Yes? Ask me something." },
-  thinking: { text: "Hmm…" },
+  thinking: { text: "Let me see…" },
   happy: { text: "Nice work! One more done!" },
   angry: { text: "Hey! Stop poking me!" },
-  sleepy: { text: "Zzz… tap me to wake me up." },
+  sleepy: { text: "So sleepy… tap me to wake me up." },
 } as const satisfies Record<string, Line>;
 
 function todayOf(tasks: readonly Task[], now: Date): Task[] {

@@ -33,10 +33,10 @@ export function AssistantOverlay() {
   const { settings, ready } = useSettings();
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
-  return <Assistant name={settings.profile.name} voice={settings.assistant.voice} />;
+  return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId} />;
 }
 
-function Assistant({ name, voice }: { name: string; voice: boolean }) {
+function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voiceId: string }) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -85,7 +85,7 @@ function Assistant({ name, voice }: { name: string; voice: boolean }) {
     return speakLine(text, speechLanguage, {
       onStart: () => { current.start = Date.now(); },
       onDone: () => onDone?.(),
-    }).then(started => {
+    }, voiceId).then(started => {
       if (!started) current.start = Date.now();
       return started;
     });

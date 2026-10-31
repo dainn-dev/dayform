@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mouthAt, pickVoice, speechLocale, speechMs, speechTimeline } from "./assistant-speech";
+import { mouthAt, pickVoice, speakableText, speechLocale, speechMs, speechTimeline, voiceNeedsNetwork, voicePitch, voicesFor } from "./assistant-speech";
 
 describe("voice choice", () => {
   const voices = [
@@ -23,9 +23,45 @@ describe("voice choice", () => {
     expect(pickVoice([], "en")).toBeNull();
   });
 
+  test("the user's choice wins while the phone still has it for this language", () => {
+    expect(pickVoice(voices, "vi", "vi-vn-x-gft-network")).toBe("vi-vn-x-gft-network");
+    expect(pickVoice(voices, "vi", "gone-voice")).toBe("vi-vn-x-gft-local");
+    expect(pickVoice(voices, "en", "vi-vn-x-gft-local")).toBe("en-us-x-sfg-local");
+  });
+
+  test("the voices of a language are listed best first, and their ids tell on-device from network", () => {
+    expect(voicesFor(voices, "vi").map(voice => voice.identifier)).toEqual(["vi-vn-x-gft-local", "vi-VN-language", "vi-vn-x-gft-network"]);
+    expect(voiceNeedsNetwork({ identifier: "vi-vn-x-gft-network", language: "vi-VN" })).toBe(true);
+    expect(voiceNeedsNetwork({ identifier: "vi-vn-x-gft-local", language: "vi-VN" })).toBe(false);
+    expect(voiceNeedsNetwork({ identifier: "vivo-vi", language: "vi-VN" })).toBeNull();
+  });
+
+  test("Vietnamese keeps the natural pitch", () => {
+    expect(voicePitch("vi")).toBe(1);
+    expect(voicePitch("en")).toBeGreaterThan(1);
+  });
+
   test("locales", () => {
     expect(speechLocale("vi")).toBe("vi-VN");
     expect(speechLocale("en")).toBe("en-US");
+  });
+});
+
+describe("speakable text", () => {
+  test("fractions are said as words", () => {
+    expect(speakableText("Đã xong 1/3 việc.", "vi")).toBe("Đã xong 1 trên 3 việc.");
+    expect(speakableText("2/5 done.", "en")).toBe("2 of 5 done.");
+  });
+
+  test("Vietnamese times are said as hours and minutes; English ones are left to the engine", () => {
+    expect(speakableText("Tiếp theo: Họp lúc 09:45.", "vi")).toBe("Tiếp theo: Họp lúc 9 giờ 45.");
+    expect(speakableText("lúc 14:00.", "vi")).toBe("lúc 14 giờ.");
+    expect(speakableText("at 9:45 AM.", "en")).toBe("at 9:45 AM.");
+  });
+
+  test("ellipses become a plain pause", () => {
+    expect(speakableText("Buồn ngủ quá… chạm để gọi mình dậy nhé.", "vi")).toBe("Buồn ngủ quá, chạm để gọi mình dậy nhé.");
+    expect(speakableText("Để mình xem nào…", "vi")).toBe("Để mình xem nào.");
   });
 });
 

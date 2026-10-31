@@ -139,8 +139,8 @@ const settingsSchema = z.object({
   greeting: group(greetingSchema),
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
-  /** The assistant in the corner of the app (components/assistant/); on by default. `voice` reads its lines aloud with the phone's own speech engine. */
-  assistant: group(z.object({ enabled: flag(true), voice: flag(true) })),
+  /** The assistant in the corner of the app (components/assistant/); on by default. `voice` reads its lines aloud with the phone's own speech engine; `voiceId` is the chosen voice ("" = automatic). */
+  assistant: group(z.object({ enabled: flag(true), voice: flag(true), voiceId: z.string().max(200).catch("") })),
   widget: group(z.object({ showTitles: flag(true) })),
   /**
    * The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. `kind` is "off" while the
