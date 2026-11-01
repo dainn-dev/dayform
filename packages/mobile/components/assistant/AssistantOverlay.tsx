@@ -10,10 +10,9 @@ import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type Speech
 import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
 import { Ionicons } from "@expo/vector-icons";
 import { useVoice } from "./use-voice";
-import { useRecording } from "./use-recording";
-import { transcribeWithSoniox } from "../../lib/soniox-client";
+import { useSoniox } from "./use-soniox";
 import { readSonioxKey } from "../../lib/ai-key-expo";
-import { AiError } from "../../lib/ai-client";
+import { detectWake } from "../../lib/voice-command";
 import { speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { INACTIVE_AFTER_MS, INITIAL_MACHINE, nextState, ONE_SHOT_MS, registerTap, THINKING_MS, type AssistantState } from "../../lib/assistant-state";
 import { useLanguage } from "../../lib/language";
@@ -245,7 +244,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) + Math.abs(g.dy) > 6,
     onPanResponderGrant: () => {
       stopSpeaking();
-      if (clip.recording) void clip.stop();
+      if (soniox.mode === "once") soniox.stop();
       drag.current = { ...current.current };
       droppedAt.current = null;
       dispatch({ type: "dragStarted" });
@@ -296,8 +295,11 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
   // The current exchange started by voice: after the answer the assistant listens again, until silence or "thank you".
   const voiceTurn = useRef(false);
   const sayThen = (text: string, then: () => void) => { void say(text, then).then(started => { if (!started) then(); }); };
+  // With a Soniox key, the microphone goes through Soniox's real-time API (use-soniox.ts) and the phone's recognizer stays off.
+  const [hasSoniox, setHasSoniox] = useState(false);
+  useEffect(() => { void readSonioxKey().then(key => setHasSoniox(key !== null)); }, [chatOpen, machine.state === "listening"]); // eslint-disable-line react-hooks/exhaustive-deps
   const voiceInput = useVoice({
-    wakeEnabled: wakeWord,
+    wakeEnabled: wakeWord && !hasSoniox,
     name: assistantName,
     locale: speechLocale(speechLanguage),
     // Listening for the name pauses whenever the assistant talks or works, so it never hears itself.
@@ -354,14 +356,6 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     dispatch({ type: "questionChosen" });
   }
 
-  // ---- Recording a clip for Soniox's speech to text (hold the assistant, or the chat's microphone) ----
-  const [transcribing, setTranscribing] = useState(false);
-  // With a Soniox key, a clip is recorded and sent to Soniox; without one, the phone's recognizer is used.
-  const [hasSoniox, setHasSoniox] = useState(false);
-  useEffect(() => { void readSonioxKey().then(key => setHasSoniox(key !== null)); }, [chatOpen, machine.state === "listening"]); // eslint-disable-line react-hooks/exhaustive-deps
-  const useProvider = hasSoniox;
-  const clip = useRecording(uri => { void finishClip(uri); });
-
   const reportVoiceProblem = (message: string) => {
     if (chatOpen) chat.addError(message);
     else {
@@ -372,54 +366,84 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     }
   };
 
-  async function finishClip(uri: string | null) {
-    if (!uri) {
-      // Too short: nothing was said.
-      if (!chatOpen) dispatch({ type: "cancelled" });
-      return;
-    }
-    setTranscribing(true);
-    setHeard(t("Turning your voice into text…"));
-    try {
-      const key = await readSonioxKey();
-      if (!key) throw new AiError("Add your Soniox API key on the Assistant page.", null);
-      const text = await transcribeWithSoniox(key, uri, speechLanguage);
-      setTranscribing(false);
-      handleHeard(text);
-    } catch (error) {
-      setTranscribing(false);
+  // ---- Soniox real time: one sentence (hold the assistant, the chat's microphone) and the call by name ----
+  const sonioxFailed = useRef(false);
+  const heldOnce = useRef(false);
+  const soniox = useSoniox({
+    language: speechLanguage,
+    onLive: text => setHeard(text),
+    onUtterance: (text, mode) => {
+      if (mode === "once") {
+        handleHeard(text);
+        return;
+      }
+      // Listening for the name: only an utterance that calls it counts.
+      const match = detectWake(text, assistantName);
+      if (!match.heard) return;
+      soniox.stop();
+      touched();
+      voiceTurn.current = true;
+      if (match.rest) {
+        handleHeard(match.rest);
+        return;
+      }
       setHeard("");
-      reportVoiceProblem(error instanceof AiError ? t(error.message) : t("Could not reach the AI provider."));
-    }
-  }
+      dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
+      soniox.once();
+    },
+    onProblem: (problem, message) => {
+      setHeard("");
+      voiceTurn.current = false;
+      // Listening for the name stops after a problem until the switch is turned on again.
+      sonioxFailed.current = true;
+      reportVoiceProblem(
+        problem === "no-key" ? t("Add your Soniox API key on the Assistant page.")
+          : problem === "mic" ? t("Allow the microphone to call the assistant by voice.")
+            : problem === "rejected" ? t(message ?? "Soniox did not accept the API key.")
+              : t("Could not reach Soniox."),
+      );
+    },
+  });
 
-  /** Starts or stops a clip. While it records, the call-by-name listening is off (one microphone at a time). */
-  const toggleClip = async () => {
-    touched();
-    if (clip.recording) {
-      const uri = await clip.stop();
-      await finishClip(uri);
-      return;
+  // The call by name through Soniox: a stream while the app is in front and the assistant is idle or sleepy.
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", next => setAppActive(next === "active"));
+    return () => sub.remove();
+  }, []);
+  useEffect(() => { if (wakeWord) sonioxFailed.current = false; }, [wakeWord]);
+  const sonioxShouldListen = wakeWord && hasSoniox && appActive && !chatOpen
+    && (machine.state === "idle" || machine.state === "sleepy") && !sonioxFailed.current;
+  useEffect(() => {
+    if (sonioxShouldListen && soniox.mode === "off") soniox.listen();
+    else if (!sonioxShouldListen && soniox.mode === "listen") soniox.stop();
+  }, [sonioxShouldListen, soniox.mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** One spoken sentence, through Soniox when there is a key, otherwise the phone's recognizer. */
+  const captureOnce = (): Promise<boolean> => {
+    if (hasSoniox) {
+      soniox.once();
+      return Promise.resolve(true);
     }
-    stopSpeaking();
-    voiceInput.cancel();
-    if (!chatOpen) dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
-    if (!(await clip.start())) {
-      if (!chatOpen) dispatch({ type: "cancelled" });
-      reportVoiceProblem(t("Allow the microphone to call the assistant by voice."));
-      return;
-    }
-    setHeard(t("Recording… let go to send."));
+    return voiceInput.capture();
   };
 
-  /** Takes one spoken sentence now (hold the assistant, or the chat's microphone). */
+  /** Takes one spoken sentence now (hold the assistant, or the chat's microphone); a second press sends it. */
   const listenOnce = () => {
-    if (useProvider) {
-      void toggleClip();
-      return;
-    }
     touched();
     stopSpeaking();
+    if (hasSoniox) {
+      if (soniox.mode === "once") {
+        soniox.finish();
+        return;
+      }
+      voiceTurn.current = !chatOpen;
+      voiceInput.cancel();
+      if (!chatOpen) dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
+      setHeard("");
+      soniox.once();
+      return;
+    }
     if (voiceInput.mode === "question") {
       voiceInput.cancel();
       return;
@@ -441,7 +465,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     previousState.current = machine.state;
     if (before === "talking" && machine.state === "idle" && voiceTurn.current && !chatOpen && !chat.busy) {
       dispatch({ type: "asked" });
-      void voiceInput.capture().then(ok => { if (!ok) voiceTurn.current = false; });
+      void captureOnce().then(ok => { if (!ok) voiceTurn.current = false; });
     }
   }, [machine.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -452,7 +476,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     if (!pending || !voiceTurn.current || spokenCard.current === pending.id) return;
     spokenCard.current = pending.id;
     const first = pending.lines[0];
-    sayThen(`${fill(t(first.text), first.vars)}. ${t("Shall I?")}`, () => { void voiceInput.capture(); });
+    sayThen(`${fill(t(first.text), first.vars)}. ${t("Shall I?")}`, () => { void captureOnce(); });
   }, [chat.pendingConfirm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const line = lineFor(machine.state, name, spoken);
@@ -463,7 +487,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
 
   return <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
     <Animated.View style={[s.holder, { transform: position.getTranslateTransform() }]} {...pan.panHandlers}>
-      {chatOpen ? null : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question" || clip.recording || transcribing)
+      {chatOpen ? null : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question" || soniox.mode === "once")
         ? <View style={[s.bubble, ...bubblePlace]} pointerEvents="none" accessibilityLiveRegion="polite">
           <Text style={s.bubbleText}>{heard ? `“${heard}”` : t(LINES.listening.text)}</Text>
         </View>
@@ -481,8 +505,8 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
           <Text style={s.bubbleText}>{fill(t(line.text), line.vars)}</Text>
         </View>}
       <View style={s.shadow} pointerEvents="none" />
-      <Pressable onPress={onPress} onLongPress={listenOnce} delayLongPress={350}
-        onPressOut={() => { if (clip.recording) void toggleClip(); }} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
+      <Pressable onPress={onPress} onLongPress={() => { heldOnce.current = hasSoniox; listenOnce(); }} delayLongPress={350}
+        onPressOut={() => { if (heldOnce.current) { heldOnce.current = false; soniox.finish(); } }} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
         accessibilityHint={`${t("Tap to ask a question. Drag to move.")} ${t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}`} hitSlop={6}>
         <Animated.Image source={LEO} resizeMode="contain" style={[s.leo, {
           transform: [{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }],
@@ -494,8 +518,8 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     </Animated.View>
     <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
       onSend={text => { touched(); void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
-      listening={voiceInput.mode === "question"} heard={heard} onMic={listenOnce}
-      recording={clip.recording} transcribing={transcribing} />
+      listening={voiceInput.mode === "question" || soniox.mode === "once"} heard={heard} onMic={listenOnce}
+      recording={soniox.mode === "once"} />
   </View>;
 }
 

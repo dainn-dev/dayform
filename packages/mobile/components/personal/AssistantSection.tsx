@@ -144,7 +144,7 @@ export function AssistantSection() {
           </Pressable>
         </View>}
       {sonioxNote && <Text style={sonioxNote.ok ? s.ok : s.error} accessibilityLiveRegion="polite">{sonioxNote.text}</Text>}
-      <Text style={s.hint}>{t("With a Soniox key, holding the assistant or tapping the microphone in the chat records what you say and sends it to Soniox (api.soniox.com) to turn into text; the recording and its text are deleted from Soniox right after. The key stays in the phone's secure storage. Without a key, the phone's own speech recognizer is used.")}</Text>
+      <Text style={s.hint}>{t("With a Soniox key, your voice is streamed to Soniox (stt-rt.soniox.com) in real time while you hold the assistant or tap the microphone in the chat, and the words appear as you speak. With \"Call by voice\" on, the microphone streams to Soniox the whole time the app is open and the assistant is idle, and Soniox charges for that listening time. The key stays in the phone's secure storage. Without a key, the phone's own speech recognizer is used.")}</Text>
 
       <View style={s.divider} />
       <Text style={s.heading} accessibilityRole="header">{t("AI chat")}</Text>

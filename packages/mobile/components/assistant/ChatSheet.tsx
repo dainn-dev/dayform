@@ -82,7 +82,7 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
           </View>}
           {entries.length === 0 && readiness === "ready" && <Text style={s.hint}>{t("Ask about your day, or ask me to add, move or finish a task. I will ask before changing anything.")}</Text>}
           {entries.map(entry => <EntryView key={entry.id} entry={entry} s={s} onAnswer={onAnswer} />)}
-          {recording && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Recording… tap the microphone again to send.")}</Text>}
+          {recording && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Listening… tap the microphone again to send.")}</Text>}
           {transcribing && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Turning your voice into text…")}</Text>}
           {listening && <Text style={s.typing} accessibilityLiveRegion="polite">{heard ? `“${heard}”` : t("Listening…")}</Text>}
           {busy && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Thinking…")}</Text>}
