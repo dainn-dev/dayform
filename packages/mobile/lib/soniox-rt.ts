@@ -66,3 +66,8 @@ export function applyRt(state: RtState, payload: unknown): RtUpdate {
   }
   return { state: { finalText, partial }, utterances, finished: payload.finished === true, error: null };
 }
+
+/** The connection must be open and configured within this long, or the network counts as too slow. */
+export const CONNECT_TIMEOUT_MS = 8000;
+/** Audio spoken while the connection is still opening is kept, up to this many seconds, and sent once it is. */
+export const MAX_QUEUE_SECONDS = 10;

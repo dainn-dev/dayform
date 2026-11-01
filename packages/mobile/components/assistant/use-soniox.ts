@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioStream } from "expo-audio";
 import { readSonioxKey } from "../../lib/ai-key-expo";
-import { applyRt, emptyRt, liveText, MAX_ONCE_MS, rtConfig, SONIOX_RT_URL, type RtState } from "../../lib/soniox-rt";
+import { applyGain, initialGain } from "../../lib/pcm-gain";
+import { applyRt, CONNECT_TIMEOUT_MS, emptyRt, liveText, MAX_ONCE_MS, MAX_QUEUE_SECONDS, rtConfig, SONIOX_RT_URL, type RtState } from "../../lib/soniox-rt";
 
 export type SonioxMode = "off" | "listen" | "once";
 export type SonioxProblem = "no-key" | "mic" | "network" | "rejected";
@@ -12,7 +13,8 @@ type Params = {
   onLive: (text: string) => void;
   /** A finished sentence: in "listen" every utterance, in "once" the one sentence ("" when nothing was said). */
   onUtterance: (text: string, mode: "listen" | "once") => void;
-  onProblem: (problem: SonioxProblem, message: string | null) => void;
+  /** `during` is the mode that was running when the problem came up. */
+  onProblem: (problem: SonioxProblem, message: string | null, during: SonioxMode) => void;
 };
 
 const SAMPLE_RATE = 16000;
@@ -34,6 +36,7 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
   const rt = useRef<RtState>(emptyRt());
   const finishing = useRef(false);
   const limit = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ language, onLive, onUtterance, onProblem });
   latest.current = { language, onLive, onUtterance, onProblem };
 
@@ -54,6 +57,8 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
   const teardown = useCallback(() => {
     if (limit.current) clearTimeout(limit.current);
     limit.current = null;
+    if (connectTimer.current) clearTimeout(connectTimer.current);
+    connectTimer.current = null;
     onBuffer.current = () => {};
     try {
       if (stream.isStreaming) stream.stop();
@@ -92,12 +97,12 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
     teardown();
     const key = await readSonioxKey();
     if (!key) {
-      latest.current.onProblem("no-key", null);
+      latest.current.onProblem("no-key", null, "off");
       return;
     }
     const permission = await requestRecordingPermissionsAsync().catch(() => ({ granted: false }));
     if (!permission.granted) {
-      latest.current.onProblem("mic", null);
+      latest.current.onProblem("mic", null, "off");
       return;
     }
     setMode(next);
@@ -108,28 +113,63 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
     socket.binaryType = "arraybuffer";
     ws.current = socket;
 
+    // The microphone starts now, in parallel with the connection: on a slow network the first words would otherwise be
+    // lost. Audio is raised by an automatic gain (the raw microphone is quiet outdoors) and kept in a queue until the
+    // connection is open and configured.
+    let gain = initialGain();
     onBuffer.current = data => {
-      if (ws.current !== socket || socket.readyState !== WebSocket.OPEN) return;
-      if (configured.current) socket.send(data);
-      else queue.current.push(data);
+      if (ws.current !== socket) return;
+      if (data.byteLength >= 2) gain = applyGain(new Int16Array(data, 0, data.byteLength >> 1), stream.sampleRate || SAMPLE_RATE, gain);
+      if (configured.current && socket.readyState === WebSocket.OPEN) {
+        socket.send(data);
+        return;
+      }
+      if (socket.readyState !== WebSocket.CONNECTING && socket.readyState !== WebSocket.OPEN) return;
+      queue.current.push(data);
+      // Keep only the latest seconds, so a connection that never opens cannot fill the memory.
+      let bytes = 0;
+      for (const chunk of queue.current) bytes += chunk.byteLength;
+      const cap = MAX_QUEUE_SECONDS * (stream.sampleRate || SAMPLE_RATE) * 2;
+      while (bytes > cap && queue.current.length > 1) bytes -= (queue.current.shift() as ArrayBuffer).byteLength;
     };
+    const microphone = (async () => {
+      try {
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await stream.start();
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    void microphone.then(ok => {
+      if (ok || ws.current !== socket) return;
+      const during = modeRef.current;
+      teardown();
+      latest.current.onProblem("mic", null, during);
+    });
+
+    // A network too slow to connect in time is reported instead of leaving the assistant "listening" to nothing.
+    connectTimer.current = setTimeout(() => {
+      connectTimer.current = null;
+      if (ws.current !== socket || configured.current) return;
+      const during = modeRef.current;
+      teardown();
+      latest.current.onLive("");
+      latest.current.onProblem("network", null, during);
+    }, CONNECT_TIMEOUT_MS);
 
     socket.onopen = () => {
-      void (async () => {
-        try {
-          await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-          await stream.start();
-        } catch {
-          teardown();
-          latest.current.onProblem("mic", null);
-          return;
-        }
-        if (ws.current !== socket) return;
+      void microphone.then(ok => {
+        if (!ok || ws.current !== socket) return;
         socket.send(JSON.stringify(rtConfig(latest.current.language, stream.sampleRate || SAMPLE_RATE)));
         configured.current = true;
+        if (connectTimer.current) clearTimeout(connectTimer.current);
+        connectTimer.current = null;
         for (const data of queue.current) socket.send(data);
         queue.current = [];
-      })();
+        // The user already let go while it was connecting: now that the audio is sent, end the stream.
+        if (finishing.current) socket.send("");
+      });
     };
 
     socket.onmessage = event => {
@@ -143,9 +183,10 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
       const update = applyRt(rt.current, payload);
       rt.current = update.state;
       if (update.error) {
+        const during = modeRef.current;
         teardown();
         latest.current.onLive("");
-        latest.current.onProblem("rejected", update.error);
+        latest.current.onProblem("rejected", update.error, during);
         return;
       }
       for (const said of update.utterances) {
@@ -163,11 +204,10 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
 
     socket.onerror = () => {
       if (ws.current !== socket) return;
-      const wasOnce = modeRef.current === "once";
+      const during = modeRef.current;
       teardown();
       latest.current.onLive("");
-      latest.current.onProblem("network", null);
-      if (wasOnce) latest.current.onUtterance("", "once");
+      latest.current.onProblem("network", null, during);
     };
     socket.onclose = () => {
       if (ws.current !== socket) return;
@@ -200,7 +240,8 @@ export function useSoniox({ language, onLive, onUtterance, onProblem }: Params) 
     try {
       // An empty text frame ends the stream; Soniox answers with the remaining words and `finished`.
       if (socket.readyState === WebSocket.OPEN && configured.current) socket.send("");
-      else deliverOnce();
+      // Still connecting: the queued audio is sent and the stream ended as soon as the connection is configured.
+      else if (socket.readyState !== WebSocket.CONNECTING && !(socket.readyState === WebSocket.OPEN && !configured.current)) deliverOnce();
     } catch {
       deliverOnce();
     }

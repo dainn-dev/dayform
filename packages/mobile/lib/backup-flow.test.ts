@@ -345,7 +345,7 @@ describe("runImport replace keeps a safety copy of the current tasks", () => {
     const copy = safety();
     const { box, mutate } = fakeStore([task("a")], copy.order);
     await runImport(mutate, parsed([task("z")]), "replace", copy.target);
-    expect(box.options).toEqual([{ silent: true }, { undo: "bulk" }]);
+    expect(box.options).toEqual([{ silent: true }, { undo: "bulk", noXp: true }]);
   });
 
   test("refuses the replace, with a typed result, when the copy cannot be written", async () => {

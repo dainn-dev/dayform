@@ -6,6 +6,11 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
+import { playRankSound } from "../../lib/rank-sound-expo";
+import { isNewRealm, rankLabel } from "../../lib/rank-label";
+import { word } from "../../lib/ladder-words";
+import { useXp } from "../../lib/xp-context";
+import { noticeFor, type Notice } from "../../lib/xp-notice";
 import { IDLE_TIP_CHECK_MS, pickTip, ROUTE_TIP_DELAY_MS, routeOf, tipAllowed, type TipRoute } from "../../lib/assistant-tips";
 import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
 import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
@@ -38,6 +43,8 @@ const BUBBLE_WIDTH = 220;
 /** Below this many dp from the top the bubble opens under the assistant instead of above. */
 const BUBBLE_FLIP_Y = 190;
 const REDUCED_MOTION = 0.3;
+/** Listening for the name tries again this many times after a network problem before it stops. */
+const LISTEN_RETRIES = 5;
 
 // Kept for the app session: Leo greets once per start and stays where the user put it.
 let greetedThisSession = false;
@@ -50,12 +57,13 @@ export function AssistantOverlay() {
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
   return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId}
     assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord}
-    tips={settings.assistant.tips} route={routeOf(pathname)} look={settings.assistant.look} />;
+    tips={settings.assistant.tips} route={routeOf(pathname)} look={settings.assistant.look}
+    rankSound={settings.xp.enabled && settings.xp.sound} />;
 }
 
-type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean; tips: boolean; route: TipRoute | null; look: AssistantLook };
+type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean; tips: boolean; route: TipRoute | null; look: AssistantLook; rankSound: boolean };
 
-function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, tips, route, look }: AssistantProps) {
+function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, tips, route, look, rankSound }: AssistantProps) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -230,6 +238,49 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     const timer = setInterval(() => showTip(false), IDLE_TIP_CHECK_MS);
     return () => clearInterval(timer);
   }, [tips, route]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A rank up (lib/xp.ts): a chime, a congratulation in the bubble and a cheer. A new realm gets the longer chime.
+  // The same bubble also announces what judging the finished days found (a penalty, a demotion, a rest day).
+  const xp = useXp();
+  const [announcement, setAnnouncement] = useState<Line | null>(null);
+  useEffect(() => {
+    if (!announcement) return;
+    const timer = setTimeout(() => setAnnouncement(null), 6500);
+    return () => clearTimeout(timer);
+  }, [announcement]);
+  const seenGain = useRef<number | null>(xp.lastGain?.id ?? null);
+  useEffect(() => {
+    const gain = xp.lastGain;
+    if (!gain || gain.id === seenGain.current) return;
+    seenGain.current = gain.id;
+    if (!gain.rankUp) return;
+    const newRealm = isNewRealm(xp.rank);
+    const line: Line = newRealm
+      ? { text: word(xp.style, "Congratulations! You entered the {realm} realm!"), vars: { realm: t(xp.ladder.tracks[xp.rank.realm]) } }
+      : { text: word(xp.style, "Breakthrough! You reached {rank}."), vars: { rank: rankLabel(xp.rank, t, xp.ladder) } };
+    if (rankSound) playRankSound(newRealm ? "realm" : "step");
+    setAnnouncement(line);
+    dispatch({ type: "positive" });
+    // Said a moment after the chime starts, replacing the usual "nice work".
+    const speakTimer = setTimeout(() => { if (!tipInputs.current.chatOpen) void say(fill(t(line.text), line.vars)); }, 900);
+    return () => clearTimeout(speakTimer);
+  }, [xp.lastGain]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // What the judging of the finished days found waits until the assistant is idle, so it never talks over the greeting.
+  const pendingNotice = useRef<Notice | null>(null);
+  const seenEvents = useRef(xp.lastEvents);
+  useEffect(() => {
+    if (xp.lastEvents === seenEvents.current) return;
+    seenEvents.current = xp.lastEvents;
+    pendingNotice.current = noticeFor(xp.lastEvents, xp.style);
+  }, [xp.lastEvents]);
+  useEffect(() => {
+    const notice = pendingNotice.current;
+    if (!notice || machine.state !== "idle" || chatOpen) return;
+    pendingNotice.current = null;
+    setAnnouncement(notice.line);
+    void say(fill(t(notice.line.text), notice.line.vars));
+  }, [machine.state, chatOpen, xp.lastEvents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // With a screen reader on, the bubble is read by it, so Leo does not speak over it.
   useEffect(() => {
@@ -409,10 +460,14 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
 
   // ---- Soniox real time: one sentence (hold the assistant, the chat's microphone) and the call by name ----
   const sonioxFailed = useRef(false);
+  const listenFailures = useRef(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
+  useEffect(() => () => { if (retryTimer.current) clearTimeout(retryTimer.current); }, []);
   const heldOnce = useRef(false);
   const soniox = useSoniox({
     language: speechLanguage,
-    onLive: text => setHeard(text),
+    onLive: text => { if (text) listenFailures.current = 0; setHeard(text); },
     onUtterance: (text, mode) => {
       if (mode === "once") {
         handleHeard(text);
@@ -432,8 +487,30 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
       soniox.once();
     },
-    onProblem: (problem, message) => {
+    onProblem: (problem, message, during) => {
       setHeard("");
+      if (problem === "network" && during === "listen") {
+        // A weak connection while listening for the name: try again with growing pauses instead of giving up.
+        listenFailures.current += 1;
+        if (listenFailures.current <= LISTEN_RETRIES) {
+          sonioxFailed.current = true;
+          if (retryTimer.current) clearTimeout(retryTimer.current);
+          retryTimer.current = setTimeout(() => { retryTimer.current = null; sonioxFailed.current = false; setRetryTick(n => n + 1); }, Math.min(30_000, 2000 * 2 ** listenFailures.current));
+          return;
+        }
+      }
+      if (problem === "network" && during === "once" && hasSoniox) {
+        // A weak connection while taking one sentence: the phone's own recognizer can still hear it (offline where it has the language).
+        const note = t("The connection is slow, so I am listening with the phone instead. Please say it again.");
+        voiceTurn.current = !chatOpen;
+        if (chatOpen) chat.addError(note);
+        void voiceInput.capture().then(ok => {
+          if (ok) return;
+          voiceTurn.current = false;
+          reportVoiceProblem(t("Could not reach Soniox."));
+        });
+        return;
+      }
       voiceTurn.current = false;
       // Listening for the name stops after a problem until the switch is turned on again.
       sonioxFailed.current = true;
@@ -458,7 +535,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   useEffect(() => {
     if (sonioxShouldListen && soniox.mode === "off") soniox.listen();
     else if (!sonioxShouldListen && soniox.mode === "listen") soniox.stop();
-  }, [sonioxShouldListen, soniox.mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sonioxShouldListen, soniox.mode, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** One spoken sentence, through Soniox when there is a key, otherwise the phone's recognizer. */
   const captureOnce = (): Promise<boolean> => {
@@ -520,7 +597,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     sayThen(`${fill(t(first.text), first.vars)}. ${t("Shall I?")}`, () => { void captureOnce(); });
   }, [chat.pendingConfirm]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const line = lineFor(machine.state, name, spoken);
+  const line = announcement ?? lineFor(machine.state, name, spoken);
   const below = place.y < minY + BUBBLE_FLIP_Y;
   const rightSide = place.x + WIDTH / 2 > screenW / 2;
   const bubblePlace = [below ? { top: HEIGHT + 4 } : { bottom: HEIGHT + 4 }, rightSide ? { right: 0 } : { left: 0 }];

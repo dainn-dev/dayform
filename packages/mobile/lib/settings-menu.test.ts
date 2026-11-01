@@ -55,7 +55,7 @@ describe("registry", () => {
 
   test("lists the pages of the design in order", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
-      ["appearance", "language", "greeting", "assistant"],
+      ["appearance", "language", "greeting", "assistant", "cultivation"],
       ["new-tasks", "calendar", "categories", "special-days", "habits"],
       ["notifications", "widget"],
       ["cycle", "cycle-tracking"],

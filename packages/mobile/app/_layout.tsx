@@ -18,6 +18,8 @@ import { CategoriesProvider, useCategories } from "../lib/categories-context";
 import { SpecialDaysProvider } from "../lib/special-days-context";
 import { CycleProvider } from "../lib/cycle-context";
 import { SettingsProvider, useSettings } from "../lib/settings-context";
+import { XpProvider } from "../lib/xp-context";
+import { XpSettler } from "../components/XpSettler";
 import { TasksProvider } from "../lib/tasks-context";
 import { UpdateProvider } from "../lib/update-context";
 import { LanguageProvider, useLanguage } from "../lib/language";
@@ -75,6 +77,7 @@ export default function RootLayout() {
               <CategoriesProvider>
               <SpecialDaysProvider>
               <CycleProvider>
+              <XpProvider>
               <TasksProvider>
                 <UpdateProvider>
                   <OtaProvider>
@@ -86,6 +89,7 @@ export default function RootLayout() {
                     <RemindersBridge />
                     <NotificationActions />
                     <SeriesExtender />
+                    <XpSettler />
                     <SnapshotScheduler />
                     <WidgetBridge />
                     <UpdatePrompt />
@@ -93,6 +97,7 @@ export default function RootLayout() {
                   </OtaProvider>
                 </UpdateProvider>
               </TasksProvider>
+              </XpProvider>
               </CycleProvider>
               </SpecialDaysProvider>
               </CategoriesProvider>

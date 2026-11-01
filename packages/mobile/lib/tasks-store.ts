@@ -31,6 +31,13 @@ export type MutateOptions = {
   silent?: boolean;
   /** Makes a successful write undoable via `undoLast`; the kind picks the UndoBar message. Ignored when nothing changed. */
   undo?: UndoKind;
+  /** A move of data, not a deed (an import, the archive): it earns and takes back no experience. */
+  noXp?: boolean;
+};
+
+/** Called after a write succeeded, with the list before and after; never able to fail the write. */
+export type CommitHooks = {
+  onCommitted?: (change: { before: Task[]; next: Task[] }) => void;
 };
 
 export type TasksStore = {
@@ -134,7 +141,7 @@ function upsertTask(tasks: Task[], task: Task): Task[] {
     : [...tasks, task];
 }
 
-export function createTasksStore(storage: KeyValueStorage): TasksStore {
+export function createTasksStore(storage: KeyValueStorage, hooks: CommitHooks = {}): TasksStore {
   let state: TasksState = { tasks: [], loading: true, error: null, undo: null, lastRemoved: null, writesBlocked: false };
   let writeBlock: string | null = LOAD_ERROR;
   let token = 0;
@@ -175,7 +182,7 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
    * Must run inside a queue turn. `onCommit` derives extra state from the list the write was
    * computed from; it is applied in the same setState as the new list, and only on success.
    */
-  async function applyWrite(update: Update, onCommit?: OnCommit, silent = false): Promise<boolean> {
+  async function applyWrite(update: Update, onCommit?: OnCommit, silent = false, noXp = false): Promise<boolean> {
     const fail = (message: string): false => {
       if (!silent) setState({ error: message });
       return false;
@@ -190,12 +197,19 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
     if (!fitsSize(serialized, before)) return fail(TOO_LARGE_ERROR);
     if (!(await persist(serialized))) return fail(SAVE_ERROR);
     setState({ ...onCommit?.(before, next), tasks: next, ...(silent ? {} : { error: null }) });
+    if (!noXp) {
+      try {
+        hooks.onCommitted?.({ before, next });
+      } catch {
+        // The experience is a bonus: it must never fail a write that already succeeded.
+      }
+    }
     return true;
   }
 
-  async function write(update: Update, onCommit?: OnCommit, silent = false): Promise<boolean> {
+  async function write(update: Update, onCommit?: OnCommit, silent = false, noXp = false): Promise<boolean> {
     await ready.promise;
-    return enqueue(() => applyWrite(update, onCommit, silent));
+    return enqueue(() => applyWrite(update, onCommit, silent, noXp));
   }
 
   async function undoLast(): Promise<boolean> {
@@ -269,7 +283,7 @@ export function createTasksStore(storage: KeyValueStorage): TasksStore {
     load,
     upsert: task => write(tasks => upsertTask(tasks, task)),
     remove,
-    mutate: (update, options) => write(update, options?.undo ? undoCommit(options.undo) : undefined, options?.silent === true),
+    mutate: (update, options) => write(update, options?.undo ? undoCommit(options.undo) : undefined, options?.silent === true, options?.noXp === true),
     undoLast,
     undoRemove: undoLast,
     clearUndo: () => setState({ undo: null }),

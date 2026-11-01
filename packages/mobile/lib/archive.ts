@@ -25,7 +25,7 @@ export type RestoreOutcome =
   | { ok: false; reason: ArchiveFailure };
 /** The slice of `TasksStore` the archive needs: a serialised, pessimistic list write. */
 export type ArchiveStore = {
-  mutate(update: (tasks: Task[]) => Task[], options?: { silent?: boolean }): Promise<boolean>;
+  mutate(update: (tasks: Task[]) => Task[], options?: { silent?: boolean; noXp?: boolean }): Promise<boolean>;
 };
 /** `parts` are English translation keys (with optional counts); the UI translates them when rendering. */
 export type ArchiveNotice = { tone: "success" | "error"; parts: { key: string; count?: number }[] };
@@ -183,7 +183,7 @@ async function archiveNow(
     const next = plan.update(current);
     seen.removed = current.length - next.length;
     return next;
-  }, { silent: true });
+  }, { silent: true, noXp: true });
   if (!saved || seen.removed === null) return { ok: false, reason: "save-failed" };
   return { ok: true, archived: seen.removed, total: merged.length };
 }
@@ -232,7 +232,7 @@ async function restoreNow(storage: KeyValueStorage, store: ArchiveStore): Promis
     seen.step = restoreInto(current, archive.tasks);
     seen.before = current.length;
     return seen.step.next;
-  }, { silent: true });
+  }, { silent: true, noXp: true });
   if (!saved || seen.step === null) return { ok: false, reason: "save-failed" };
   const { next, ids } = seen.step;
   const left = archive.tasks.filter(task => !ids.has(task.id));

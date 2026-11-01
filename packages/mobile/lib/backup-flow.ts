@@ -65,7 +65,7 @@ export type ImportTarget = SafetyCopyTarget & {
 };
 export type ImportMutate = (
   update: (tasks: Task[]) => Task[],
-  options?: { undo?: "bulk"; silent?: boolean },
+  options?: { undo?: "bulk"; silent?: boolean; noXp?: boolean },
 ) => Promise<boolean>;
 
 type ExportFailure = "sharing-unavailable" | "share-failed" | "write-failed" | "unsupported-platform";
@@ -129,7 +129,7 @@ async function commitImport(
     seen.changed = expected !== null && committed !== expected;
     seen.plan = seen.changed ? null : planImport(committed, parsed, mode);
     return seen.plan !== null && seen.plan.ok ? seen.plan.update(committed) : committed;
-  }, { undo: "bulk" });
+  }, { undo: "bulk", noXp: true });
   if (seen.changed) return { ok: false, reason: "list-changed" };
   if (seen.plan !== null && !seen.plan.ok) return { ok: false, reason: seen.plan.reason };
   if (!saved || seen.plan === null) return { ok: false, reason: "save-failed" };

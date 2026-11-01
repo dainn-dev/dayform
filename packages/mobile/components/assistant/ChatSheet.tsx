@@ -62,10 +62,13 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
   };
 
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.backdrop}>
+    {/* iOS lifts the sheet with the KeyboardAvoidingView; on Android the Modal is not resized, so the backdrop is padded by the
+        keyboard. The padding goes on the backdrop, not the sheet: inside the sheet it counted against the sheet's maximum
+        height and pushed the input row under the keyboard. */}
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={[s.backdrop, Platform.OS === "android" && keyboard.height > 0 && { paddingBottom: keyboard.height }]}>
       <Pressable style={s.dismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={t("Close")} />
-      {/* iOS lifts the sheet with the KeyboardAvoidingView; on Android the Modal is not resized, so it is padded by the keyboard. */}
-      <View style={[s.sheet, { paddingBottom: (Platform.OS === "android" && keyboard.height > 0 ? keyboard.height : insets.bottom) + 8 }]}>
+      <View style={[s.sheet, { paddingBottom: (Platform.OS === "android" && keyboard.height > 0 ? 0 : insets.bottom) + 8 }]}>
         <View style={s.header}>
           <Text style={s.title} accessibilityRole="header">{name}</Text>
           <Pressable onPress={onClear} accessibilityRole="button" accessibilityLabel={t("New chat")} hitSlop={8} style={s.iconButton}>
@@ -150,7 +153,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 4, paddingBottom: 6 },
   title: { flex: 1, color: c.foreground, fontSize: 16, fontWeight: "800" },
   iconButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  list: { flexGrow: 0 },
+  list: { flexGrow: 0, flexShrink: 1 },
   listBody: { gap: 8, paddingVertical: 6 },
   hint: { color: c.mutedForeground, fontSize: 13, lineHeight: 19 },
   typing: { color: c.mutedForeground, fontSize: 12, fontStyle: "italic" },

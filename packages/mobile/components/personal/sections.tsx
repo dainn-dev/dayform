@@ -8,6 +8,7 @@ import { AboutSection } from "./AboutSection";
 import { AppearanceSection } from "./AppearanceSection";
 import { AssistantSection } from "./AssistantSection";
 import { CalendarSection } from "./CalendarSection";
+import { CultivationSection } from "./CultivationSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { SpecialDaysSection } from "./SpecialDaysSection";
 import { CycleSection } from "./CycleSection";
@@ -35,6 +36,7 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   language: { Component: LanguageSection },
   greeting: { Component: GreetingSection, hasTextInput: true },
   assistant: { Component: AssistantSection, hasTextInput: true },
+  cultivation: { Component: CultivationSection },
   "new-tasks": { Component: DefaultsSection, hasTextInput: true },
   calendar: { Component: CalendarSection },
   categories: { Component: CategoriesSection },

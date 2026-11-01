@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Task } from "./planner";
 import { createTasksStore, type MutateOptions } from "./tasks-store";
 import type { UndoState } from "./undo";
+import { useXp } from "./xp-context";
+import { xpChange } from "./xp-sync";
 
 type TasksContextValue = {
   tasks: Task[];
@@ -26,7 +28,17 @@ type TasksContextValue = {
 const TasksContext = createContext<TasksContextValue | null>(null);
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
-  const [store] = useState(() => createTasksStore(AsyncStorage));
+  // A finished task earns experience and a reopened one gives it back; the store reports each committed write.
+  const xp = useXp();
+  const xpRef = useRef(xp);
+  xpRef.current = xp;
+  const [store] = useState(() => createTasksStore(AsyncStorage, {
+    onCommitted: ({ before, next }) => {
+      const { finished, reopened } = xpChange(before, next);
+      if (finished.length > 0) void xpRef.current.claim(finished, new Date());
+      if (reopened.length > 0) void xpRef.current.revoke(reopened);
+    },
+  }));
 
   useEffect(() => {
     void store.load();

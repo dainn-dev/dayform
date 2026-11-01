@@ -100,7 +100,6 @@ export default function PlannerScreen() {
       <View style={s.backlogHeader}><View><SectionEyebrow>{tr("WHEN YOU'RE READY")}</SectionEyebrow><Text accessibilityRole="header" style={s.backlogTitle}>{tr("On your mind")} <Text style={s.backlogCount}>{backlog.length}</Text></Text></View><Pressable onPress={() => router.push("/(tabs)/explore")} accessibilityRole="link" accessibilityLabel={tr("View all tasks")}><Text style={s.seeAll}>{tr("View all  →")}</Text></Pressable></View>
       {backlog.length ? backlog.slice(0, 2).map(t => <View key={t.id} style={{ marginBottom: 10 }}><TaskCard task={t} onPress={() => setEditing(t)} onToggle={() => toggle(t)} onSchedule={() => setEditing(t)} /></View>) : <Text style={s.backlogEmpty}>{tr("Your backlog is clear. Enjoy the space.")}</Text>}
     </ScrollView>
-    <Pressable onPress={() => openNew()} accessibilityRole="button" accessibilityLabel={tr("Create a new task")} style={s.fab}><Ionicons name="add" size={30} color={colors.onPrimary} /></Pressable>
     {editing !== undefined && <TaskEditor key={editing?.id ?? `new-${slot ?? "blank"}`} visible task={editing} defaultDate={selected} defaultTime={slot} onClose={close} />}
   </SafeAreaView>;
 }
@@ -115,5 +114,4 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   backlogCount: { color: c.primary, fontSize: 15 },
   seeAll: { color: c.primary, fontSize: 12, fontWeight: "800", marginBottom: 3 },
   backlogEmpty: { color: c.mutedForeground, fontSize: 12, paddingVertical: 13 },
-  fab: { position: "absolute", bottom: 18, right: 22, width: 57, height: 57, backgroundColor: c.primary, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowColor: c.fabShadow, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
 });

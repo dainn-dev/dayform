@@ -142,6 +142,8 @@ const settingsSchema = z.object({
   greeting: group(greetingSchema),
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
+  /** Cultivation: experience for finished tasks, realms and rest days (lib/xp.ts, lib/realm.ts); on by default. */
+  xp: group(z.object({ enabled: flag(true), sound: flag(true), style: choice(["cultivation", "engineer"], "cultivation") })),
   /** The assistant in the corner of the app (components/assistant/); on by default. `voice` reads its lines aloud with the phone's own speech engine; `voiceId` is the chosen voice ("" = automatic). */
   assistant: group(z.object({
     enabled: flag(true), voice: flag(true), voiceId: z.string().max(200).catch(""),
