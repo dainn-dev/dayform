@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
+import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
 import type { ThemeColors } from "../../constants/theme";
 import { fill } from "../../lib/assistant-answers";
 import { useLanguage } from "../../lib/language";
@@ -42,6 +43,7 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
   const router = useRouter();
   const [draft, setDraft] = useState("");
   const scroll = useRef<ScrollView>(null);
@@ -62,7 +64,8 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.backdrop}>
       <Pressable style={s.dismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={t("Close")} />
-      <View style={[s.sheet, { paddingBottom: insets.bottom + 8 }]}>
+      {/* iOS lifts the sheet with the KeyboardAvoidingView; on Android the Modal is not resized, so it is padded by the keyboard. */}
+      <View style={[s.sheet, { paddingBottom: (Platform.OS === "android" && keyboard.height > 0 ? keyboard.height : insets.bottom) + 8 }]}>
         <View style={s.header}>
           <Text style={s.title} accessibilityRole="header">{name}</Text>
           <Pressable onPress={onClear} accessibilityRole="button" accessibilityLabel={t("New chat")} hitSlop={8} style={s.iconButton}>
@@ -82,9 +85,10 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
           </View>}
           {entries.length === 0 && readiness === "ready" && <Text style={s.hint}>{t("Ask about your day, or ask me to add, move or finish a task. I will ask before changing anything.")}</Text>}
           {entries.map(entry => <EntryView key={entry.id} entry={entry} s={s} onAnswer={onAnswer} />)}
-          {recording && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Listening… tap the microphone again to send.")}</Text>}
           {transcribing && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Turning your voice into text…")}</Text>}
-          {listening && <Text style={s.typing} accessibilityLiveRegion="polite">{heard ? `“${heard}”` : t("Listening…")}</Text>}
+          {(listening || recording) && !transcribing && <Text style={s.typing} accessibilityLiveRegion="polite">
+            {heard ? `“${heard}”` : t(recording ? "Listening… tap the microphone again to send." : "Listening…")}
+          </Text>}
           {busy && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Thinking…")}</Text>}
         </ScrollView>
 

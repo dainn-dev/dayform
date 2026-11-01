@@ -12,6 +12,7 @@ import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { AssistantVoicePicker } from "./AssistantVoicePicker";
 import { SwitchRow } from "./SwitchRow";
+import { useRevealOnFocus } from "../editor/reveal-context";
 
 const URL_PROBLEMS = {
   empty: "Enter the provider's base URL.",
@@ -28,6 +29,7 @@ export function AssistantSection() {
   const { t, language } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const revealOnFocus = useRevealOnFocus();
   const { assistant, ai } = settings;
 
   const [name, setName] = useState(assistant.name);
@@ -109,7 +111,7 @@ export function AssistantSection() {
 
     {assistant.enabled && <>
       <Text style={s.label}>{t("Assistant's name")}</Text>
-      <TextInput value={name} onChangeText={setName} onBlur={commitName} onSubmitEditing={commitName} maxLength={20}
+      <TextInput onFocus={revealOnFocus} value={name} onChangeText={setName} onBlur={commitName} onSubmitEditing={commitName} maxLength={20}
         style={s.input} placeholder="Leo" placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("Assistant's name")} />
 
       <SwitchRow label={t("Read the assistant's lines aloud")} value={assistant.voice}
@@ -136,7 +138,7 @@ export function AssistantSection() {
           </Pressable>
         </View>
         : <View style={s.keyRow}>
-          <TextInput value={sonioxDraft} onChangeText={setSonioxDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
+          <TextInput onFocus={revealOnFocus} value={sonioxDraft} onChangeText={setSonioxDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
             style={[s.input, s.keyInput]} placeholder={t("Paste your Soniox API key")} placeholderTextColor={colors.mutedForeground}
             accessibilityLabel={t("Soniox API key (speech to text)")} />
           <Pressable onPress={() => { void storeSoniox(); }} disabled={!sonioxDraft.trim()} accessibilityRole="button" style={[s.smallButton, !sonioxDraft.trim() && s.disabled]}>
@@ -154,13 +156,13 @@ export function AssistantSection() {
 
       {ai.enabled && <>
         <Text style={s.label}>{t("Base URL")}</Text>
-        <TextInput value={baseUrl} onChangeText={setBaseUrl} onBlur={commitUrl} onSubmitEditing={commitUrl} autoCapitalize="none" autoCorrect={false}
+        <TextInput onFocus={revealOnFocus} value={baseUrl} onChangeText={setBaseUrl} onBlur={commitUrl} onSubmitEditing={commitUrl} autoCapitalize="none" autoCorrect={false}
           keyboardType="url" style={s.input} placeholder="https://api.openai.com/v1" placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("Base URL")} />
         {!urlCheck.ok && <Text style={s.error}>{t(URL_PROBLEMS[urlCheck.reason])}</Text>}
         <Text style={s.hint}>{t("Any OpenAI-compatible endpoint (it must accept POST /chat/completions with tools).")}</Text>
 
         <Text style={s.label}>{t("Model")}</Text>
-        <TextInput value={model} onChangeText={setModel} onBlur={commitModel} onSubmitEditing={commitModel} autoCapitalize="none" autoCorrect={false}
+        <TextInput onFocus={revealOnFocus} value={model} onChangeText={setModel} onBlur={commitModel} onSubmitEditing={commitModel} autoCapitalize="none" autoCorrect={false}
           style={s.input} placeholder={t("e.g. the model id from your provider")} placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("Model")} />
 
         <Text style={s.label}>{t("API key")}</Text>
@@ -172,7 +174,7 @@ export function AssistantSection() {
             </Pressable>
           </View>
           : <View style={s.keyRow}>
-            <TextInput value={keyDraft} onChangeText={setKeyDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
+            <TextInput onFocus={revealOnFocus} value={keyDraft} onChangeText={setKeyDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
               style={[s.input, s.keyInput]} placeholder={t("Paste your API key")} placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("API key")} />
             <Pressable onPress={() => { void storeKey(); }} disabled={!keyDraft.trim()} accessibilityRole="button" style={[s.smallButton, !keyDraft.trim() && s.disabled]}>
               <Text style={s.smallButtonText}>{t("Save")}</Text>

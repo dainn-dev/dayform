@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackToPersonal } from "../../hooks/use-back-to-personal";
 import { useColors } from "../../hooks/use-colors";
 import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
+import { useRevealFocusedInput } from "../../hooks/use-reveal-focused-input";
+import { RevealOnFocusProvider } from "../editor/reveal-context";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
@@ -14,6 +16,9 @@ import { FLOATING_ACTION_CLEARANCE, FloatingActionProvider, FloatingAddButton, t
 import { PageHeader } from "./PageHeader";
 
 const CONTENT_PADDING_BOTTOM = 40;
+const SCROLL_EVENT_THROTTLE_MS = 16;
+/** Wait for the keyboard to settle after a field gains focus before measuring it. */
+const REVEAL_ON_FOCUS_DELAY_MS = 60;
 
 /** One settings page: header with back button, then the section body in a card. Rendered by app/settings/[section].tsx. */
 export function SettingsPage({ row }: { row: MenuRow }) {
@@ -21,6 +26,12 @@ export function SettingsPage({ row }: { row: MenuRow }) {
   const colors = useColors();
   const { saveError } = useSettings();
   const keyboard = useKeyboardInset();
+  // Pages are edge-to-edge, so Android does not resize them for the keyboard: pad the content and scroll the focused
+  // field above the keyboard, as the task editor does (fields call the reveal on focus through RevealOnFocusProvider).
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportRef = useRef<View>(null);
+  const { reveal, onScroll } = useRevealFocusedInput(scrollRef, viewportRef, keyboard);
+  const revealOnFocus = useCallback(() => { setTimeout(reveal, REVEAL_ON_FOCUS_DELAY_MS); }, [reveal]);
   useBackToPersonal();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [floating, setFloating] = useState<FloatingAction | null>(null);
@@ -30,14 +41,19 @@ export function SettingsPage({ row }: { row: MenuRow }) {
 
   return <SafeAreaView edges={["top", "left", "right", "bottom"]} style={s.root}>
     <FloatingActionProvider register={setFloating}>
-      <ScrollView contentContainerStyle={[s.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <RevealOnFocusProvider value={revealOnFocus}>
+      <View ref={viewportRef} style={s.root} collapsable={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[s.content, { paddingBottom: bottom }]} showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScroll={onScroll} scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS}
+        onContentSizeChange={reveal}>
         <PageHeader title={t(row.title)} />
         {saveError && <View accessibilityRole="alert" style={s.error}>
           <Text style={{ color: colors.errorMessage }}>{t("Could not save your settings. They will reset when you reopen the app.")}</Text>
         </View>}
         <PersonalCard><Component /></PersonalCard>
       </ScrollView>
+      </View>
+      </RevealOnFocusProvider>
     </FloatingActionProvider>
     {floating && <FloatingAddButton action={floating} />}
   </SafeAreaView>;

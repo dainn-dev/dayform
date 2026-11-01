@@ -9,6 +9,7 @@ import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { useTasks } from "../../lib/tasks-context";
+import { useSpecialDays } from "../../lib/special-days-context";
 
 export type ChatEntry =
   | { id: string; kind: "user"; text: string }
@@ -33,8 +34,9 @@ const newTaskId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}
  */
 export function useAiChat({ onStart, onReply }: Callbacks) {
   const { settings, update } = useSettings();
-  const { tasks, mutate } = useTasks();
-  const { visible, label } = useCategories();
+  const { tasks, mutate, undoLast } = useTasks();
+  const { visible, label, add: addCategory, rename: renameCategory } = useCategories();
+  const { items: specialItems, add: addSpecialDay, remove: removeSpecialDay } = useSpecialDays();
   const { language, setLanguage, time, t } = useLanguage();
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [busy, setBusy] = useState(false);
@@ -47,6 +49,8 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
   const latest = useRef({ tasks, settings, categories: [] as CategoryRef[] });
   const categories = useMemo(() => visible.map(id => ({ id, name: label(id) })), [visible, label]);
   latest.current = { tasks, settings, categories };
+  const latestSpecial = useRef(specialItems);
+  latestSpecial.current = specialItems;
 
   const refreshKey = useCallback(() => { void readApiKey().then(key => setHasKey(key !== null)); }, []);
   useEffect(refreshKey, [refreshKey, settings.ai]);
@@ -76,6 +80,11 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
     const change = taskUpdate(action);
     if (change) return mutate(change, { undo: "bulk" });
     if (action.kind === "settings") return (await update(action.changes)).ok;
+    if (action.kind === "category-add") return (await addCategory({ name: action.name, color: action.color, icon: action.icon })).ok;
+    if (action.kind === "category-rename") return (await renameCategory(action.id, action.name)).ok;
+    if (action.kind === "special-add") return (await addSpecialDay(action.input)).ok;
+    if (action.kind === "special-remove") return (await removeSpecialDay(action.id)).ok;
+    if (action.kind === "undo") return undoLast();
     if (action.kind === "language") {
       setLanguage(action.language);
       return true;
@@ -127,6 +136,8 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
           const parsed = parseToolCall(call, {
             tasks: currentTasks, settings: currentSettings, categories: currentCategories,
             shareTitles: currentSettings.ai.shareTitles, now: new Date(), newId: newTaskId,
+            newSeriesId: () => `series-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            specialDays: latestSpecial.current, time,
           });
           if (parsed.kind === "read") return parsed.result;
           if (parsed.kind === "error") return { ok: false, error: parsed.message };

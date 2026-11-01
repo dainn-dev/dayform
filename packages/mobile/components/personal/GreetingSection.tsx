@@ -9,6 +9,7 @@ import { useSettings } from "../../lib/settings-context";
 import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
 import { GreetingLines } from "../timeline/DayHeader";
 import { SwitchRow } from "./SwitchRow";
+import { useRevealOnFocus } from "../editor/reveal-context";
 
 const STYLE_CHOICES: readonly Choice<SloganStyle>[] = [
   { value: "rotate", label: "Rotating" },
@@ -23,6 +24,7 @@ export function GreetingSection() {
   const { t } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const revealOnFocus = useRevealOnFocus();
   const { showName, sloganStyle, customSlogan } = settings.greeting;
   const [draft, setDraft] = useState(customSlogan);
   useEffect(() => { setDraft(customSlogan); }, [customSlogan]);
@@ -43,7 +45,7 @@ export function GreetingSection() {
     <ChoiceChips choices={STYLE_CHOICES.map(c => ({ ...c, label: t(c.label) }))} value={sloganStyle}
       onChange={next => { void update({ greeting: { sloganStyle: next } }); }} />
     {sloganStyle === "custom" && <View>
-      <TextInput value={draft} onChangeText={setDraft} onBlur={commitDraft} onSubmitEditing={commitDraft}
+      <TextInput onFocus={revealOnFocus} value={draft} onChangeText={setDraft} onBlur={commitDraft} onSubmitEditing={commitDraft}
         maxLength={MAX_SLOGAN_LENGTH} returnKeyType="done" autoCorrect={false}
         accessibilityLabel={t("Your own slogan")} placeholder={t("Your own slogan")} placeholderTextColor={colors.placeholder}
         style={s.input} />
