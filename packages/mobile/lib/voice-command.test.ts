@@ -12,6 +12,14 @@ describe("recognition service", () => {
     expect(chooseRecognizer(["com.anthropic.claude"], null)).toBeNull();
     expect(chooseRecognizer([], "com.gone.app")).toBeNull();
   });
+
+  test("a service without the language pack is skipped for the next one", () => {
+    const installed = ["com.google.android.tts", "com.google.android.googlequicksearchbox"];
+    expect(chooseRecognizer(installed, null)).toBe("com.google.android.tts");
+    expect(chooseRecognizer(installed, null, ["com.google.android.tts"])).toBe("com.google.android.googlequicksearchbox");
+    expect(chooseRecognizer(installed, "com.google.android.tts", ["com.google.android.tts"])).toBe("com.google.android.googlequicksearchbox");
+    expect(chooseRecognizer(installed, null, installed)).toBeNull();
+  });
 });
 
 describe("restarting after quick failures", () => {

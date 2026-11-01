@@ -73,11 +73,14 @@ const KNOWN_RECOGNIZERS = ["com.google.android.as", "com.google.android.tts", "c
  * Which recognition service to ask. Some phones (the owner's vivo) have none selected as the default, and Android then
  * refuses every session at once ("no selected voice recognition service"), so the app names one: the phone's default
  * when it is set, otherwise a known Google service that is installed. Another app's recognizer is never picked on its
- * own, since it would receive what the user says. Null when there is none.
+ * own, since it would receive what the user says. `skip` leaves out services that turned out to lack the language
+ * (Speech Services by Google is offline only and needs its language pack; the Google app recognises over the
+ * network). Null when there is none.
  */
-export function chooseRecognizer(installed: readonly string[], defaultPackage: string | null): string | null {
-  if (defaultPackage && installed.includes(defaultPackage)) return defaultPackage;
-  return KNOWN_RECOGNIZERS.find(pkg => installed.includes(pkg)) ?? null;
+export function chooseRecognizer(installed: readonly string[], defaultPackage: string | null, skip: readonly string[] = []): string | null {
+  const usable = installed.filter(pkg => !skip.includes(pkg));
+  if (defaultPackage && usable.includes(defaultPackage)) return defaultPackage;
+  return KNOWN_RECOGNIZERS.find(pkg => usable.includes(pkg)) ?? null;
 }
 
 export const MAX_QUICK_FAILURES = 5;

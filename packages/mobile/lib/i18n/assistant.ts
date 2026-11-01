@@ -35,6 +35,7 @@ export const vi: Record<string, string> = {
   "The offline pack is installed.": "Đã có gói offline.",
   "Follow the phone's dialog to download it.": "Làm theo hộp thoại của điện thoại để tải về.",
   "The download is scheduled.": "Đã lên lịch tải về.",
+  "In these settings, tap the gear next to Speech Services by Google, then the languages for speech recognition, and download Vietnamese.": "Trong cài đặt này, chạm bánh răng cạnh Dịch vụ giọng nói của Google, vào phần ngôn ngữ nhận dạng giọng nói rồi tải Tiếng Việt.",
   "This phone could not download it.": "Điện thoại không tải được gói này.",
   "Allow the microphone to call the assistant by voice.": "Hãy cho phép micro để gọi trợ lý bằng giọng nói.",
   "Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.": "Giữ trợ lý, hoặc chạm micro trong khung chat, để nói một câu mà không cần gọi tên.",

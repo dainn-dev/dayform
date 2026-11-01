@@ -1,3 +1,4 @@
+import { Linking } from "react-native";
 import { ExpoSpeechRecognitionModule, type ExpoSpeechRecognitionErrorCode } from "expo-speech-recognition";
 import { chooseRecognizer } from "./voice-command";
 
@@ -15,8 +16,21 @@ export type VoiceHandlers = {
   onError: (code: ExpoSpeechRecognitionErrorCode) => void;
 };
 
+/** Services that answered "language not downloaded" for a locale in this run of the app. */
+const lacking = new Map<string, Set<string>>();
+
+/** Remembers that the service last used for `locale` lacks it; true when another service is left to try. */
+export function skipServiceFor(locale: string): boolean {
+  const service = recognizer(locale);
+  if (!service) return false;
+  const set = lacking.get(locale) ?? new Set<string>();
+  set.add(service);
+  lacking.set(locale, set);
+  return recognizer(locale) !== null;
+}
+
 /** The recognition service to name in every session (see chooseRecognizer), or null when the phone has none. */
-export function recognizer(): string | null {
+export function recognizer(locale = ""): string | null {
   try {
     const installed = ExpoSpeechRecognitionModule.getSpeechRecognitionServices();
     let fallback: string | null = null;
@@ -25,7 +39,7 @@ export function recognizer(): string | null {
     } catch {
       fallback = null;
     }
-    return chooseRecognizer(installed, fallback);
+    return chooseRecognizer(installed, fallback, [...(lacking.get(locale) ?? [])]);
   } catch {
     return null;
   }
@@ -52,7 +66,7 @@ export async function askMic(): Promise<boolean> {
 }
 
 export function startListening(locale: string, mode: ListenMode): boolean {
-  const service = recognizer();
+  const service = recognizer(locale);
   if (!service) return false;
   try {
     ExpoSpeechRecognitionModule.start({
@@ -90,8 +104,26 @@ export function listenToVoice(handlers: VoiceHandlers): () => void {
   return () => subs.forEach(sub => sub.remove());
 }
 
-/** Asks the recognizer to download its offline pack for the language (Android 13+); the result says what happened. */
-export async function downloadOfflinePack(locale: string): Promise<"done" | "dialog" | "scheduled" | "failed"> {
+/**
+ * Gets the offline pack for the language. Only a phone with Android's on-device recognizer can download it from the
+ * app: on others the library's call throws on the main thread and closes the app (seen on the owner's vivo), so
+ * there it opens the phone's text-to-speech settings instead, where Speech Services by Google manages its languages.
+ */
+export async function downloadOfflinePack(locale: string): Promise<"done" | "dialog" | "scheduled" | "settings" | "failed"> {
+  let onDevice = false;
+  try {
+    onDevice = ExpoSpeechRecognitionModule.supportsOnDeviceRecognition();
+  } catch {
+    onDevice = false;
+  }
+  if (!onDevice) {
+    try {
+      await Linking.sendIntent("com.android.settings.TTS_SETTINGS");
+      return "settings";
+    } catch {
+      return "failed";
+    }
+  }
   try {
     const result = await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({ locale });
     return result.status === "download_success" ? "done" : result.status === "opened_dialog" ? "dialog" : "scheduled";

@@ -50,7 +50,7 @@ export function AssistantSection() {
   };
   const getPack = async () => {
     const result = await downloadOfflinePack(locale);
-    setPackNote(t({ done: "The offline pack is installed.", dialog: "Follow the phone's dialog to download it.", scheduled: "The download is scheduled.", failed: "This phone could not download it." }[result]));
+    setPackNote(t({ done: "The offline pack is installed.", dialog: "Follow the phone's dialog to download it.", scheduled: "The download is scheduled.", settings: "In these settings, tap the gear next to Speech Services by Google, then the languages for speech recognition, and download Vietnamese.", failed: "This phone could not download it." }[result]));
   };
 
   useEffect(() => { setName(assistant.name); }, [assistant.name]);
