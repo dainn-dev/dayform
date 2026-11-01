@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { vi } from "./i18n/realm";
-import { rankLabel, isNewRealm } from "./rank-label";
-import { rankOf, realmStart, REALM_NAMES, STAGE_NAMES } from "./realm";
+import { fill } from "./assistant-answers";
+import { expLine, rankLabel, isNewRealm } from "./rank-label";
+import { ENGINEER, MAX_XP, rankOf, realmStart, REALM_NAMES, STAGE_NAMES } from "./realm";
 
 const english = (text: string) => text;
 const vietnamese = (text: string) => vi[text] ?? text;
@@ -23,5 +24,48 @@ describe("rank label", () => {
     expect(isNewRealm(rankOf(realmStart(1)))).toBe(true);
     expect(isNewRealm(rankOf(realmStart(1) + 1))).toBe(true);
     expect(isNewRealm(rankOf(realmStart(1) + 60))).toBe(false);
+  });
+});
+
+describe("the short experience line", () => {
+  test("shows what is gathered of the current stage over what it takes", () => {
+    const rank = rankOf(20);
+    const line = expLine(rank, 20, "en");
+    expect(fill(line.text, line.vars)).toBe("20/40 exp");
+    const next = rankOf(95);
+    expect(fill(expLine(next, 95, "en").text, expLine(next, 95, "en").vars)).toBe("15/40 exp");
+  });
+
+  test("restarts for every stage and counts a bigger stage in a higher realm", () => {
+    const start = realmStart(1);
+    const rank = rankOf(start + 30);
+    const line = expLine(rank, start + 30, "en");
+    expect(fill(line.text, line.vars)).toBe("30/60 exp");
+  });
+
+  test("while gathering the breakthrough, it counts the gate", () => {
+    const gate = 40 * 36;
+    const rank = rankOf(gate + 100);
+    const line = expLine(rank, gate + 100, "en");
+    expect(fill(line.text, line.vars)).toBe("100/600 exp");
+  });
+
+  test("numbers are grouped, and the engineer style says XP", () => {
+    const rank = rankOf(realmStart(3) + 1500);
+    const line = expLine(rank, realmStart(3) + 1500, "vi");
+    expect(fill(line.text, line.vars)).toMatch(/^[\d.]+\/[\d.]+ exp$/);
+    const engineer = expLine(rankOf(20, ENGINEER), 20, "en", ENGINEER);
+    expect(fill(engineer.text, engineer.vars)).toBe("20/40 XP");
+  });
+
+  test("at the top of the ladder it shows the total", () => {
+    const top = rankOf(MAX_XP);
+    const line = expLine(top, MAX_XP, "en");
+    expect(line.text).toBe("{xp} exp");
+    expect(line.vars.xp).toBe(MAX_XP.toLocaleString("en-US"));
+  });
+
+  test("every line is translated", () => {
+    for (const key of ["{xp}/{next} exp", "{xp} exp", "{xp}/{next} XP", "{xp} XP"]) expect(vi[key]).toBeTruthy();
   });
 });

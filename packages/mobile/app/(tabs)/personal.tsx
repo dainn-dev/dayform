@@ -6,7 +6,6 @@ import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { PersonalMenu } from "../../components/menu/PersonalMenu";
-import { CultivationCard } from "../../components/personal/CultivationCard";
 import { ProfileCard } from "../../components/personal/ProfileCard";
 
 /** The Personal tab: the profile header and a menu of settings groups. Every group opens its own page (app/settings). */
@@ -25,7 +24,6 @@ export default function PersonalScreen() {
       </View>}
       <View style={s.profile}>
         <ProfileCard />
-        <CultivationCard />
       </View>
       <PersonalMenu />
     </ScrollView>

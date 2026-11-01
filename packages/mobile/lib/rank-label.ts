@@ -21,6 +21,18 @@ export function formatNumber(value: number, language: "en" | "vi"): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, language === "vi" ? "." : ",");
 }
 
+/**
+ * The short experience line of the profile card: how much of the current stage is gathered over what it takes ("20/40 exp"), or
+ * the whole total at the top of the ladder. `text` is in the style's wording; the caller translates it and fills the values.
+ */
+export function expLine(rank: Rank, total: number, language: "en" | "vi", ladder: Ladder = CULTIVATION): GoalLine {
+  if (rank.next === null) return { text: word(ladder.id, "{xp} exp"), vars: { xp: formatNumber(total, language) } };
+  return {
+    text: word(ladder.id, "{xp}/{next} exp"),
+    vars: { xp: formatNumber(Math.max(0, total - rank.floor), language), next: formatNumber(rank.next - rank.floor, language) },
+  };
+}
+
 /** A line of text as a translation key plus the values for its placeholders (translated by the caller). */
 export type GoalLine = { text: string; vars: Record<string, string> };
 

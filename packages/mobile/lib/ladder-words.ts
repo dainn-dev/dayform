@@ -9,6 +9,8 @@ export const ENGINEER_WORDS: Readonly<Record<string, string>> = {
   "Cultivation": "Engineer career",
   "{realm}, layer {layer} – {stage}": "{realm} Lv.{layer} – {stage}",
   "{xp} experience": "{xp} XP",
+  "{xp}/{next} exp": "{xp}/{next} XP",
+  "{xp} exp": "{xp} XP",
   "{n} more experience to reach {rank}": "{n} more XP to reach {rank}",
   "{n} more experience to start the breakthrough to {realm}": "{n} more XP to start the review for {realm}",
   "{n} more experience to break through to {realm}": "{n} more XP to be promoted to {realm}",
