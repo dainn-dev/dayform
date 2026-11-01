@@ -21,6 +21,15 @@ export type VoiceHandlers = {
 const lacking = new Map<string, Set<string>>();
 /** Locales whose offline pack is missing on the current service: sessions then ask for network recognition. */
 const onlineFor = new Set<string>();
+/** Network tries per locale that still ended in "language not available". */
+const onlineTries = new Map<string, number>();
+/**
+ * A network try can end that way only because the microphone was still held by the session before (the service
+ * then falls back to offline and reports the missing pack again), so a service is given up only after this many.
+ */
+const MAX_ONLINE_TRIES = 3;
+/** Wait before the next session after a missing-language answer, so the previous session has let the microphone go. */
+export const LANGUAGE_RETRY_MS = 1500;
 
 /**
  * The service answered that it has no pack for `locale`. First the same service is asked again without the offline
@@ -30,8 +39,12 @@ const onlineFor = new Set<string>();
 export function languageMissing(locale: string): boolean {
   if (!onlineFor.has(locale)) {
     onlineFor.add(locale);
+    onlineTries.set(locale, 0);
     return recognizer(locale) !== null;
   }
+  const tries = (onlineTries.get(locale) ?? 0) + 1;
+  onlineTries.set(locale, tries);
+  if (tries < MAX_ONLINE_TRIES) return recognizer(locale) !== null;
   const service = recognizer(locale);
   if (!service) return false;
   const set = lacking.get(locale) ?? new Set<string>();

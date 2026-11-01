@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import type { ExpoSpeechRecognitionErrorCode } from "expo-speech-recognition";
 import { detectWake, restartDelay } from "../../lib/voice-command";
-import { askMic, languageMissing, listenToVoice, micAllowed, startListening, stopListening } from "../../lib/voice-expo";
+import { askMic, LANGUAGE_RETRY_MS, languageMissing, listenToVoice, micAllowed, startListening, stopListening } from "../../lib/voice-expo";
 
 export type VoiceMode = "off" | "wake" | "question";
 
@@ -46,6 +46,8 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
   const sessionStart = useRef(0);
   const heardSomething = useRef(false);
   const quickFailures = useRef(0);
+  // Set after a missing-language answer: the next session waits for the microphone to be released.
+  const slowRestart = useRef(false);
 
   const latest = useRef({ name, locale, onWake, onInterim, onHeard, onError, shouldWake: false });
   const shouldWake = wakeEnabled && !paused && active && allowed && !failed.current;
@@ -137,7 +139,9 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
         setMode("off");
         const quick = !heardSomething.current && Date.now() - sessionStart.current < QUICK_END_MS;
         quickFailures.current = quick ? quickFailures.current + 1 : 0;
-        const delay = restartDelay(quickFailures.current);
+        const backoff = restartDelay(quickFailures.current);
+        const delay = backoff !== null && slowRestart.current ? Math.max(backoff, LANGUAGE_RETRY_MS) : backoff;
+        slowRestart.current = false;
         if (delay === null) {
           failed.current = true;
           latest.current.onError("service-not-allowed");
@@ -155,9 +159,11 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
       // No pack for the language: the next session asks over the network, then another service (see languageMissing).
       if (code === "language-not-supported" && languageMissing(latest.current.locale)) {
         quickFailures.current = 0;
+        slowRestart.current = true;
         if (modeRef.current === "question") {
-          // A sentence was being taken: take it again at once with the new setting.
-          restartTimer.current = setTimeout(() => { restartTimer.current = null; begin("question"); }, RESTART_MS);
+          // A sentence was being taken: take it again with the new setting once the microphone is free.
+          modeRef.current = "off";
+          restartTimer.current = setTimeout(() => { restartTimer.current = null; begin("question"); }, LANGUAGE_RETRY_MS);
         }
         return;
       }
