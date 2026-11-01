@@ -87,7 +87,10 @@ export function startListening(locale: string, mode: ListenMode): boolean {
       lang: locale,
       interimResults: true,
       maxAlternatives: 1,
-      continuous: mode === "wake",
+      // Never `continuous`: on Android 13+ the library then records the microphone itself and hands the audio to the
+      // service (EXTRA_AUDIO_SOURCE), which Speech Services by Google refuses ("caller without permission RECORD_AUDIO")
+      // and cancels at once. Listening for the name is a chain of ordinary sessions instead (see use-voice.ts).
+      continuous: false,
       androidIntentOptions: {
         EXTRA_PREFER_OFFLINE: !onlineFor.has(locale),
         ...(mode === "question" ? { EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 1500 } : {}),
