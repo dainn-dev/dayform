@@ -179,5 +179,10 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
     return null;
   }, [entries]);
 
-  return { entries, busy, readiness, send, answer, stop, clear, refreshKey, pendingConfirm };
+  /** Shows a problem in the chat (a failed recording or transcription). */
+  const addError = useCallback((text: string) => {
+    setEntries(list => [...list, { id: nextId(), kind: "error", text }]);
+  }, []);
+
+  return { entries, busy, readiness, send, answer, stop, clear, refreshKey, pendingConfirm, addError };
 }

@@ -3,7 +3,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 67,
+      "versionCode": 68,
       "allowBackup": true,
       "permissions": [
         "android.permission.USE_EXACT_ALARM"
@@ -42,7 +42,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.2.55",
+    "version": "1.2.56",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -109,6 +109,13 @@
             "com.google.android.tts",
             "com.google.android.as"
           ]
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Dayform records what you say to the assistant when you hold it or tap its microphone.",
+          "enableBackgroundPlayback": false
         }
       ]
     ]

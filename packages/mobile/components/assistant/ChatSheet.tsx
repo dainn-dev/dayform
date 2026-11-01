@@ -24,6 +24,9 @@ type Props = {
   listening?: boolean;
   heard?: string;
   onMic?: () => void;
+  /** A clip is being recorded for the provider, or sent to it. */
+  recording?: boolean;
+  transcribing?: boolean;
 };
 
 const MISSING: Record<Exclude<AiReadiness, "ready">, string> = {
@@ -34,7 +37,7 @@ const MISSING: Record<Exclude<AiReadiness, "ready">, string> = {
 };
 
 /** The AI chat with the assistant: messages, a confirmation card for every change, and the input. */
-export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onAnswer, onClose, onClear, listening, heard, onMic }: Props) {
+export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onAnswer, onClose, onClear, listening, heard, onMic, recording, transcribing }: Props) {
   const { t } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -79,14 +82,17 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
           </View>}
           {entries.length === 0 && readiness === "ready" && <Text style={s.hint}>{t("Ask about your day, or ask me to add, move or finish a task. I will ask before changing anything.")}</Text>}
           {entries.map(entry => <EntryView key={entry.id} entry={entry} s={s} onAnswer={onAnswer} />)}
+          {recording && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Recording… tap the microphone again to send.")}</Text>}
+          {transcribing && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Turning your voice into text…")}</Text>}
           {listening && <Text style={s.typing} accessibilityLiveRegion="polite">{heard ? `“${heard}”` : t("Listening…")}</Text>}
           {busy && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Thinking…")}</Text>}
         </ScrollView>
 
         <View style={s.inputRow}>
-          {onMic && <Pressable onPress={onMic} disabled={busy} accessibilityRole="button" accessibilityLabel={t(listening ? "Stop listening" : "Speak")}
-            style={[s.mic, listening && s.micOn, busy && s.disabled]}>
-            <Ionicons name={listening ? "mic" : "mic-outline"} size={20} color={listening ? colors.onPrimary : colors.primary} />
+          {onMic && <Pressable onPress={onMic} disabled={busy || transcribing} accessibilityRole="button"
+            accessibilityLabel={t(recording ? "Stop and send" : listening ? "Stop listening" : "Speak")}
+            style={[s.mic, (listening || recording) && s.micOn, (busy || transcribing) && s.disabled]}>
+            <Ionicons name={recording ? "stop" : listening ? "mic" : "mic-outline"} size={20} color={listening || recording ? colors.onPrimary : colors.primary} />
           </Pressable>}
           <TextInput value={draft} onChangeText={setDraft} placeholder={t("Message {name}").replace("{name}", name)}
             placeholderTextColor={colors.mutedForeground} style={s.input} multiline maxLength={1000}

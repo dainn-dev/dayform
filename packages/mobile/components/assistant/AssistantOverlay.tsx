@@ -10,6 +10,11 @@ import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type Speech
 import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
 import { Ionicons } from "@expo/vector-icons";
 import { useVoice } from "./use-voice";
+import { useRecording } from "./use-recording";
+import { canTranscribe } from "../../lib/ai-transcribe";
+import { transcribeClip } from "../../lib/ai-transcribe-client";
+import { readApiKey } from "../../lib/ai-key-expo";
+import { AiError } from "../../lib/ai-client";
 import { speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { INACTIVE_AFTER_MS, INITIAL_MACHINE, nextState, ONE_SHOT_MS, registerTap, THINKING_MS, type AssistantState } from "../../lib/assistant-state";
 import { useLanguage } from "../../lib/language";
@@ -39,12 +44,16 @@ export function AssistantOverlay() {
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
   return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId}
-    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord} />;
+    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord}
+    provider={{ baseUrl: settings.ai.baseUrl, transcribeModel: settings.ai.transcribeModel }} />;
 }
 
-type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean };
+type AssistantProps = {
+  name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean;
+  provider: { baseUrl: string; transcribeModel: string };
+};
 
-function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }: AssistantProps) {
+function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, provider }: AssistantProps) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -241,6 +250,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) + Math.abs(g.dy) > 6,
     onPanResponderGrant: () => {
       stopSpeaking();
+      if (clip.recording) void clip.stop();
       drag.current = { ...current.current };
       droppedAt.current = null;
       dispatch({ type: "dragStarted" });
@@ -349,8 +359,67 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     dispatch({ type: "questionChosen" });
   }
 
+  // ---- Recording a clip for the provider's speech to text (hold the assistant, or the chat's microphone) ----
+  const [transcribing, setTranscribing] = useState(false);
+  const useProvider = chat.readiness === "ready" && canTranscribe(provider.transcribeModel);
+  const clip = useRecording(uri => { void finishClip(uri); });
+
+  const reportVoiceProblem = (message: string) => {
+    if (chatOpen) chat.addError(message);
+    else {
+      dispatch({ type: "cancelled" });
+      setSpoken({ text: "{reply}", vars: { reply: message } });
+      dispatch({ type: "asked" });
+      dispatch({ type: "questionChosen" });
+    }
+  };
+
+  async function finishClip(uri: string | null) {
+    if (!uri) {
+      // Too short: nothing was said.
+      if (!chatOpen) dispatch({ type: "cancelled" });
+      return;
+    }
+    setTranscribing(true);
+    setHeard(t("Turning your voice into text…"));
+    try {
+      const key = await readApiKey();
+      if (!key) throw new AiError("Add your API key.", null);
+      const text = await transcribeClip({ baseUrl: provider.baseUrl, apiKey: key, model: provider.transcribeModel }, uri, speechLanguage);
+      setTranscribing(false);
+      handleHeard(text);
+    } catch (error) {
+      setTranscribing(false);
+      setHeard("");
+      reportVoiceProblem(error instanceof AiError ? t(error.message) : t("Could not reach the AI provider."));
+    }
+  }
+
+  /** Starts or stops a clip. While it records, the call-by-name listening is off (one microphone at a time). */
+  const toggleClip = async () => {
+    touched();
+    if (clip.recording) {
+      const uri = await clip.stop();
+      await finishClip(uri);
+      return;
+    }
+    stopSpeaking();
+    voiceInput.cancel();
+    if (!chatOpen) dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
+    if (!(await clip.start())) {
+      if (!chatOpen) dispatch({ type: "cancelled" });
+      reportVoiceProblem(t("Allow the microphone to call the assistant by voice."));
+      return;
+    }
+    setHeard(t("Recording… let go to send."));
+  };
+
   /** Takes one spoken sentence now (hold the assistant, or the chat's microphone). */
   const listenOnce = () => {
+    if (useProvider) {
+      void toggleClip();
+      return;
+    }
     touched();
     stopSpeaking();
     if (voiceInput.mode === "question") {
@@ -396,7 +465,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
 
   return <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
     <Animated.View style={[s.holder, { transform: position.getTranslateTransform() }]} {...pan.panHandlers}>
-      {chatOpen ? null : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question")
+      {chatOpen ? null : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question" || clip.recording || transcribing)
         ? <View style={[s.bubble, ...bubblePlace]} pointerEvents="none" accessibilityLiveRegion="polite">
           <Text style={s.bubbleText}>{heard ? `“${heard}”` : t(LINES.listening.text)}</Text>
         </View>
@@ -414,7 +483,8 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
           <Text style={s.bubbleText}>{fill(t(line.text), line.vars)}</Text>
         </View>}
       <View style={s.shadow} pointerEvents="none" />
-      <Pressable onPress={onPress} onLongPress={listenOnce} delayLongPress={350} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
+      <Pressable onPress={onPress} onLongPress={listenOnce} delayLongPress={350}
+        onPressOut={() => { if (clip.recording) void toggleClip(); }} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
         accessibilityHint={`${t("Tap to ask a question. Drag to move.")} ${t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}`} hitSlop={6}>
         <Animated.Image source={LEO} resizeMode="contain" style={[s.leo, {
           transform: [{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }],
@@ -426,7 +496,8 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     </Animated.View>
     <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
       onSend={text => { touched(); void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
-      listening={voiceInput.mode === "question"} heard={heard} onMic={listenOnce} />
+      listening={voiceInput.mode === "question"} heard={heard} onMic={listenOnce}
+      recording={clip.recording} transcribing={transcribing} />
   </View>;
 }
 
