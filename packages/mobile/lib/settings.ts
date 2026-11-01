@@ -57,6 +57,9 @@ export function isValidName(text: string): boolean {
 // --- Schema ----------------------------------------------------------------------------------------------------
 // Every field carries its own default through `.catch`, so one bad value never rejects its siblings or its group.
 const flag = (fallback: boolean) => z.boolean().catch(fallback);
+export const ASSISTANT_LOOKS = ["leo", "ice-bear"] as const;
+export type AssistantLook = (typeof ASSISTANT_LOOKS)[number];
+
 const timeOfDay = (fallback: string) => z.string().regex(TIME_PATTERN).catch(fallback);
 const choice = <const T extends readonly [string, ...string[]]>(values: T, fallback: T[number]) =>
   z.enum(values).catch(fallback);
@@ -144,8 +147,12 @@ const settingsSchema = z.object({
     enabled: flag(true), voice: flag(true), voiceId: z.string().max(200).catch(""),
     /** What the assistant is called ("Hey {name}"); blank means the default. */
     name: z.string().trim().max(20).catch("Leo").transform(value => value || "Leo").catch("Leo"),
+    /** Short unprompted tips about the current tab and today's tasks (lib/assistant-tips.ts). */
+    tips: flag(true),
     /** Listen for "{name} ơi" / "Hey {name}" while the app is open (needs the microphone); off by default. */
     wakeWord: flag(false),
+    /** Look of the assistant (flat picture). */
+    look: choice(ASSISTANT_LOOKS, "leo"),
   })),
   /**
    * The AI chat (lib/ai-*.ts): an OpenAI-compatible provider the user configures. Off by default: turning it on sends

@@ -6,6 +6,7 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
+import { IDLE_TIP_CHECK_MS, pickTip, ROUTE_TIP_DELAY_MS, routeOf, tipAllowed, type TipRoute } from "../../lib/assistant-tips";
 import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
 import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,19 +17,25 @@ import { detectWake } from "../../lib/voice-command";
 import { speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { INACTIVE_AFTER_MS, INITIAL_MACHINE, nextState, ONE_SHOT_MS, registerTap, THINKING_MS, type AssistantState } from "../../lib/assistant-state";
 import { useLanguage } from "../../lib/language";
+import type { AssistantLook } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
 import { tabBarHeight } from "../../lib/shell-layout";
 import { useTasks } from "../../lib/tasks-context";
 import { ChatSheet } from "./ChatSheet";
 import { useAiChat } from "./use-ai-chat";
 
-// The flat picture of Leo stands in until the Live2D model is rigged (see the assistant notes in CLAUDE.md).
-const LEO = require("../../assets/assistant/leo.png");
+// The flat picture of the assistant stands in until the Live2D model is rigged (see the assistant notes in CLAUDE.md).
+const ASSISTANT_IMAGES = {
+  leo: require("../../assets/assistant/leo.png"),
+  "ice-bear": require("../../assets/assistant/ice-bear.png"),
+} as const;
+
+
 const HEIGHT = 112;
 const WIDTH = Math.round(HEIGHT * 0.714);
 const EDGE = 8;
 const BUBBLE_WIDTH = 220;
-/** Below this many dp from the top the bubble opens under Leo instead of above. */
+/** Below this many dp from the top the bubble opens under the assistant instead of above. */
 const BUBBLE_FLIP_Y = 190;
 const REDUCED_MOTION = 0.3;
 
@@ -42,12 +49,13 @@ export function AssistantOverlay() {
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
   return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId}
-    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord} />;
+    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord}
+    tips={settings.assistant.tips} route={routeOf(pathname)} look={settings.assistant.look} />;
 }
 
-type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean };
+type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean; tips: boolean; route: TipRoute | null; look: AssistantLook };
 
-function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }: AssistantProps) {
+function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, tips, route, look }: AssistantProps) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -189,6 +197,39 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     if (lastDone.current !== null && doneCount > lastDone.current) dispatch({ type: "positive" });
     lastDone.current = doneCount;
   }, [doneCount, loading]);
+
+  // Unprompted tips (lib/assistant-tips.ts): the first time a tab is opened, and now and then while idle. Only when the
+  // assistant is idle and the chat is closed, and never closer together than TIP_MIN_GAP_MS.
+  const tipState = useRef({ lastAt: null as number | null, lastText: null as string | null, seen: new Set<string>() });
+  const tipInputs = useRef({ tasks, chatOpen: false, loading });
+  tipInputs.current = { tasks, chatOpen, loading };
+  const showTip = (routeOnly: boolean): boolean => {
+    const live = tipInputs.current;
+    const mark = tipState.current;
+    if (live.loading || live.chatOpen || stateRef.current !== "idle" || !greetedThisSession || !tipAllowed(mark.lastAt, Date.now())) return false;
+    const tip = pickTip(route, live.tasks, new Date(), mark.lastText, Math.random, { routeOnly });
+    if (!tip) return false;
+    mark.lastAt = Date.now();
+    mark.lastText = tip.text;
+    setSpoken(tip);
+    dispatch({ type: "asked" });
+    dispatch({ type: "questionChosen" });
+    dispatch({ type: "answerStarted" });
+    return true;
+  };
+  useEffect(() => {
+    if (!tips || !route || tipState.current.seen.has(route)) return;
+    const timer = setTimeout(() => {
+      // The tab counts as seen only once its tip was shown, so a busy moment does not use it up.
+      if (showTip(true)) tipState.current.seen.add(route);
+    }, ROUTE_TIP_DELAY_MS + 4000);
+    return () => clearTimeout(timer);
+  }, [tips, route]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!tips) return;
+    const timer = setInterval(() => showTip(false), IDLE_TIP_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [tips, route]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // With a screen reader on, the bubble is read by it, so Leo does not speak over it.
   useEffect(() => {
@@ -508,7 +549,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
       <Pressable onPress={onPress} onLongPress={() => { heldOnce.current = hasSoniox; listenOnce(); }} delayLongPress={350}
         onPressOut={() => { if (heldOnce.current) { heldOnce.current = false; soniox.finish(); } }} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
         accessibilityHint={`${t("Tap to ask a question. Drag to move.")} ${t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}`} hitSlop={6}>
-        <Animated.Image source={LEO} resizeMode="contain" style={[s.leo, {
+        <Animated.Image source={ASSISTANT_IMAGES[look]} resizeMode="contain" style={[s.leo, {
           transform: [{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }],
         }]} />
       </Pressable>

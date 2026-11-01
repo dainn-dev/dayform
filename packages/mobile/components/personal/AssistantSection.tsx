@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { checkBaseUrl, maskKey } from "../../lib/ai-config";
@@ -13,6 +13,11 @@ import { useSettings } from "../../lib/settings-context";
 import { AssistantVoicePicker } from "./AssistantVoicePicker";
 import { SwitchRow } from "./SwitchRow";
 import { useRevealOnFocus } from "../editor/reveal-context";
+
+const LOOKS = [
+  { id: "leo", label: "Leo", source: require("../../assets/assistant/leo.png") },
+  { id: "ice-bear", label: "Ice Bear", source: require("../../assets/assistant/ice-bear.png") },
+] as const;
 
 const URL_PROBLEMS = {
   empty: "Enter the provider's base URL.",
@@ -119,6 +124,22 @@ export function AssistantSection() {
         hint={t("Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.")} />
       {assistant.voice && <AssistantVoicePicker />}
 
+      <SwitchRow label={t("Tips from the assistant")} value={assistant.tips}
+        onChange={next => { void update({ assistant: { tips: next } }); }}
+        hint={t("Now and then I pass on a short tip about the screen you are on or about your day. Only counts are used, never your task titles.")} />
+
+      <Text style={s.label}>{t("Assistant look")}</Text>
+      <View style={s.lookRow}>
+        {LOOKS.map(look => (
+          <Pressable key={look.id} onPress={() => void update({ assistant: { look: look.id } })}
+            style={[s.lookButton, assistant.look === look.id && s.lookButtonActive]} accessibilityRole="radio"
+            accessibilityLabel={t(look.label)} accessibilityState={{ checked: assistant.look === look.id }}>
+            <Image source={look.source} style={s.lookImage} />
+            <Text style={s.lookLabel}>{t(look.label)}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       <SwitchRow label={t("Call by voice: \"{name} ơi\"").replace("{name}", assistant.name)} value={assistant.wakeWord}
         onChange={next => { void setWakeWord(next); }}
         hint={t("While the app is open, the microphone listens for the name, then for your question. Your phone's speech service (Speech Services by Google) does the listening: with its offline pack for the language the audio stays on the phone, otherwise it may be sent to Google. The microphone stops when you leave the app.")} />
@@ -213,6 +234,11 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   smallButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.primary },
   smallButtonText: { color: c.primary, fontSize: 13, fontWeight: "800" },
   packButton: { marginTop: 10 },
+  lookRow: { flexDirection: "row", gap: 10, marginBottom: 6 },
+  lookButton: { flex: 1, alignItems: "center", gap: 4, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: c.hairline },
+  lookButtonActive: { borderColor: c.primary, borderWidth: 2 },
+  lookImage: { width: 56, height: 78, resizeMode: "contain" },
+  lookLabel: { color: c.foreground, fontSize: 13, fontWeight: "700" },
   testButton: { minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.primary, marginTop: 14 },
   testText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
   disabled: { opacity: 0.4 },
