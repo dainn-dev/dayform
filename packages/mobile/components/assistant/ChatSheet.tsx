@@ -20,8 +20,10 @@ type Props = {
   onAnswer: (id: string, yes: boolean) => void;
   onClose: () => void;
   onClear: () => void;
-  /** Extra control next to the input (the microphone, when speech input exists). */
-  inputAccessory?: React.ReactNode;
+  /** The microphone: listening now, what it has heard so far, and the button that starts it. */
+  listening?: boolean;
+  heard?: string;
+  onMic?: () => void;
 };
 
 const MISSING: Record<Exclude<AiReadiness, "ready">, string> = {
@@ -32,7 +34,7 @@ const MISSING: Record<Exclude<AiReadiness, "ready">, string> = {
 };
 
 /** The AI chat with the assistant: messages, a confirmation card for every change, and the input. */
-export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onAnswer, onClose, onClear, inputAccessory }: Props) {
+export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onAnswer, onClose, onClear, listening, heard, onMic }: Props) {
   const { t } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -77,11 +79,15 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
           </View>}
           {entries.length === 0 && readiness === "ready" && <Text style={s.hint}>{t("Ask about your day, or ask me to add, move or finish a task. I will ask before changing anything.")}</Text>}
           {entries.map(entry => <EntryView key={entry.id} entry={entry} s={s} onAnswer={onAnswer} />)}
+          {listening && <Text style={s.typing} accessibilityLiveRegion="polite">{heard ? `“${heard}”` : t("Listening…")}</Text>}
           {busy && <Text style={s.typing} accessibilityLiveRegion="polite">{t("Thinking…")}</Text>}
         </ScrollView>
 
         <View style={s.inputRow}>
-          {inputAccessory}
+          {onMic && <Pressable onPress={onMic} disabled={busy} accessibilityRole="button" accessibilityLabel={t(listening ? "Stop listening" : "Speak")}
+            style={[s.mic, listening && s.micOn, busy && s.disabled]}>
+            <Ionicons name={listening ? "mic" : "mic-outline"} size={20} color={listening ? colors.onPrimary : colors.primary} />
+          </Pressable>}
           <TextInput value={draft} onChangeText={setDraft} placeholder={t("Message {name}").replace("{name}", name)}
             placeholderTextColor={colors.mutedForeground} style={s.input} multiline maxLength={1000}
             editable={readiness === "ready"} onSubmitEditing={submit} accessibilityLabel={t("Message")} />
@@ -165,5 +171,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder, color: c.foreground, fontSize: 14,
   },
   send: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: c.primary },
+  mic: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.primary },
+  micOn: { backgroundColor: c.primary },
   disabled: { opacity: 0.4 },
 });

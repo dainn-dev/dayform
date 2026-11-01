@@ -144,6 +144,8 @@ const settingsSchema = z.object({
     enabled: flag(true), voice: flag(true), voiceId: z.string().max(200).catch(""),
     /** What the assistant is called ("Hey {name}"); blank means the default. */
     name: z.string().trim().max(20).catch("Leo").transform(value => value || "Leo").catch("Leo"),
+    /** Listen for "{name} ơi" / "Hey {name}" while the app is open (needs the microphone); off by default. */
+    wakeWord: flag(false),
   })),
   /**
    * The AI chat (lib/ai-*.ts): an OpenAI-compatible provider the user configures. Off by default: turning it on sends

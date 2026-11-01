@@ -3,7 +3,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 61,
+      "versionCode": 62,
       "allowBackup": true,
       "permissions": [
         "android.permission.USE_EXACT_ALARM"
@@ -42,7 +42,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.2.49",
+    "version": "1.2.50",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -97,6 +97,18 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Dayform uses the microphone when you call the assistant by voice or hold it to speak.",
+          "speechRecognitionPermission": "Dayform turns what you say to the assistant into text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.tts",
+            "com.google.android.as"
+          ]
         }
       ]
     ]

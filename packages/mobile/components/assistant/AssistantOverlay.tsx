@@ -6,7 +6,10 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
-import { mouthAt, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
+import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
+import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
+import { Ionicons } from "@expo/vector-icons";
+import { useVoice } from "./use-voice";
 import { speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { INACTIVE_AFTER_MS, INITIAL_MACHINE, nextState, ONE_SHOT_MS, registerTap, THINKING_MS, type AssistantState } from "../../lib/assistant-state";
 import { useLanguage } from "../../lib/language";
@@ -36,12 +39,12 @@ export function AssistantOverlay() {
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
   return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId}
-    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} />;
+    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord} />;
 }
 
-type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean };
+type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean };
 
-function Assistant({ name, voice, voiceId, assistantName, aiEnabled }: AssistantProps) {
+function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }: AssistantProps) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -283,6 +286,108 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled }: Assistant
     dispatch({ type: "questionChosen" });
   };
 
+  // ---- Voice: the call by name, one spoken sentence, a spoken yes/no, and a conversation that goes on by voice ----
+  const [heard, setHeard] = useState("");
+  // The current exchange started by voice: after the answer the assistant listens again, until silence or "thank you".
+  const voiceTurn = useRef(false);
+  const sayThen = (text: string, then: () => void) => { void say(text, then).then(started => { if (!started) then(); }); };
+  const voiceInput = useVoice({
+    wakeEnabled: wakeWord,
+    name: assistantName,
+    locale: speechLocale(speechLanguage),
+    // Listening for the name pauses whenever the assistant talks or works, so it never hears itself.
+    paused: chatOpen || !(machine.state === "idle" || machine.state === "sleepy"),
+    onWake: () => {
+      touched();
+      voiceTurn.current = true;
+      setHeard("");
+      dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
+    },
+    onInterim: text => setHeard(text),
+    onHeard: text => handleHeard(text),
+    onError: () => {
+      setHeard("");
+      voiceTurn.current = false;
+      dispatch({ type: "cancelled" });
+      setSpoken(LINES.noMic);
+    },
+  });
+
+  function handleHeard(text: string) {
+    setHeard("");
+    touched();
+    if (!text) {
+      // Silence: the conversation is over.
+      voiceTurn.current = false;
+      dispatch({ type: "cancelled" });
+      return;
+    }
+    const pending = chat.pendingConfirm;
+    if (pending) {
+      const answerWord = parseYesNo(text);
+      if (answerWord) chat.answer(pending.id, answerWord === "yes");
+      return;
+    }
+    if (saysGoodbye(text)) {
+      voiceTurn.current = false;
+      dispatch({ type: "cancelled" });
+      void say(t(LINES.goodbye.text));
+      return;
+    }
+    if (chat.readiness === "ready") {
+      void chat.send(text);
+      return;
+    }
+    // Without the AI chat: a preset question if the words match one, otherwise say how to ask anything.
+    dispatch({ type: "asked" });
+    const preset = matchPreset(text);
+    if (preset) {
+      ask(preset);
+      return;
+    }
+    setSpoken(LINES.notUnderstood);
+    dispatch({ type: "questionChosen" });
+  }
+
+  /** Takes one spoken sentence now (hold the assistant, or the chat's microphone). */
+  const listenOnce = () => {
+    touched();
+    stopSpeaking();
+    if (voiceInput.mode === "question") {
+      voiceInput.cancel();
+      return;
+    }
+    voiceTurn.current = !chatOpen;
+    if (!chatOpen) dispatch({ type: stateRef.current === "sleepy" ? "poked" : "asked" });
+    void voiceInput.capture().then(ok => {
+      if (ok) return;
+      voiceTurn.current = false;
+      dispatch({ type: "cancelled" });
+      setSpoken(LINES.noMic);
+    });
+  };
+
+  // After a spoken answer, listen again: the user can go on without calling the name.
+  const previousState = useRef<AssistantState>(machine.state);
+  useEffect(() => {
+    const before = previousState.current;
+    previousState.current = machine.state;
+    if (before === "talking" && machine.state === "idle" && voiceTurn.current && !chatOpen && !chat.busy) {
+      dispatch({ type: "asked" });
+      void voiceInput.capture().then(ok => { if (!ok) voiceTurn.current = false; });
+    }
+  }, [machine.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A change the AI wants to make, during a spoken exchange: read it out and listen for yes or no (the card can be tapped too).
+  const spokenCard = useRef<string | null>(null);
+  useEffect(() => {
+    const pending = chat.pendingConfirm;
+    if (!pending || !voiceTurn.current || spokenCard.current === pending.id) return;
+    spokenCard.current = pending.id;
+    const first = pending.lines[0];
+    sayThen(`${fill(t(first.text), first.vars)}. ${t("Shall I?")}`, () => { void voiceInput.capture(); });
+  }, [chat.pendingConfirm]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const line = lineFor(machine.state, name, spoken);
   const below = place.y < minY + BUBBLE_FLIP_Y;
   const rightSide = place.x + WIDTH / 2 > screenW / 2;
@@ -291,7 +396,11 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled }: Assistant
 
   return <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
     <Animated.View style={[s.holder, { transform: position.getTranslateTransform() }]} {...pan.panHandlers}>
-      {chatOpen ? null : machine.state === "listening"
+      {chatOpen ? null : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question")
+        ? <View style={[s.bubble, ...bubblePlace]} pointerEvents="none" accessibilityLiveRegion="polite">
+          <Text style={s.bubbleText}>{heard ? `“${heard}”` : t(LINES.listening.text)}</Text>
+        </View>
+        : machine.state === "listening"
         ? <View style={[s.bubble, ...bubblePlace]} accessibilityLiveRegion="polite">
           <Text style={s.bubbleText}>{t(LINES.listening.text)}</Text>
           {QUESTION_IDS.map(id => <Pressable key={id} onPress={() => ask(id)} accessibilityRole="button" style={s.question}>
@@ -305,15 +414,19 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled }: Assistant
           <Text style={s.bubbleText}>{fill(t(line.text), line.vars)}</Text>
         </View>}
       <View style={s.shadow} pointerEvents="none" />
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
-        accessibilityHint={t("Tap to ask a question. Drag to move.")} hitSlop={6}>
+      <Pressable onPress={onPress} onLongPress={listenOnce} delayLongPress={350} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
+        accessibilityHint={`${t("Tap to ask a question. Drag to move.")} ${t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}`} hitSlop={6}>
         <Animated.Image source={LEO} resizeMode="contain" style={[s.leo, {
           transform: [{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }],
         }]} />
       </Pressable>
+      {voiceInput.mode !== "off" && <View style={s.micBadge} pointerEvents="none" accessibilityLabel={t("Listening…")}>
+        <Ionicons name="mic" size={12} color={colors.onPrimary} />
+      </View>}
     </Animated.View>
     <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
-      onSend={text => { touched(); void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear} />
+      onSend={text => { touched(); void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
+      listening={voiceInput.mode === "question"} heard={heard} onMic={listenOnce} />
   </View>;
 }
 
@@ -333,6 +446,10 @@ function lineFor(state: AssistantState, name: string, spoken: Line | null): Line
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   holder: { position: "absolute", left: 0, top: 0, width: WIDTH, height: HEIGHT },
   leo: { width: WIDTH, height: HEIGHT },
+  micBadge: {
+    position: "absolute", top: 2, right: 2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center",
+    backgroundColor: c.primary,
+  },
   shadow: {
     position: "absolute", bottom: -2, left: WIDTH * 0.2, width: WIDTH * 0.6, height: 8, borderRadius: 8,
     backgroundColor: c.shadowSoft, opacity: 0.18,

@@ -5,6 +5,8 @@ import type { ThemeColors } from "../../constants/theme";
 import { checkBaseUrl, maskKey } from "../../lib/ai-config";
 import { testConnection } from "../../lib/ai-client";
 import { deleteApiKey, readApiKey, saveApiKey } from "../../lib/ai-key-expo";
+import { speechLocale } from "../../lib/assistant-speech";
+import { askMic, downloadOfflinePack } from "../../lib/voice-expo";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { AssistantVoicePicker } from "./AssistantVoicePicker";
@@ -22,7 +24,7 @@ const URL_PROBLEMS = {
  */
 export function AssistantSection() {
   const { settings, update } = useSettings();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const { assistant, ai } = settings;
@@ -34,6 +36,22 @@ export function AssistantSection() {
   const [keyDraft, setKeyDraft] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [micNote, setMicNote] = useState<string | null>(null);
+  const [packNote, setPackNote] = useState<string | null>(null);
+  const locale = speechLocale(language === "vi" ? "vi" : "en");
+
+  const setWakeWord = async (next: boolean) => {
+    setMicNote(null);
+    if (next && !(await askMic())) {
+      setMicNote(t("Allow the microphone to call the assistant by voice."));
+      return;
+    }
+    void update({ assistant: { wakeWord: next } });
+  };
+  const getPack = async () => {
+    const result = await downloadOfflinePack(locale);
+    setPackNote(t({ done: "The offline pack is installed.", dialog: "Follow the phone's dialog to download it.", scheduled: "The download is scheduled.", failed: "This phone could not download it." }[result]));
+  };
 
   useEffect(() => { setName(assistant.name); }, [assistant.name]);
   useEffect(() => { setBaseUrl(ai.baseUrl); }, [ai.baseUrl]);
@@ -80,6 +98,16 @@ export function AssistantSection() {
         onChange={next => { void update({ assistant: { voice: next } }); }}
         hint={t("Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.")} />
       {assistant.voice && <AssistantVoicePicker />}
+
+      <SwitchRow label={t("Call by voice: \"{name} ơi\"").replace("{name}", assistant.name)} value={assistant.wakeWord}
+        onChange={next => { void setWakeWord(next); }}
+        hint={t("While the app is open, the microphone listens for the name, then for your question. Your phone's speech service (Speech Services by Google) does the listening: with its offline pack for the language the audio stays on the phone, otherwise it may be sent to Google. The microphone stops when you leave the app.")} />
+      {micNote && <Text style={s.error}>{micNote}</Text>}
+      <Text style={s.hint}>{t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}</Text>
+      <Pressable onPress={() => { void getPack(); }} accessibilityRole="button" style={[s.smallButton, s.packButton]}>
+        <Text style={s.smallButtonText}>{t("Download the offline speech pack")}</Text>
+      </Pressable>
+      {packNote && <Text style={s.hint} accessibilityLiveRegion="polite">{packNote}</Text>}
 
       <View style={s.divider} />
       <Text style={s.heading} accessibilityRole="header">{t("AI chat")}</Text>
@@ -145,6 +173,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   keyInput: { flex: 1 },
   smallButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.primary },
   smallButtonText: { color: c.primary, fontSize: 13, fontWeight: "800" },
+  packButton: { marginTop: 10 },
   testButton: { minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.primary, marginTop: 14 },
   testText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
   disabled: { opacity: 0.4 },

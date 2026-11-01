@@ -24,6 +24,9 @@ export const LINES = {
   happy: { text: "Nice work! One more done!" },
   angry: { text: "Hey! Stop poking me!" },
   sleepy: { text: "So sleepy… tap me to wake me up." },
+  notUnderstood: { text: "I didn't catch that. Turn on the AI chat on the Assistant page to ask me anything." },
+  goodbye: { text: "See you later!" },
+  noMic: { text: "I can't use the microphone right now." },
 } as const satisfies Record<string, Line>;
 
 function todayOf(tasks: readonly Task[], now: Date): Task[] {

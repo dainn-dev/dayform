@@ -170,5 +170,14 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
     setEntries([]);
   }, [stop]);
 
-  return { entries, busy, readiness, send, answer, stop, clear, refreshKey };
+  // The card waiting for an answer, so a spoken "yes" or "no" can answer it.
+  const pendingConfirm = useMemo(() => {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i];
+      if (entry.kind === "confirm" && entry.state === "pending") return { id: entry.id, lines: entry.lines };
+    }
+    return null;
+  }, [entries]);
+
+  return { entries, busy, readiness, send, answer, stop, clear, refreshKey, pendingConfirm };
 }
