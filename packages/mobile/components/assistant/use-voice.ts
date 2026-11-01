@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import type { ExpoSpeechRecognitionErrorCode } from "expo-speech-recognition";
-import { detectWake } from "../../lib/voice-command";
+import { detectWake, restartDelay } from "../../lib/voice-command";
 import { askMic, listenToVoice, micAllowed, startListening, stopListening } from "../../lib/voice-expo";
 
 export type VoiceMode = "off" | "wake" | "question";
@@ -24,6 +24,8 @@ type Params = {
 };
 
 const RESTART_MS = 300;
+/** A wake session shorter than this that heard nothing counts as a failure (see restartDelay). */
+const QUICK_END_MS = 1500;
 /** Errors after which the call-by-name listening stops until it is switched on again. */
 const FATAL: ReadonlySet<ExpoSpeechRecognitionErrorCode> = new Set(["not-allowed", "service-not-allowed", "language-not-supported", "audio-capture"]);
 
@@ -40,6 +42,10 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
   const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A call with the question in the same breath ("Leo ơi hôm nay có gì") waits for the final words.
   const pendingRest = useRef(false);
+  // Back-off for a recognizer that keeps ending at once: when the session started, whether it heard anything, and the run of failures.
+  const sessionStart = useRef(0);
+  const heardSomething = useRef(false);
+  const quickFailures = useRef(0);
 
   const latest = useRef({ name, locale, onWake, onInterim, onHeard, onError, shouldWake: false });
   const shouldWake = wakeEnabled && !paused && active && allowed && !failed.current;
@@ -60,7 +66,13 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
     }
     setMode(next);
     pendingRest.current = false;
-    if (!startListening(latest.current.locale, next)) setMode("off");
+    sessionStart.current = Date.now();
+    heardSomething.current = false;
+    if (!startListening(latest.current.locale, next)) {
+      setMode("off");
+      failed.current = true;
+      latest.current.onError("service-not-allowed");
+    }
   }, []);
 
   useEffect(() => { void micAllowed().then(setAllowed); }, [wakeEnabled]);
@@ -71,11 +83,19 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
   }, []);
 
   // A new switch-on gets a fresh chance after a fatal error.
-  useEffect(() => { if (wakeEnabled) failed.current = false; }, [wakeEnabled]);
+  useEffect(() => {
+    if (!wakeEnabled) return;
+    failed.current = false;
+    quickFailures.current = 0;
+  }, [wakeEnabled]);
 
   useEffect(() => listenToVoice({
     onResult: (transcript, isFinal) => {
       const current = modeRef.current;
+      if (transcript.trim()) {
+        heardSomething.current = true;
+        quickFailures.current = 0;
+      }
       if (current === "wake") {
         const match = detectWake(transcript, latest.current.name);
         if (!match.heard) return;
@@ -112,9 +132,23 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
         return;
       }
       if (current === "wake") {
-        // The recognizer stops after a while of silence; keep listening for the name.
+        // The recognizer stops after a while of silence; keep listening for the name, waiting longer after each
+        // session that ended at once without hearing anything, and giving up after a run of them.
         setMode("off");
-        if (latest.current.shouldWake) restartTimer.current = setTimeout(() => { if (latest.current.shouldWake && modeRef.current === "off") begin("wake"); }, RESTART_MS);
+        const quick = !heardSomething.current && Date.now() - sessionStart.current < QUICK_END_MS;
+        quickFailures.current = quick ? quickFailures.current + 1 : 0;
+        const delay = restartDelay(quickFailures.current);
+        if (delay === null) {
+          failed.current = true;
+          latest.current.onError("service-not-allowed");
+          return;
+        }
+        if (latest.current.shouldWake) {
+          restartTimer.current = setTimeout(() => {
+            restartTimer.current = null;
+            if (latest.current.shouldWake && modeRef.current === "off") begin("wake");
+          }, delay);
+        }
       }
     },
     onError: code => {

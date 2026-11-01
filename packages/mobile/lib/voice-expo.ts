@@ -1,4 +1,5 @@
 import { ExpoSpeechRecognitionModule, type ExpoSpeechRecognitionErrorCode } from "expo-speech-recognition";
+import { chooseRecognizer } from "./voice-command";
 
 /**
  * expo-speech-recognition glue for the assistant (untested): Android's own speech recognizer, which on the owner's
@@ -14,12 +15,24 @@ export type VoiceHandlers = {
   onError: (code: ExpoSpeechRecognitionErrorCode) => void;
 };
 
-export function voiceAvailable(): boolean {
+/** The recognition service to name in every session (see chooseRecognizer), or null when the phone has none. */
+export function recognizer(): string | null {
   try {
-    return ExpoSpeechRecognitionModule.isRecognitionAvailable();
+    const installed = ExpoSpeechRecognitionModule.getSpeechRecognitionServices();
+    let fallback: string | null = null;
+    try {
+      fallback = ExpoSpeechRecognitionModule.getDefaultRecognitionService().packageName || null;
+    } catch {
+      fallback = null;
+    }
+    return chooseRecognizer(installed, fallback);
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function voiceAvailable(): boolean {
+  return recognizer() !== null;
 }
 
 export async function micAllowed(): Promise<boolean> {
@@ -39,8 +52,11 @@ export async function askMic(): Promise<boolean> {
 }
 
 export function startListening(locale: string, mode: ListenMode): boolean {
+  const service = recognizer();
+  if (!service) return false;
   try {
     ExpoSpeechRecognitionModule.start({
+      androidRecognitionServicePackage: service,
       lang: locale,
       interimResults: true,
       maxAlternatives: 1,

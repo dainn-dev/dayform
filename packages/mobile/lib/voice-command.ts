@@ -66,6 +66,32 @@ export function matchPreset(transcript: string): QuestionId | null {
   return null;
 }
 
+/** Speech services this app trusts with the user's voice, best first: Google's on-device service, then Speech Services by Google, then the Google app. */
+const KNOWN_RECOGNIZERS = ["com.google.android.as", "com.google.android.tts", "com.google.android.googlequicksearchbox"];
+
+/**
+ * Which recognition service to ask. Some phones (the owner's vivo) have none selected as the default, and Android then
+ * refuses every session at once ("no selected voice recognition service"), so the app names one: the phone's default
+ * when it is set, otherwise a known Google service that is installed. Another app's recognizer is never picked on its
+ * own, since it would receive what the user says. Null when there is none.
+ */
+export function chooseRecognizer(installed: readonly string[], defaultPackage: string | null): string | null {
+  if (defaultPackage && installed.includes(defaultPackage)) return defaultPackage;
+  return KNOWN_RECOGNIZERS.find(pkg => installed.includes(pkg)) ?? null;
+}
+
+export const MAX_QUICK_FAILURES = 5;
+
+/**
+ * How long to wait before listening for the name again. A session that ended quickly without hearing anything counts
+ * as a failure; each one in a row doubles the wait (0.3 s up to 30 s), so a broken recognizer is not restarted in a
+ * tight loop. Null after MAX_QUICK_FAILURES in a row: stop and tell the user.
+ */
+export function restartDelay(quickFailures: number): number | null {
+  if (quickFailures >= MAX_QUICK_FAILURES) return null;
+  return Math.min(30_000, 300 * 2 ** quickFailures);
+}
+
 const GOODBYE = ["cam on", "thoi", "tam biet", "bye", "goodbye", "thank you", "thanks", "het roi", "vay thoi"];
 
 /** Whether the user ended the spoken conversation ("cảm ơn", "thôi", "bye"). */
