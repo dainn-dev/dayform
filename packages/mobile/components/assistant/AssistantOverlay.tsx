@@ -305,11 +305,11 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }:
     },
     onInterim: text => setHeard(text),
     onHeard: text => handleHeard(text),
-    onError: () => {
+    onError: code => {
       setHeard("");
       voiceTurn.current = false;
       dispatch({ type: "cancelled" });
-      setSpoken(LINES.noMic);
+      setSpoken(code === "language-not-supported" ? LINES.noLanguage : LINES.noMic);
     },
   });
 

@@ -27,6 +27,7 @@ export const LINES = {
   notUnderstood: { text: "I didn't catch that. Turn on the AI chat on the Assistant page to ask me anything." },
   goodbye: { text: "See you later!" },
   noMic: { text: "I can't use the microphone right now." },
+  noLanguage: { text: "Your phone's speech service can't understand this language yet. Download its language pack on the Assistant page." },
 } as const satisfies Record<string, Line>;
 
 function todayOf(tasks: readonly Task[], now: Date): Task[] {

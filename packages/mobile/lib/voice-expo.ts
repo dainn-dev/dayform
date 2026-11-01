@@ -5,8 +5,9 @@ import { chooseRecognizer } from "./voice-command";
 /**
  * expo-speech-recognition glue for the assistant (untested): Android's own speech recognizer, which on the owner's
  * phone is Speech Services by Google. "wake" listens continuously for the call by name, "question" takes one sentence.
- * Offline recognition is preferred (`EXTRA_PREFER_OFFLINE`), so the audio stays on the phone when the language pack
- * is installed; without it the recognizer may send audio to its provider, which the Assistant page says.
+ * Offline recognition is asked for first (`EXTRA_PREFER_OFFLINE`), so the audio stays on the phone when the language
+ * pack is installed; without the pack the same service is asked again over the network (see languageMissing), which
+ * the Assistant page says.
  */
 export type ListenMode = "wake" | "question";
 
@@ -16,16 +17,28 @@ export type VoiceHandlers = {
   onError: (code: ExpoSpeechRecognitionErrorCode) => void;
 };
 
-/** Services that answered "language not downloaded" for a locale in this run of the app. */
+/** Services that answered "language not available" for a locale in this run of the app, even over the network. */
 const lacking = new Map<string, Set<string>>();
+/** Locales whose offline pack is missing on the current service: sessions then ask for network recognition. */
+const onlineFor = new Set<string>();
 
-/** Remembers that the service last used for `locale` lacks it; true when another service is left to try. */
-export function skipServiceFor(locale: string): boolean {
+/**
+ * The service answered that it has no pack for `locale`. First the same service is asked again without the offline
+ * preference (Speech Services by Google then recognises on its servers); if that fails too, the service is skipped
+ * for the locale. True when there is still something to try.
+ */
+export function languageMissing(locale: string): boolean {
+  if (!onlineFor.has(locale)) {
+    onlineFor.add(locale);
+    return recognizer(locale) !== null;
+  }
   const service = recognizer(locale);
   if (!service) return false;
   const set = lacking.get(locale) ?? new Set<string>();
   set.add(service);
   lacking.set(locale, set);
+  // The next service gets its own offline try first.
+  onlineFor.delete(locale);
   return recognizer(locale) !== null;
 }
 
@@ -76,7 +89,7 @@ export function startListening(locale: string, mode: ListenMode): boolean {
       maxAlternatives: 1,
       continuous: mode === "wake",
       androidIntentOptions: {
-        EXTRA_PREFER_OFFLINE: true,
+        EXTRA_PREFER_OFFLINE: !onlineFor.has(locale),
         ...(mode === "question" ? { EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 1500 } : {}),
       },
     });

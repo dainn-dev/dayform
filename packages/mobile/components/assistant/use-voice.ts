@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import type { ExpoSpeechRecognitionErrorCode } from "expo-speech-recognition";
 import { detectWake, restartDelay } from "../../lib/voice-command";
-import { askMic, listenToVoice, micAllowed, skipServiceFor, startListening, stopListening } from "../../lib/voice-expo";
+import { askMic, languageMissing, listenToVoice, micAllowed, startListening, stopListening } from "../../lib/voice-expo";
 
 export type VoiceMode = "off" | "wake" | "question";
 
@@ -152,9 +152,13 @@ export function useVoice({ wakeEnabled, name, locale, paused, onWake, onInterim,
       }
     },
     onError: code => {
-      // This service has no pack for the language: the next session uses another one, if the phone has one.
-      if (code === "language-not-supported" && skipServiceFor(latest.current.locale)) {
+      // No pack for the language: the next session asks over the network, then another service (see languageMissing).
+      if (code === "language-not-supported" && languageMissing(latest.current.locale)) {
         quickFailures.current = 0;
+        if (modeRef.current === "question") {
+          // A sentence was being taken: take it again at once with the new setting.
+          restartTimer.current = setTimeout(() => { restartTimer.current = null; begin("question"); }, RESTART_MS);
+        }
         return;
       }
       if (FATAL.has(code)) {

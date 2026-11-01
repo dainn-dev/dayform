@@ -24,6 +24,7 @@ export const vi: Record<string, string> = {
   "I didn't catch that. Turn on the AI chat on the Assistant page to ask me anything.": "Mình chưa hiểu. Hãy bật Trò chuyện AI trong trang Trợ lý để hỏi mình bất cứ điều gì.",
   "See you later!": "Hẹn gặp lại nhé!",
   "I can't use the microphone right now.": "Mình chưa dùng được micro lúc này.",
+  "Your phone's speech service can't understand this language yet. Download its language pack on the Assistant page.": "Dịch vụ giọng nói của điện thoại chưa hiểu được tiếng Việt. Hãy tải gói ngôn ngữ trong trang Trợ lý.",
   "Shall I?": "Mình làm nhé?",
   "Listening…": "Đang nghe…",
   "Stop listening": "Dừng nghe",
