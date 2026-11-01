@@ -13,6 +13,8 @@ import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { tabBarHeight } from "../../lib/shell-layout";
 import { useTasks } from "../../lib/tasks-context";
+import { ChatSheet } from "./ChatSheet";
+import { useAiChat } from "./use-ai-chat";
 
 // The flat picture of Leo stands in until the Live2D model is rigged (see the assistant notes in CLAUDE.md).
 const LEO = require("../../assets/assistant/leo.png");
@@ -33,10 +35,13 @@ export function AssistantOverlay() {
   const { settings, ready } = useSettings();
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
-  return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId} />;
+  return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId}
+    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} />;
 }
 
-function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voiceId: string }) {
+type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean };
+
+function Assistant({ name, voice, voiceId, assistantName, aiEnabled }: AssistantProps) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -49,6 +54,40 @@ function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voi
   const [spoken, setSpoken] = useState<Line | null>(null);
   const [activity, setActivity] = useState(0);
   const touched = () => setActivity(value => value + 1);
+
+  // The AI chat: while a question is out, "thinking" waits for the answer instead of its own timer.
+  const [chatOpen, setChatOpen] = useState(false);
+  const awaitingAi = useRef(false);
+  const chat = useAiChat({
+    onStart: () => {
+      awaitingAi.current = true;
+      // From wherever Leo is (talking, idle, sleepy or already listening) to thinking; events that do not apply are ignored.
+      dispatch({ type: "answerDone" });
+      dispatch({ type: "asked" });
+      dispatch({ type: "questionChosen" });
+    },
+    onReply: text => {
+      awaitingAi.current = false;
+      // The AI's words are not a dictionary key: they go in as a value, so they are never "translated".
+      setSpoken({ text: "{reply}", vars: { reply: text } });
+      dispatch({ type: "answerStarted" });
+    },
+  });
+  const openChat = () => {
+    setChatOpen(true);
+    dispatch({ type: machine.state === "sleepy" ? "poked" : "asked" });
+  };
+  const closeChat = () => {
+    setChatOpen(false);
+    chat.stop();
+    stopSpeaking();
+    if (awaitingAi.current) {
+      awaitingAi.current = false;
+      dispatch({ type: "answerStarted" });
+      dispatch({ type: "answerDone" });
+    }
+    dispatch({ type: "cancelled" });
+  };
 
   const minY = insets.top + EDGE;
   const maxY = screenH - tabBarHeight(insets.bottom) - HEIGHT - EDGE;
@@ -103,7 +142,7 @@ function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voi
     const later = (ms: number, type: Parameters<typeof nextState>[1]["type"]) => timers.push(setTimeout(() => dispatch({ type } as Parameters<typeof nextState>[1]), ms));
     const oneShot = ONE_SHOT_MS[machine.state];
     if (oneShot) later(oneShot, "done");
-    if (machine.state === "thinking") later(THINKING_MS, "answerStarted");
+    if (machine.state === "thinking" && !awaitingAi.current) later(THINKING_MS, "answerStarted");
     let cancelled = false;
     if (machine.state === "talking") {
       // The answer ends when the voice has finished it; without a voice, after a time that fits its length.
@@ -231,7 +270,8 @@ function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voi
       dispatch({ type: "teased" });
       return;
     }
-    if (machine.state === "idle") dispatch({ type: "asked" });
+    if (aiEnabled && (machine.state === "idle" || machine.state === "sleepy")) openChat();
+    else if (machine.state === "idle") dispatch({ type: "asked" });
     else if (machine.state === "sleepy") dispatch({ type: "poked" });
     else if (machine.state === "listening") dispatch({ type: "cancelled" });
     else stopSpeaking();
@@ -251,7 +291,7 @@ function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voi
 
   return <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
     <Animated.View style={[s.holder, { transform: position.getTranslateTransform() }]} {...pan.panHandlers}>
-      {machine.state === "listening"
+      {chatOpen ? null : machine.state === "listening"
         ? <View style={[s.bubble, ...bubblePlace]} accessibilityLiveRegion="polite">
           <Text style={s.bubbleText}>{t(LINES.listening.text)}</Text>
           {QUESTION_IDS.map(id => <Pressable key={id} onPress={() => ask(id)} accessibilityRole="button" style={s.question}>
@@ -265,13 +305,15 @@ function Assistant({ name, voice, voiceId }: { name: string; voice: boolean; voi
           <Text style={s.bubbleText}>{fill(t(line.text), line.vars)}</Text>
         </View>}
       <View style={s.shadow} pointerEvents="none" />
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={t("Leo, your assistant")}
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
         accessibilityHint={t("Tap to ask a question. Drag to move.")} hitSlop={6}>
         <Animated.Image source={LEO} resizeMode="contain" style={[s.leo, {
           transform: [{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }],
         }]} />
       </Pressable>
     </Animated.View>
+    <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
+      onSend={text => { touched(); void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear} />
   </View>;
 }
 

@@ -140,7 +140,22 @@ const settingsSchema = z.object({
   calendar: group(calendarSchema),
   habits: group(z.object({ hints: flag(true) })),
   /** The assistant in the corner of the app (components/assistant/); on by default. `voice` reads its lines aloud with the phone's own speech engine; `voiceId` is the chosen voice ("" = automatic). */
-  assistant: group(z.object({ enabled: flag(true), voice: flag(true), voiceId: z.string().max(200).catch("") })),
+  assistant: group(z.object({
+    enabled: flag(true), voice: flag(true), voiceId: z.string().max(200).catch(""),
+    /** What the assistant is called ("Hey {name}"); blank means the default. */
+    name: z.string().trim().max(20).catch("Leo").transform(value => value || "Leo").catch("Leo"),
+  })),
+  /**
+   * The AI chat (lib/ai-*.ts): an OpenAI-compatible provider the user configures. Off by default: turning it on sends
+   * questions (and, when `shareTitles` is on, task titles) to `baseUrl`. The API key is NOT here: it lives in the
+   * phone's secure storage (lib/ai-key-expo.ts), never in AsyncStorage, backups or snapshots.
+   */
+  ai: group(z.object({
+    enabled: flag(false),
+    baseUrl: z.string().trim().max(300).catch("https://api.openai.com/v1"),
+    model: z.string().trim().max(120).catch(""),
+    shareTitles: flag(true),
+  })),
   widget: group(z.object({ showTitles: flag(true) })),
   /**
    * The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. `kind` is "off" while the

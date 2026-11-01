@@ -3,7 +3,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 60,
+      "versionCode": 61,
       "allowBackup": true,
       "permissions": [
         "android.permission.USE_EXACT_ALARM"
@@ -42,7 +42,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.2.48",
+    "version": "1.2.49",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -91,6 +91,12 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#6565E8"
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
         }
       ]
     ]

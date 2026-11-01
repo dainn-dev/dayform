@@ -6,6 +6,7 @@ import { RecoverySection } from "../settings/RecoverySection";
 import { UpdateSection } from "../update/UpdateSection";
 import { AboutSection } from "./AboutSection";
 import { AppearanceSection } from "./AppearanceSection";
+import { AssistantSection } from "./AssistantSection";
 import { CalendarSection } from "./CalendarSection";
 import { CategoriesSection } from "./CategoriesSection";
 import { SpecialDaysSection } from "./SpecialDaysSection";
@@ -33,6 +34,7 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   appearance: { Component: AppearanceSection },
   language: { Component: LanguageSection },
   greeting: { Component: GreetingSection, hasTextInput: true },
+  assistant: { Component: AssistantSection, hasTextInput: true },
   "new-tasks": { Component: DefaultsSection, hasTextInput: true },
   calendar: { Component: CalendarSection },
   categories: { Component: CategoriesSection },

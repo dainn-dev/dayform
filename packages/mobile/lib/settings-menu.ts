@@ -14,7 +14,7 @@ type Translate = (text: string) => string;
 
 export type MenuGroupId = "personalise" | "tasks" | "reminders" | "health" | "data" | "app";
 export type PageSlug =
-  | "appearance" | "language" | "greeting" | "new-tasks" | "calendar" | "categories" | "special-days" | "habits" | "notifications" | "widget"
+  | "appearance" | "language" | "greeting" | "assistant" | "new-tasks" | "calendar" | "categories" | "special-days" | "habits" | "notifications" | "widget"
   | "cycle" | "backup" | "archive" | "recovery" | "updates" | "about";
 export type MenuRowId = PageSlug | "cycle-tracking";
 /** A color slot of `Colors.<scheme>.category`: the chip is drawn with its `bg` and `accent`. */
@@ -64,6 +64,7 @@ export const MENU_ROWS: readonly MenuRow[] = [
   { id: "appearance", slug: "appearance", group: "personalise", title: "Appearance", icon: "color-palette-outline", tint: "violet" },
   { id: "language", slug: "language", group: "personalise", title: "Language", icon: "language-outline", tint: "sky" },
   { id: "greeting", slug: "greeting", group: "personalise", title: "Greeting", icon: "sunny-outline", tint: "amber" },
+  { id: "assistant", slug: "assistant", group: "personalise", title: "Assistant", icon: "sparkles-outline", tint: "violet" },
   { id: "new-tasks", slug: "new-tasks", group: "tasks", title: "New tasks", icon: "add-circle-outline", tint: "Focus" },
   { id: "calendar", slug: "calendar", group: "tasks", title: "Calendar & time", icon: "calendar-outline", tint: "sky" },
   { id: "categories", slug: "categories", group: "tasks", title: "Categories", icon: "pricetags-outline", tint: "magenta" },
@@ -169,6 +170,7 @@ const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
   // A language is always named in itself, so these two are never translated.
   language: ({ language }) => (language === "vi" ? "Tiếng Việt" : "English"),
   greeting: ({ settings: { greeting }, t }) => join([t(greeting.showName ? "Name shown" : "Name hidden"), t(SLOGAN_LABELS[greeting.sloganStyle])]),
+  assistant: ({ settings: { assistant, ai }, t }) => assistant.enabled ? join([assistant.name, t(ai.enabled ? "AI on" : "AI off")]) : t("Hidden"),
   "new-tasks": ({ settings: { defaults }, duration, categoryName }) => join([duration(defaults.duration), categoryName(defaults.category)]),
   calendar: calendarSummary,
   categories: ({ categoryCount, t }) => categorySummary(categoryCount, t),

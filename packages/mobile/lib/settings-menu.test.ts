@@ -55,7 +55,7 @@ describe("registry", () => {
 
   test("lists the pages of the design in order", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
-      ["appearance", "language", "greeting"],
+      ["appearance", "language", "greeting", "assistant"],
       ["new-tasks", "calendar", "categories", "special-days", "habits"],
       ["notifications", "widget"],
       ["cycle", "cycle-tracking"],
@@ -136,6 +136,12 @@ describe("summaries", () => {
   test("language names the current language in itself, whatever the translator does", () => {
     expect(say("language")).toBe("English");
     expect(say("language", {}, { language: "vi", t: () => "never used" })).toBe("Tiếng Việt");
+  });
+
+  test("assistant names it and says whether the AI chat is on", () => {
+    expect(say("assistant")).toBe("Leo · AI off");
+    expect(say("assistant", { assistant: { name: "Mây" }, ai: { enabled: true } })).toBe("Mây · AI on");
+    expect(say("assistant", { assistant: { enabled: false } })).toBe("Hidden");
   });
 
   test("greeting says whether the name shows and which slogan style is on", () => {
