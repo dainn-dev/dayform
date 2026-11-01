@@ -11,9 +11,8 @@ import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
 import { Ionicons } from "@expo/vector-icons";
 import { useVoice } from "./use-voice";
 import { useRecording } from "./use-recording";
-import { canTranscribe } from "../../lib/ai-transcribe";
-import { transcribeClip } from "../../lib/ai-transcribe-client";
-import { readApiKey } from "../../lib/ai-key-expo";
+import { transcribeWithSoniox } from "../../lib/soniox-client";
+import { readSonioxKey } from "../../lib/ai-key-expo";
 import { AiError } from "../../lib/ai-client";
 import { speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { INACTIVE_AFTER_MS, INITIAL_MACHINE, nextState, ONE_SHOT_MS, registerTap, THINKING_MS, type AssistantState } from "../../lib/assistant-state";
@@ -44,16 +43,12 @@ export function AssistantOverlay() {
   const pathname = usePathname();
   if (!ready || !settings.assistant.enabled || pathname.startsWith("/cycle")) return null;
   return <Assistant name={settings.profile.name} voice={settings.assistant.voice} voiceId={settings.assistant.voiceId}
-    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord}
-    provider={{ baseUrl: settings.ai.baseUrl, transcribeModel: settings.ai.transcribeModel }} />;
+    assistantName={settings.assistant.name} aiEnabled={settings.ai.enabled} wakeWord={settings.assistant.wakeWord} />;
 }
 
-type AssistantProps = {
-  name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean;
-  provider: { baseUrl: string; transcribeModel: string };
-};
+type AssistantProps = { name: string; voice: boolean; voiceId: string; assistantName: string; aiEnabled: boolean; wakeWord: boolean };
 
-function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, provider }: AssistantProps) {
+function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord }: AssistantProps) {
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
@@ -359,9 +354,12 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, p
     dispatch({ type: "questionChosen" });
   }
 
-  // ---- Recording a clip for the provider's speech to text (hold the assistant, or the chat's microphone) ----
+  // ---- Recording a clip for Soniox's speech to text (hold the assistant, or the chat's microphone) ----
   const [transcribing, setTranscribing] = useState(false);
-  const useProvider = chat.readiness === "ready" && canTranscribe(provider.transcribeModel);
+  // With a Soniox key, a clip is recorded and sent to Soniox; without one, the phone's recognizer is used.
+  const [hasSoniox, setHasSoniox] = useState(false);
+  useEffect(() => { void readSonioxKey().then(key => setHasSoniox(key !== null)); }, [chatOpen, machine.state === "listening"]); // eslint-disable-line react-hooks/exhaustive-deps
+  const useProvider = hasSoniox;
   const clip = useRecording(uri => { void finishClip(uri); });
 
   const reportVoiceProblem = (message: string) => {
@@ -383,9 +381,9 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, p
     setTranscribing(true);
     setHeard(t("Turning your voice into text…"));
     try {
-      const key = await readApiKey();
-      if (!key) throw new AiError("Add your API key.", null);
-      const text = await transcribeClip({ baseUrl: provider.baseUrl, apiKey: key, model: provider.transcribeModel }, uri, speechLanguage);
+      const key = await readSonioxKey();
+      if (!key) throw new AiError("Add your Soniox API key on the Assistant page.", null);
+      const text = await transcribeWithSoniox(key, uri, speechLanguage);
       setTranscribing(false);
       handleHeard(text);
     } catch (error) {

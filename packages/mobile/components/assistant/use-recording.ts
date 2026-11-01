@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, type RecordingOptions } from "expo-audio";
-import { MAX_RECORD_MS, MIN_RECORD_MS } from "../../lib/ai-transcribe";
+import { MAX_RECORD_MS, MIN_RECORD_MS } from "../../lib/soniox";
 
 /** Small mono AAC: a spoken sentence is a few dozen kB, quick to upload. */
 const SPEECH_CLIP: RecordingOptions = {
@@ -14,7 +14,7 @@ const SPEECH_CLIP: RecordingOptions = {
 };
 
 /**
- * One spoken clip for the AI provider's transcription: start, then stop to get the file (null for a slip shorter than
+ * One spoken clip for Soniox's speech to text: start, then stop to get the file (null for a slip shorter than
  * MIN_RECORD_MS). Recording stops by itself after MAX_RECORD_MS and calls `onAutoStop` with the clip.
  */
 export function useRecording(onAutoStop: (uri: string | null) => void) {

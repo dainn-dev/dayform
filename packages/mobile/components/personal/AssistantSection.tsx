@@ -4,7 +4,8 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { checkBaseUrl, maskKey } from "../../lib/ai-config";
 import { testConnection } from "../../lib/ai-client";
-import { deleteApiKey, readApiKey, saveApiKey } from "../../lib/ai-key-expo";
+import { deleteApiKey, deleteSonioxKey, readApiKey, readSonioxKey, saveApiKey, saveSonioxKey } from "../../lib/ai-key-expo";
+import { testSoniox } from "../../lib/soniox-client";
 import { speechLocale } from "../../lib/assistant-speech";
 import { askMic, downloadOfflinePack } from "../../lib/voice-expo";
 import { useLanguage } from "../../lib/language";
@@ -32,7 +33,9 @@ export function AssistantSection() {
   const [name, setName] = useState(assistant.name);
   const [baseUrl, setBaseUrl] = useState(ai.baseUrl);
   const [model, setModel] = useState(ai.model);
-  const [transcribeModel, setTranscribeModel] = useState(ai.transcribeModel);
+  const [sonioxKey, setSonioxKey] = useState<string | null>(null);
+  const [sonioxDraft, setSonioxDraft] = useState("");
+  const [sonioxNote, setSonioxNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState("");
   const [testing, setTesting] = useState(false);
@@ -57,14 +60,26 @@ export function AssistantSection() {
   useEffect(() => { setName(assistant.name); }, [assistant.name]);
   useEffect(() => { setBaseUrl(ai.baseUrl); }, [ai.baseUrl]);
   useEffect(() => { setModel(ai.model); }, [ai.model]);
-  useEffect(() => { setTranscribeModel(ai.transcribeModel); }, [ai.transcribeModel]);
+  useEffect(() => { void readSonioxKey().then(setSonioxKey); }, []);
   useEffect(() => { void readApiKey().then(setSavedKey); }, []);
 
   const urlCheck = checkBaseUrl(baseUrl);
   const commitName = () => { if (name.trim() !== assistant.name) void update({ assistant: { name: name.trim() } }); };
   const commitUrl = () => { if (urlCheck.ok && urlCheck.url !== ai.baseUrl) void update({ ai: { baseUrl: urlCheck.url } }); };
   const commitModel = () => { if (model.trim() !== ai.model) void update({ ai: { model: model.trim() } }); };
-  const commitTranscribe = () => { if (transcribeModel.trim() !== ai.transcribeModel) void update({ ai: { transcribeModel: transcribeModel.trim() } }); };
+  const storeSoniox = async () => {
+    if (!(await saveSonioxKey(sonioxDraft))) return;
+    const saved = sonioxDraft.trim();
+    setSonioxKey(saved);
+    setSonioxDraft("");
+    const error = await testSoniox(saved);
+    setSonioxNote(error ? { ok: false, text: t(error) } : { ok: true, text: t("Soniox accepted the key.") });
+  };
+  const removeSoniox = async () => {
+    await deleteSonioxKey();
+    setSonioxKey(null);
+    setSonioxNote(null);
+  };
 
   const storeKey = async () => {
     if (await saveApiKey(keyDraft)) {
@@ -112,6 +127,25 @@ export function AssistantSection() {
       </Pressable>
       {packNote && <Text style={s.hint} accessibilityLiveRegion="polite">{packNote}</Text>}
 
+      <Text style={s.label}>{t("Soniox API key (speech to text)")}</Text>
+      {sonioxKey
+        ? <View style={s.keyRow}>
+          <Text style={s.keyText}>{t("Saved key {key}").replace("{key}", maskKey(sonioxKey))}</Text>
+          <Pressable onPress={() => { void removeSoniox(); }} accessibilityRole="button" style={s.smallButton}>
+            <Text style={s.smallButtonText}>{t("Remove")}</Text>
+          </Pressable>
+        </View>
+        : <View style={s.keyRow}>
+          <TextInput value={sonioxDraft} onChangeText={setSonioxDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
+            style={[s.input, s.keyInput]} placeholder={t("Paste your Soniox API key")} placeholderTextColor={colors.mutedForeground}
+            accessibilityLabel={t("Soniox API key (speech to text)")} />
+          <Pressable onPress={() => { void storeSoniox(); }} disabled={!sonioxDraft.trim()} accessibilityRole="button" style={[s.smallButton, !sonioxDraft.trim() && s.disabled]}>
+            <Text style={s.smallButtonText}>{t("Save")}</Text>
+          </Pressable>
+        </View>}
+      {sonioxNote && <Text style={sonioxNote.ok ? s.ok : s.error} accessibilityLiveRegion="polite">{sonioxNote.text}</Text>}
+      <Text style={s.hint}>{t("With a Soniox key, holding the assistant or tapping the microphone in the chat records what you say and sends it to Soniox (api.soniox.com) to turn into text; the recording and its text are deleted from Soniox right after. The key stays in the phone's secure storage. Without a key, the phone's own speech recognizer is used.")}</Text>
+
       <View style={s.divider} />
       <Text style={s.heading} accessibilityRole="header">{t("AI chat")}</Text>
       <SwitchRow label={t("Answer with an AI")} value={ai.enabled}
@@ -128,12 +162,6 @@ export function AssistantSection() {
         <Text style={s.label}>{t("Model")}</Text>
         <TextInput value={model} onChangeText={setModel} onBlur={commitModel} onSubmitEditing={commitModel} autoCapitalize="none" autoCorrect={false}
           style={s.input} placeholder={t("e.g. the model id from your provider")} placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("Model")} />
-
-        <Text style={s.label}>{t("Speech-to-text model")}</Text>
-        <TextInput value={transcribeModel} onChangeText={setTranscribeModel} onBlur={commitTranscribe} onSubmitEditing={commitTranscribe}
-          autoCapitalize="none" autoCorrect={false} style={s.input} placeholder="whisper-1" placeholderTextColor={colors.mutedForeground}
-          accessibilityLabel={t("Speech-to-text model")} />
-        <Text style={s.hint}>{t("When you hold the assistant or tap the microphone in the chat, the recording is sent to the provider's /audio/transcriptions with this model. Leave it empty to use the phone's own speech recognizer instead.")}</Text>
 
         <Text style={s.label}>{t("API key")}</Text>
         {savedKey

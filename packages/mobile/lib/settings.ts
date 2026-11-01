@@ -157,8 +157,6 @@ const settingsSchema = z.object({
     baseUrl: z.string().trim().max(300).catch("https://api.openai.com/v1"),
     model: z.string().trim().max(120).catch(""),
     shareTitles: flag(true),
-    /** Speech to text through the provider (`/audio/transcriptions`) for hold-to-speak and the chat's microphone; "" uses the phone's recognizer. */
-    transcribeModel: z.string().trim().max(120).catch("whisper-1"),
   })),
   widget: group(z.object({ showTitles: flag(true) })),
   /**

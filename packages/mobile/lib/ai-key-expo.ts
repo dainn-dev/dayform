@@ -29,6 +29,37 @@ export async function saveApiKey(value: string): Promise<boolean> {
   }
 }
 
+/** The Soniox API key (speech to text), stored the same way as the AI key. */
+const SONIOX_KEY = "dayform.soniox.apiKey";
+
+export async function readSonioxKey(): Promise<string | null> {
+  try {
+    const value = await SecureStore.getItemAsync(SONIOX_KEY);
+    return value && value.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSonioxKey(value: string): Promise<boolean> {
+  const clean = value.trim();
+  if (!clean || clean.length > MAX_KEY) return false;
+  try {
+    await SecureStore.setItemAsync(SONIOX_KEY, clean);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteSonioxKey(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(SONIOX_KEY);
+  } catch {
+    // Nothing stored.
+  }
+}
+
 export async function deleteApiKey(): Promise<void> {
   try {
     await SecureStore.deleteItemAsync(KEY);
