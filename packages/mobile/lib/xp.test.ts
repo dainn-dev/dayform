@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Task } from "./planner";
 import { rankOf, realmStart } from "./realm";
 import {
-  claimTasks, DAILY_CAP, EMPTY_XP, isLateAdded, mergeXp, parseXpText, penaltyFor, restAvailable, restLeft, revokeTasks, settleDays,
+  claimTasks, DAILY_CAP, EMPTY_XP, MAX_WORK_HOURS, MIN_REST_HOURS, XP_PER_HOUR, isLateAdded, mergeXp, parseXpText, penaltyFor, restAvailable, restLeft, revokeTasks, settleDays,
   streakFactor, taskXp, todayXp, type XpState,
 } from "./xp";
 
@@ -20,11 +20,21 @@ const started = (day: string): XpState => settleDays(EMPTY_XP, at(day)).state;
 
 describe("experience for a task", () => {
   const now = at("2026-10-10");
-  test("is worth more for a longer task, up to a cap, and at least 10", () => {
-    expect(taskXp(task({ duration: 5 }), now)).toBe(10);
+  test("is time: 40 an hour, with a small floor for a very short task", () => {
+    expect(taskXp(task({ duration: 5 }), now)).toBe(5);
+    expect(taskXp(task({ duration: 15 }), now)).toBe(10);
     expect(taskXp(task({ duration: 30 }), now)).toBe(20);
     expect(taskXp(task({ duration: 60 }), now)).toBe(40);
-    expect(taskXp(task({ duration: 600 }), now)).toBe(60);
+    expect(taskXp(task({ duration: 120 }), now)).toBe(80);
+    expect(taskXp(task({ duration: 600 }), now)).toBe(400);
+  });
+
+  test("a day has a finite supply: 19 hours of work at 40 an hour, always leaving 5 hours of rest", () => {
+    expect(XP_PER_HOUR).toBe(40);
+    expect(MAX_WORK_HOURS).toBe(19);
+    expect(MIN_REST_HOURS).toBe(5);
+    expect(DAILY_CAP).toBe(24 * 40 - 5 * 40);
+    expect(DAILY_CAP).toBe(760);
   });
 
   test("depends on when it was planned for", () => {
@@ -75,6 +85,16 @@ describe("earning and taking back", () => {
     const many = Array.from({ length: 30 }, () => task({ duration: 60 }));
     const result = claimTasks(started("2026-10-10"), many, at("2026-10-10"));
     expect(result.state.total).toBe(DAILY_CAP);
+    // Nineteen one-hour tasks fill the day exactly; the twentieth earns nothing more.
+    const nineteen = claimTasks(started("2026-10-10"), many.slice(0, 19), at("2026-10-10"));
+    expect(nineteen.state.total).toBe(760);
+    expect(claimTasks(nineteen.state, [task({ duration: 60 })], at("2026-10-10")).gained).toBe(0);
+  });
+
+  test("the cap holds for a streak bonus and for one huge task", () => {
+    const hot = { ...started("2026-10-10"), streak: 40 };
+    expect(claimTasks(hot, [task({ duration: 1400 })], at("2026-10-10")).state.total).toBe(DAILY_CAP);
+    expect(claimTasks(started("2026-10-10"), [task({ duration: 1400 })], at("2026-10-10")).state.total).toBe(DAILY_CAP);
   });
 
   test("a task added after the fact earns nothing and is no day of work", () => {

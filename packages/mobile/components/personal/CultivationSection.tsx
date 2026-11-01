@@ -6,6 +6,7 @@ import { useLanguage } from "../../lib/language";
 import { fill } from "../../lib/assistant-answers";
 import { word } from "../../lib/ladder-words";
 import { formatNumber, goalLine, rankLabel } from "../../lib/rank-label";
+import { DAILY_CAP, MAX_WORK_HOURS, MIN_REST_HOURS, XP_PER_HOUR } from "../../lib/xp";
 import { LADDERS, LADDER_STYLES, LAYERS, STAGES, breakthroughCost, rankOf, realmStart, toNextRealm } from "../../lib/realm";
 import { useSettings } from "../../lib/settings-context";
 import { fillPlaceholders } from "../../lib/text-template";
@@ -98,7 +99,7 @@ export function CultivationSection() {
       </View>}
 
       <View style={s.stats}>
-        <View style={s.stat}><Text style={s.statLabel}>{t("Today")}</Text><Text style={s.statValue}>{fillPlaceholders(t("+{n} today"), { n: String(todayXp) })}</Text></View>
+        <View style={s.stat}><Text style={s.statLabel}>{t("Today")}</Text><Text style={s.statValue}>{fillPlaceholders(t("{n} / {cap} today"), { n: num(todayXp), cap: num(DAILY_CAP) })}</Text></View>
         <View style={s.stat}>
           <Text style={s.statLabel}>{t("Streak")}</Text>
           <Text style={s.statValue}>{fillPlaceholders(t("{n} days"), { n: String(state.streak) })}</Text>
@@ -109,6 +110,10 @@ export function CultivationSection() {
           <Text style={s.statSub}>{fillPlaceholders(t("{week} this week, {month} this month"), { week: String(restLeft.week), month: String(restLeft.month) })}</Text>
         </View>
       </View>
+
+      <Text style={s.meta}>{fillPlaceholders(t("A day gives at most {cap} experience: {rate} per hour of tasks, up to {work} hours, so you always keep {rest} hours to rest."), {
+        cap: num(DAILY_CAP), rate: String(XP_PER_HOUR), work: String(MAX_WORK_HOURS), rest: String(MIN_REST_HOURS),
+      })}</Text>
 
       <Text style={s.heading}>{w("Realms")}</Text>
       <View style={s.realms}>

@@ -15,9 +15,15 @@ export const XP_KEY = "dayform.xp.v1";
 
 export const REST_PER_WEEK = 1;
 export const REST_PER_MONTH = 4;
-/** The most one day can earn; the rest of a busy day counts for nothing. */
-export const DAILY_CAP = 600;
-const MAX_TASK_XP = 60;
+/** Experience is time: this many points for an hour of a task. */
+export const XP_PER_HOUR = 40;
+/** A day has at least 5 hours of rest, so at most 19 hours of work can count. */
+export const MIN_REST_HOURS = 5;
+export const MAX_WORK_HOURS = 24 - MIN_REST_HOURS;
+/** The most one day can earn, bonuses included: 19 x 40 = 760. The rest of a busy day counts for nothing. */
+export const DAILY_CAP = XP_PER_HOUR * MAX_WORK_HOURS;
+/** A very short task still earns a little. */
+const MIN_TASK_XP = 5;
 /** A task finished this soon after it was created earns a quarter: logging and ticking at once is not a deed. */
 const QUICK_MS = 2 * 60_000;
 const QUICK_FACTOR = 0.25;
@@ -87,7 +93,7 @@ export function isLateAdded(task: Task): boolean {
 /** Experience a task earns when finished now, before the streak and the daily cap; 0 for a task added after the fact. */
 export function taskXp(task: Task, now: Date): number {
   if (isLateAdded(task)) return 0;
-  const base = Math.min(MAX_TASK_XP, Math.max(10, Math.round(task.duration / 15) * 10));
+  const base = Math.max(MIN_TASK_XP, Math.round((task.duration * XP_PER_HOUR) / 60));
   const today = dateKey(now);
   const factor = task.date === null ? DAY_FACTOR.backlog : task.date === today ? DAY_FACTOR.today : task.date < today ? DAY_FACTOR.past : DAY_FACTOR.future;
   const created = Date.parse(task.createdAt);

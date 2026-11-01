@@ -47,6 +47,8 @@ export const vi: Record<string, string> = {
   "The highest realm": "Cảnh giới cao nhất",
   "Today": "Hôm nay",
   "+{n} today": "+{n} hôm nay",
+  "{n} / {cap} today": "{n} / {cap} hôm nay",
+  "A day gives at most {cap} experience: {rate} per hour of tasks, up to {work} hours, so you always keep {rest} hours to rest.": "Mỗi ngày nhận tối đa {cap} điểm: {rate} điểm cho mỗi giờ làm việc, tối đa {work} giờ, để bạn luôn còn ít nhất {rest} giờ nghỉ.",
   "Streak": "Chuỗi ngày",
   "{n} days": "{n} ngày",
   "Best {n}": "Cao nhất {n}",
