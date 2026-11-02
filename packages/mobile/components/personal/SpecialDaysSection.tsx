@@ -9,7 +9,7 @@ import { describeDate, sortByNext, untilText } from "../../lib/special-day-draft
 import { useSpecialDays } from "../../lib/special-days-context";
 import { MAX_SPECIAL_DAYS, countText, type SpecialKind } from "../../lib/special-days";
 import { fillPlaceholders } from "../../lib/text-template";
-import { useFloatingAction } from "../menu/floating-action";
+import { useHeaderAction } from "../menu/header-action";
 import { SpecialDayEditorModal, type SpecialDayTarget } from "./SpecialDayEditorModal";
 
 const KIND_ICONS: Record<SpecialKind, "gift-outline" | "heart-outline" | "flower-outline" | "star-outline"> = {
@@ -17,7 +17,7 @@ const KIND_ICONS: Record<SpecialKind, "gift-outline" | "heart-outline" | "flower
 };
 const ICON_BADGE = 40;
 
-/** "Special days": the user's birthdays, anniversaries and other yearly days, nearest first; a floating plus adds one. */
+/** "Special days": the user's birthdays, anniversaries and other yearly days, nearest first; an add button under the list adds one (the page's floating plus belongs to the categories above). */
 export function SpecialDaysSection() {
   const days = useSpecialDays();
   const { t } = useLanguage();
@@ -28,7 +28,8 @@ export function SpecialDaysSection() {
   const sorted = useMemo(() => sortByNext(days.items, today), [days.items, today]);
   const atLimit = days.items.length >= MAX_SPECIAL_DAYS;
 
-  useFloatingAction({ label: t("Add special day"), disabled: days.locked || atLimit, onPress: () => setEditing({ kind: "new" }) });
+  // The page shows this plus beside the card's title.
+  useHeaderAction({ label: t("Add special day"), disabled: days.locked || atLimit, onPress: () => setEditing({ kind: "new" }) });
 
   return <View>
     <Text style={s.lead}>{t("Birthdays, anniversaries and other days that come back every year. They are marked on the Timeline.")}</Text>

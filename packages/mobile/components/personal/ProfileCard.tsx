@@ -11,9 +11,9 @@ import { NameInput } from "../onboarding/NameInput";
 import { useLanguage } from "../../lib/language";
 import { isValidName, nameInitial } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
+import { IconButton } from "../ui/IconButton";
 
 const AVATAR_SIZE = 56;
-const MIN_TOUCH_TARGET = 44;
 
 /** Avatar, name and an inline editor (same validation as the first-launch prompt). */
 export function ProfileCard() {
@@ -63,18 +63,13 @@ export function ProfileCard() {
           <View style={s.track} accessible={false}><View style={[s.fill, { width: `${Math.round(rank.progress * 100)}%` }]} /></View>
         </Pressable>}
       </View>
-      {!editing && <Pressable onPress={startEditing} accessibilityRole="button" accessibilityLabel={t("Edit your name")} style={s.editButton}>
-        <Text style={s.editText}>{t("Edit")}</Text>
-      </Pressable>}
+      {!editing && <IconButton icon="pencil-outline" label={t("Edit your name")} onPress={startEditing} />}
     </View>
     {editing && <View style={s.editor}>
       <NameInput value={draft} onChange={setDraft} onSubmit={() => { void save(); }} focusAfterMs={0} />
       <View style={s.actions}>
-        <Pressable onPress={stopEditing} accessibilityRole="button" style={s.cancel}><Text style={s.cancelText}>{t("Cancel")}</Text></Pressable>
-        <Pressable onPress={() => { void save(); }} disabled={!canSave} accessibilityRole="button"
-          accessibilityState={{ disabled: !canSave, busy }} style={[s.save, !canSave && s.disabled]}>
-          <Text style={s.saveText}>{t("Save")}</Text>
-        </Pressable>
+        <IconButton icon="close" label={t("Cancel")} onPress={stopEditing} />
+        <IconButton icon="checkmark" tone="primary" label={t("Save")} disabled={!canSave} onPress={() => { void save(); }} />
       </View>
     </View>}
   </View>;
@@ -92,13 +87,6 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   exp: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 1 },
   track: { height: 5, borderRadius: 3, backgroundColor: c.track, overflow: "hidden", marginTop: 5 },
   fill: { height: 5, borderRadius: 3, backgroundColor: c.primary },
-  editButton: { minHeight: MIN_TOUCH_TARGET, minWidth: MIN_TOUCH_TARGET, paddingHorizontal: 14, borderRadius: 13, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
-  editText: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
   editor: { marginTop: 12 },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 10 },
-  cancel: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 18, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  cancelText: { color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
-  save: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 22, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  disabled: { opacity: 0.45 },
-  saveText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
 });

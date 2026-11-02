@@ -13,7 +13,11 @@ import { useXp } from "../../lib/xp-context";
 import { noticeFor, type Notice } from "../../lib/xp-notice";
 import { IDLE_TIP_CHECK_MS, pickTip, ROUTE_TIP_DELAY_MS, routeOf, tipAllowed, type TipRoute } from "../../lib/assistant-tips";
 import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
-import { matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
+import { matchPeriod, matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
+import { periodAnswer, PERIOD_LINES, PERIOD_QUESTION } from "../../lib/assistant-period";
+import { useCycle } from "../../lib/cycle-context";
+import { dateKey, fromKey } from "../../lib/planner";
+import { useCycleAuth } from "../settings/use-cycle-auth";
 import { Ionicons } from "@expo/vector-icons";
 import { useVoice } from "./use-voice";
 import { useSoniox } from "./use-soniox";
@@ -382,6 +386,26 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     dispatch({ type: "questionChosen" });
   };
 
+  // "When is my next period?" is answered here on the device, after the unlock when the tracker is locked. Neither the
+  // question nor the answer goes to the AI provider: in the chat it is only added to what is shown (addLocalExchange).
+  const cycle = useCycle();
+  const authorizeCycle = useCycleAuth();
+  const periodOn = cycle.ready && !cycle.locked && cycle.state.enabled;
+  const periodDate = useMemo(() => new Intl.DateTimeFormat(language === "vi" ? "vi-VN" : "en-US", { weekday: "long", day: "numeric", month: "short" }), [language]);
+  const askPeriod = async (question: string, inChat: boolean) => {
+    touched();
+    let line: Line;
+    if (!cycle.ready || cycle.locked) line = PERIOD_LINES.notReady;
+    else if (cycle.state.enabled && !(await authorizeCycle())) line = PERIOD_LINES.notYou;
+    else line = periodAnswer(cycle.state, dateKey(new Date()), key => periodDate.format(fromKey(key)));
+    if (inChat) {
+      chat.addLocalExchange(question, fill(t(line.text), line.vars));
+      return;
+    }
+    setSpoken(line);
+    dispatch({ type: "questionChosen" });
+  };
+
   // ---- Voice: the call by name, one spoken sentence, a spoken yes/no, and a conversation that goes on by voice ----
   const [heard, setHeard] = useState("");
   // The current exchange started by voice: after the answer the assistant listens again, until silence or "thank you".
@@ -431,6 +455,12 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       voiceTurn.current = false;
       dispatch({ type: "cancelled" });
       void say(t(LINES.goodbye.text));
+      return;
+    }
+    // A question about the period is answered on the device, whether or not the AI chat is on.
+    if (matchPeriod(text)) {
+      if (!chatOpen) dispatch({ type: "asked" });
+      void askPeriod(text, chatOpen);
       return;
     }
     if (chat.readiness === "ready") {
@@ -615,6 +645,9 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
           {QUESTION_IDS.map(id => <Pressable key={id} onPress={() => ask(id)} accessibilityRole="button" style={s.question}>
             <Text style={s.questionText}>{t(QUESTIONS[id])}</Text>
           </Pressable>)}
+          {periodOn && <Pressable onPress={() => { void askPeriod(t(PERIOD_QUESTION), false); }} accessibilityRole="button" style={s.question}>
+            <Text style={s.questionText}>{t(PERIOD_QUESTION)}</Text>
+          </Pressable>}
           <Pressable onPress={() => { touched(); dispatch({ type: "cancelled" }); }} accessibilityRole="button" style={s.close}>
             <Text style={s.closeText}>{t("Close")}</Text>
           </Pressable>
@@ -635,7 +668,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       </View>}
     </Animated.View>
     <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
-      onSend={text => { touched(); void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
+      onSend={text => { touched(); if (matchPeriod(text)) void askPeriod(text, true); else void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
       listening={voiceInput.mode === "question" || soniox.mode === "once"} heard={heard} onMic={listenOnce}
       recording={soniox.mode === "once"} />
   </View>;

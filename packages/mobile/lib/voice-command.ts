@@ -66,6 +66,16 @@ export function matchPreset(transcript: string): QuestionId | null {
   return null;
 }
 
+/**
+ * Whether a spoken or typed sentence asks about the period ("kỳ kinh", "kinh nguyệt", "my period"). The phrases are
+ * specific on purpose ("tháng sau" or "a period of time" must not match): the question is then answered on the device
+ * and never reaches the AI provider.
+ */
+export function matchPeriod(transcript: string): boolean {
+  const text = ` ${normalizeText(transcript.replace(/[^\p{L}\p{N}\s]/gu, " "))} `;
+  return / (ky kinh|kinh nguyet|co kinh|my period|next period|menstrual|menstruation) /.test(text);
+}
+
 /** Speech services this app trusts with the user's voice, best first: Google's on-device service, then Speech Services by Google, then the Google app. */
 const KNOWN_RECOGNIZERS = ["com.google.android.as", "com.google.android.tts", "com.google.android.googlequicksearchbox"];
 

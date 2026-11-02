@@ -14,8 +14,8 @@ type Translate = (text: string) => string;
 
 export type MenuGroupId = "personalise" | "tasks" | "reminders" | "health" | "data" | "app";
 export type PageSlug =
-  | "appearance" | "language" | "greeting" | "assistant" | "cultivation" | "new-tasks" | "calendar" | "categories" | "special-days" | "habits" | "notifications" | "widget"
-  | "cycle" | "backup" | "archive" | "recovery" | "updates" | "about";
+  | "appearance" | "assistant" | "cultivation" | "new-tasks" | "calendar" | "categories" | "notifications" | "widget"
+  | "cycle" | "backup" | "updates" | "about";
 export type MenuRowId = PageSlug | "cycle-tracking";
 /** A color slot of `Colors.<scheme>.category`: the chip is drawn with its `bg` and `accent`. */
 export type MenuTint = keyof (typeof Colors)["light"]["category"];
@@ -64,22 +64,16 @@ const MINUTES_PER_HOUR = 60;
 /** Display order of the menu. To add a Personal page: one row here and one body in components/personal/sections.tsx. */
 export const MENU_ROWS: readonly MenuRow[] = [
   { id: "appearance", slug: "appearance", group: "personalise", title: "Appearance", icon: "color-palette-outline", tint: "violet" },
-  { id: "language", slug: "language", group: "personalise", title: "Language", icon: "language-outline", tint: "sky" },
-  { id: "greeting", slug: "greeting", group: "personalise", title: "Greeting", icon: "sunny-outline", tint: "amber" },
   { id: "assistant", slug: "assistant", group: "personalise", title: "Assistant", icon: "sparkles-outline", tint: "violet" },
   { id: "cultivation", slug: "cultivation", group: "personalise", title: "Rank", icon: "flame-outline", tint: "amber" },
   { id: "new-tasks", slug: "new-tasks", group: "tasks", title: "New tasks", icon: "add-circle-outline", tint: "Focus" },
   { id: "calendar", slug: "calendar", group: "tasks", title: "Calendar & time", icon: "calendar-outline", tint: "sky" },
   { id: "categories", slug: "categories", group: "tasks", title: "Categories", icon: "pricetags-outline", tint: "magenta" },
-  { id: "special-days", slug: "special-days", group: "tasks", title: "Special days", icon: "heart-outline", tint: "coral" },
-  { id: "habits", slug: "habits", group: "tasks", title: "Habit hints", icon: "bulb-outline", tint: "mint" },
   { id: "notifications", slug: "notifications", group: "reminders", title: "Notifications", icon: "notifications-outline", tint: "coral" },
   { id: "widget", slug: "widget", group: "reminders", title: "Widget", icon: "apps-outline", tint: "Work" },
   { id: "cycle", slug: "cycle", group: "health", title: "Cycle", icon: "flower-outline", tint: "Wellness" },
   { id: "cycle-tracking", slug: "cycle", group: "health", title: "Cycle tracking", icon: "toggle-outline", tint: "Wellness" },
   { id: "backup", slug: "backup", group: "data", title: "Backup", icon: "save-outline", tint: "slate" },
-  { id: "archive", slug: "archive", group: "data", title: "Archive", icon: "archive-outline", tint: "slate" },
-  { id: "recovery", slug: "recovery", group: "data", title: "Data recovery", icon: "medkit-outline", tint: "slate" },
   { id: "updates", slug: "updates", group: "app", title: "Updates", icon: "cloud-download-outline", tint: "mint" },
   { id: "about", slug: "about", group: "app", title: "About", icon: "information-circle-outline", tint: "violet" },
 ];
@@ -100,10 +94,21 @@ export const MENU_GROUPS: readonly MenuGroup[] = GROUP_TITLES.map(([id, title]) 
 /** Every page slug, once. */
 export const PAGE_SLUGS: readonly PageSlug[] = [...new Set(MENU_ROWS.map(row => row.slug))];
 
+/**
+ * Pages that were merged into another one. Their old deep links (`dayform://settings/language`) and any stored
+ * `router.push` target still open the page that now holds them.
+ */
+const MERGED_SLUGS: Readonly<Record<string, PageSlug>> = {
+  language: "appearance", greeting: "appearance",
+  "special-days": "categories", habits: "categories",
+  archive: "backup", recovery: "backup",
+};
+
 /** The row that owns a route parameter, or null when it is not a page (also for arrays and inherited names). */
 export function findPage(slug: unknown): MenuRow | null {
   if (typeof slug !== "string") return null;
-  return MENU_ROWS.find(row => row.slug === slug) ?? null;
+  const target = Object.hasOwn(MERGED_SLUGS, slug) ? MERGED_SLUGS[slug] : slug;
+  return MENU_ROWS.find(row => row.slug === target) ?? null;
 }
 
 /** "Cycle tracking" (turn the tracker on or off) is offered only once the tracker is known to be on. */
@@ -130,9 +135,6 @@ const ACCENT_LABELS: Record<Settings["accent"], string> = {
   violet: "Violet", ocean: "Ocean", lagoon: "Lagoon", forest: "Forest", sunset: "Sunset", blossom: "Blossom",
 };
 const WEEK_START_LABELS: Record<Settings["calendar"]["weekStart"], string> = { mon: "Monday", sun: "Sunday", sat: "Saturday" };
-const SLOGAN_LABELS: Record<Settings["greeting"]["sloganStyle"], string> = {
-  rotate: "Rotating slogan", custom: "Custom slogan", off: "No slogan",
-};
 
 const join = (parts: readonly string[]) => parts.join(SEPARATOR);
 
@@ -169,24 +171,20 @@ function cycleSummary({ cycle, t }: MenuInputs): string {
 }
 
 const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
-  appearance: ({ themePreference, settings, t }) => join([t(THEME_LABELS[themePreference]), t(ACCENT_LABELS[settings.accent])]),
-  // A language is always named in itself, so these two are never translated.
-  language: ({ language }) => (language === "vi" ? "Tiếng Việt" : "English"),
-  greeting: ({ settings: { greeting }, t }) => join([t(greeting.showName ? "Name shown" : "Name hidden"), t(SLOGAN_LABELS[greeting.sloganStyle])]),
+  // The page holds the theme, the language and the greeting. A language is always named in itself, so that name is never translated.
+  appearance: ({ themePreference, settings, language, t }) => join([t(THEME_LABELS[themePreference]), t(ACCENT_LABELS[settings.accent]), language === "vi" ? "Tiếng Việt" : "English"]),
   assistant: ({ settings: { assistant, ai }, t }) => assistant.enabled ? join([assistant.name, t(ai.enabled ? "AI on" : "AI off")]) : t("Hidden"),
   cultivation: ({ settings, cultivationLine, t }) => (settings.xp.enabled ? cultivationLine ?? t(settings.xp.style === "engineer" ? "XP for finished tasks" : "Experience for finished tasks") : t("Off")),
   "new-tasks": ({ settings: { defaults }, duration, categoryName }) => join([duration(defaults.duration), categoryName(defaults.category)]),
   calendar: calendarSummary,
-  categories: ({ categoryCount, t }) => categorySummary(categoryCount, t),
-  "special-days": ({ specialDayCount, t }) => specialDaySummary(specialDayCount, t),
-  habits: ({ settings, t }) => t(settings.habits.hints ? "On" : "Off"),
+  // The page holds the categories, the special days and the habit hints.
+  categories: ({ categoryCount, specialDayCount, t }) => join([categorySummary(categoryCount, t), specialDaySummary(specialDayCount, t)]),
   notifications: notificationsSummary,
   widget: ({ settings, t }) => join([t(settings.widget.showTitles ? "Titles shown" : "Titles hidden"), petSummary(settings.pet.kind, settings.pet.walks, t)]),
   cycle: cycleSummary,
   "cycle-tracking": ({ t }) => t("Turn tracking off"),
-  backup: ({ t }) => t("Export or import your data"),
-  archive: ({ t }) => t("Old completed tasks"),
-  recovery: ({ t }) => t("Restore a saved copy"),
+  // The page holds the backup, the archive and the data recovery.
+  backup: ({ t }) => t("Backup, archive and recovery"),
   updates: ({ updateLine, version, t }) => updateLine ?? fillPlaceholders(t("Version {version}"), { version }),
   about: ({ t }) => t("Your data stays with you"),
 };

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
+import { IconButton } from "../ui/IconButton";
 import { useNow } from "../../hooks/use-now";
 import {
   ARCHIVE_UNEXPECTED_NOTICE,
@@ -73,21 +73,11 @@ export function ArchiveSection() {
     {archivedCount !== null && <Text style={s.count}>{countLine(archivedCount, "task in the archive", "tasks in the archive")}</Text>}
     {confirming ? <View style={s.row}>
       <Text style={s.question}>{t("Archive old tasks?")}</Text>
-      <Pressable disabled={!idle} onPress={() => { void archiveNow(); }} accessibilityRole="button" style={[s.button, s.primary, !idle && s.disabled]}>
-        <Text style={s.primaryText}>{t("Archive")}</Text>
-      </Pressable>
-      <Pressable onPress={() => setConfirming(false)} accessibilityRole="button" style={[s.button, s.secondary]}>
-        <Text style={s.buttonText}>{t("Cancel")}</Text>
-      </Pressable>
+      <IconButton icon="checkmark" tone="primary" label={t("Archive")} disabled={!idle} onPress={() => { void archiveNow(); }} />
+      <IconButton icon="close" label={t("Cancel")} onPress={() => setConfirming(false)} />
     </View> : <View style={s.row}>
-      <Pressable disabled={!idle || eligible === 0} onPress={() => setConfirming(true)} accessibilityRole="button" style={[s.button, (!idle || eligible === 0) && s.disabled]}>
-        <Ionicons name="archive-outline" size={18} color={colors.primary} />
-        <Text style={s.buttonText}>{archiveButtonLabel(t)}</Text>
-      </Pressable>
-      <Pressable disabled={!idle || archivedCount === 0} onPress={() => { void restoreAll(); }} accessibilityRole="button" style={[s.button, (!idle || archivedCount === 0) && s.disabled]}>
-        <Ionicons name="arrow-undo-outline" size={18} color={colors.primary} />
-        <Text style={s.buttonText}>{t("Restore archived tasks")}</Text>
-      </Pressable>
+      <IconButton icon="archive-outline" label={archiveButtonLabel(t)} disabled={!idle || eligible === 0} onPress={() => setConfirming(true)} />
+      <IconButton icon="arrow-undo-outline" label={t("Restore archived tasks")} disabled={!idle || archivedCount === 0} onPress={() => { void restoreAll(); }} />
     </View>}
     {busy && <View style={s.busy}><ActivityIndicator color={colors.primary} size="small" /><Text style={s.busyText}>{t("Working...")}</Text></View>}
     {notice && <Text accessibilityRole="alert" style={notice.tone === "success" ? s.success : s.error}>{formatNotice(notice.parts, t)}</Text>}
@@ -99,12 +89,6 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   count: { color: c.foreground, fontSize: 12, fontWeight: "700", marginTop: 4 },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 10 },
   question: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  button: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, backgroundColor: c.primaryTint },
-  buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800", flexShrink: 1 },
-  primary: { backgroundColor: c.primary },
-  primaryText: { color: c.primaryForeground, fontSize: 12, fontWeight: "800" },
-  secondary: { backgroundColor: c.primaryTint },
-  disabled: { opacity: 0.45 },
   busy: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }, busyText: { color: c.mutedForeground, fontSize: 12 },
   success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
   error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },

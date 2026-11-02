@@ -4,7 +4,7 @@ import { vi } from "./i18n/realm";
 import { ENGINEER_WORDS, word } from "./ladder-words";
 import { goalLine, rankLabel } from "./rank-label";
 import {
-  CULTIVATION, ENGINEER, LAYERS, MAX_XP, STAGES, breakthroughCost, maxXp, rankOf, realmStart, stageCost, toNextRealm,
+  CULTIVATION, ENGINEER, LAYERS, MAX_XP, STAGES, breakthroughCost, layerCosts, maxXp, rankOf, realmStart, stageCost, stageCostAt, toNextRealm,
 } from "./realm";
 import type { Task } from "./planner";
 import { claimTasks, penaltyFor, settleDays, EMPTY_XP, type XpState } from "./xp";
@@ -30,13 +30,18 @@ describe("the engineer ladder", () => {
 
   test("labels in its own words", () => {
     expect(rankLabel(rankOf(0, ENGINEER), english, ENGINEER)).toBe("Intern Lv.1 – Alpha");
-    const third = rankOf(realmStart(2, ENGINEER) + stageCost(2, ENGINEER) * 11, ENGINEER);
+    const [first, second] = layerCosts(2, ENGINEER);
+    const third = rankOf(realmStart(2, ENGINEER) + first + second + stageCostAt(2, 3, ENGINEER) * 3, ENGINEER);
     expect(rankLabel(third, english, ENGINEER)).toBe("Junior Lv.3 – Stable");
     expect(rankLabel(rankOf(0), english)).toBe("Qi Refining, layer 1 – Early stage");
   });
 
   test("a promotion costs 15 stages of the rank being left, and the last rank has none", () => {
-    for (let track = 0; track < ENGINEER.tracks.length - 1; track++) expect(breakthroughCost(track, ENGINEER)).toBe(stageCost(track, ENGINEER) * 15);
+    for (let track = 0; track < ENGINEER.tracks.length - 1; track++) {
+      const trackTotal = layerCosts(track, ENGINEER).reduce((sum, cost) => sum + cost, 0);
+      expect(Math.abs(breakthroughCost(track, ENGINEER) - (trackTotal * 15) / (LAYERS * STAGES))).toBeLessThanOrEqual(2.5);
+      expect(breakthroughCost(track, ENGINEER)).toBeGreaterThan(stageCost(track, ENGINEER) * 10);
+    }
     expect(breakthroughCost(4, ENGINEER)).toBe(0);
     const gate = realmStart(1, ENGINEER);
     expect(rankOf(gate - 1, ENGINEER)).toMatchObject({ realm: 0, breakthrough: true });
@@ -46,7 +51,7 @@ describe("the engineer ladder", () => {
   });
 
   test("the same experience gives a different rank in each style", () => {
-    const xp = 10000;
+    const xp = 30000;
     expect(rankOf(xp, ENGINEER).realm).not.toBe(rankOf(xp, CULTIVATION).realm);
   });
 });
@@ -60,7 +65,7 @@ describe("words of each style", () => {
 
   test("the goal lines use the style's wording", () => {
     const stage = goalLine(rankOf(10, ENGINEER), 10, english, "en", ENGINEER)!;
-    expect(fill(stage.text, stage.vars)).toBe("30 more XP to reach Intern Lv.1 – Beta");
+    expect(fill(stage.text, stage.vars)).toBe("90 more XP to reach Intern Lv.1 – Beta");
     const gate = realmStart(1, ENGINEER);
     const promo = goalLine(rankOf(gate - 100, ENGINEER), gate - 100, english, "en", ENGINEER)!;
     expect(fill(promo.text, promo.vars)).toContain("to be promoted to Fresher");
@@ -92,7 +97,7 @@ describe("the experience under each ladder", () => {
   const now = new Date("2026-10-10T12:00:00");
 
   test("a rank up is judged on the chosen ladder", () => {
-    const start: XpState = { ...EMPTY_XP, startDay: "2026-10-10", settledDay: "2026-10-09", total: 30 };
+    const start: XpState = { ...EMPTY_XP, startDay: "2026-10-10", settledDay: "2026-10-09", total: 80 };
     expect(claimTasks(start, [task], now, ENGINEER).rankUp).toBe(true);
     expect(claimTasks(start, [task], now, CULTIVATION).rankUp).toBe(true);
     const small: XpState = { ...start, total: 0 };

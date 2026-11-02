@@ -13,7 +13,7 @@ const translations: Record<string, string> = {
   "WHEN YOU'RE READY": "KHI BẠN SẴN SÀNG", "On your mind": "Việc đang chờ", "View all  →": "Xem tất cả  →",
   "A little breathing room": "Một chút thời gian trống", "Tap any hour to plan something here.": "Chạm vào giờ để thêm việc cần làm.",
   "Outside visible hours": "Ngoài khung giờ hiển thị", "Your backlog is clear. Enjoy the space.": "Không còn việc chờ. Hãy tận hưởng thời gian trống.",
-  "THE BIG PICTURE": "GÓC NHÌN TỔNG QUAN", "Your tasks": "Việc của bạn", "Every little thing, all in one place.": "Mọi việc nhỏ, cùng một nơi.",
+  "THE BIG PICTURE": "GÓC NHÌN TỔNG QUAN", "Your tasks this week": "Việc tuần này của bạn", "Every little thing, all in one place.": "Mọi việc nhỏ, cùng một nơi.",
   "TO DO": "CẦN LÀM", "SCHEDULED": "ĐÃ LÊN LỊCH", "DONE": "HOÀN THÀNH",
   "All tasks": "Tất cả", "Active": "Chưa xong", "Completed": "Đã xong", "Backlog": "Việc chờ", "Scheduled": "Đã lên lịch",
   "Nothing waiting here. Add a task whenever inspiration strikes.": "Chưa có việc chờ. Thêm việc khi bạn sẵn sàng.",

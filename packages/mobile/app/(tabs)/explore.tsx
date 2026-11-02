@@ -8,10 +8,11 @@ import { TaskCard } from "../../components/TaskCard";
 import { useTasks } from "../../lib/tasks-context";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
-import { dateKey, fromKey, Task, type Category } from "../../lib/planner";
+import { dateKey, fromKey, Task, weekDays, weekStartOf, type Category } from "../../lib/planner";
 import { filterTasks } from "../../lib/search";
 import { SearchBar } from "../../components/tasks/SearchBar";
 import { CategoryFilter } from "../../components/tasks/CategoryFilter";
+import { FilterDropdown } from "../../components/tasks/FilterDropdown";
 import { buildExploreSections, conflictIds, taskStats, type ExploreFilter } from "../../lib/explore-groups";
 import { initialDays, nextDays, pageScheduled, pagingStep, shownScheduled } from "../../lib/explore-paging";
 import { EarlierTasksToggle, ShowNextDays } from "../../components/tasks/ScheduledControls";
@@ -59,7 +60,8 @@ export default function TasksScreen() {
   const [reviewIds, setReviewIds] = useState<readonly string[] | null>(null);
   const onlyIds = habitHintsOn ? reviewIds ?? undefined : undefined;
   const searching = query.trim() !== "" || selectedCategories.length > 0 || onlyIds !== undefined;
-  const stats = useMemo(() => taskStats(tasks), [tasks]);
+  const weekStart = useSettings().settings.calendar.weekStart;
+  const stats = useMemo(() => taskStats(tasks, weekDays(weekStartOf(today, weekStart))), [tasks, today, weekStart]);
   const conflicts = useMemo(() => conflictIds(tasks), [tasks]);
   const visibleTasks = useMemo(() => filterTasks(tasks, { query, categories: selectedCategories, status: filter, onlyIds }), [tasks, query, selectedCategories, filter, onlyIds]);
   // The Scheduled group is paged by calendar days from today, only in the plain view. Searching or filtering lists every match.
@@ -102,11 +104,13 @@ export default function TasksScreen() {
   const toggleCategory = useCallback((category: Category) => {
     setSelectedCategories(current => current.includes(category) ? current.filter(item => item !== category) : [...current, category]);
   }, []);
-  const reviewStale = () => { setFilter("all"); setSelectedCategories([]); setReviewIds(stale.ids); };
+  const clearCategories = useCallback(() => setSelectedCategories([]), []);
+  const reviewStale =() => { setFilter("all"); setSelectedCategories([]); setReviewIds(stale.ids); };
   const edit = useCallback((task: Task) => setEditing(task), []);
   // One formatter per locale: building it per row per render is slow on long lists.
   const dateFormat = useMemo(() => new Intl.DateTimeFormat(locale, { weekday: "short", month: "short", day: "numeric" }), [locale]);
   const filterLabels: Record<ExploreFilter, string> = { all: t("All tasks"), active: t("Active"), done: t("Completed") };
+  const statusOptions = FILTERS.map(value => ({ key: value, label: filterLabels[value] }));
 
   const renderItem = ({ item, section }: { item: Task; section: ExploreSection }) => {
     const dateLabel = section.key === "scheduled" && item.date
@@ -146,7 +150,7 @@ export default function TasksScreen() {
 
   const header = <View>
     <View style={s.topRow}><Text accessibilityRole="header" style={s.kicker}>{t("THE BIG PICTURE")}</Text></View>
-    <Text accessibilityRole="header" style={s.title}>{t("Your tasks")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
+    <Text accessibilityRole="header" style={s.title}>{t("Your tasks this week")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
     <Text style={s.subtitle}>{t("Every little thing, all in one place.")}</Text>
     {onlyIds !== undefined
       ? <StaleReviewStrip onShowAll={() => setReviewIds(null)} />
@@ -157,10 +161,10 @@ export default function TasksScreen() {
       <View><Text style={s.statNumber}>{stats.scheduled}</Text><Text style={s.statLabel}>{t("SCHEDULED")}</Text></View><View style={s.statDivider} />
       <View><Text style={s.statNumber}>{stats.done}</Text><Text style={s.statLabel}>{t("DONE")}</Text></View>
     </View>
-    <View style={s.filters}>{FILTERS.map(value => <Pressable key={value} onPress={() => setFilter(value)} accessibilityRole="button" accessibilityState={{ selected: filter === value }} style={[s.filter, filter === value && s.filterActive]}>
-      <Text style={[s.filterText, filter === value && s.filterTextActive]}>{filterLabels[value]}</Text>
-    </Pressable>)}</View>
-    <CategoryFilter selected={selectedCategories} onToggle={toggleCategory} />
+    <View style={s.filters}>
+      <FilterDropdown title={t("Filter by status")} valueLabel={filterLabels[filter]} icon="funnel-outline" options={statusOptions} selected={[filter]} active={filter !== "all"} onPick={key => setFilter(key as ExploreFilter)} />
+      <CategoryFilter selected={selectedCategories} onToggle={toggleCategory} onClear={clearCategories} />
+    </View>
     {searching && !loading && <Text accessibilityLiveRegion="polite" style={s.resultCount}>{resultCountLabel}</Text>}
     {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.error}><Text style={{ color: colors.errorMessage }}>{t(error)}  ×</Text></Pressable>}
     {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />}
@@ -191,11 +195,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   statNumber: { color: c.foreground, fontSize: 24, fontWeight: "800", textAlign: "center" },
   statLabel: { color: c.statLabel, fontSize: 10, fontWeight: "800", letterSpacing: 1, marginTop: 5 },
   statDivider: { width: 1, height: 32, backgroundColor: c.statDivider },
-  filters: { flexDirection: "row", gap: 8, marginTop: 27, marginBottom: 9 },
-  filter: { backgroundColor: c.card, paddingHorizontal: 17, minHeight: MIN_TOUCH_TARGET, justifyContent: "center", borderRadius: 13 },
-  filterActive: { backgroundColor: c.primary },
-  filterText: { color: c.mutedForeground, fontSize: 12, fontWeight: "700" },
-  filterTextActive: { color: c.onPrimary },
+  filters: { flexDirection: "row", gap: 10, marginTop: 27, marginBottom: 9 },
   resultCount: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 14, marginLeft: 4 },
   noMatches: { alignItems: "center", gap: 8, padding: 26, marginTop: 20, backgroundColor: c.card, borderRadius: 17 },
   noMatchesTitle: { color: c.foreground, fontSize: 15, fontWeight: "800", textAlign: "center" },

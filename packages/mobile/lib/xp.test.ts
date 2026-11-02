@@ -109,8 +109,10 @@ describe("earning and taking back", () => {
 
   test("a rank up is reported", () => {
     const big = task({ duration: 60 });
-    expect(claimTasks(started("2026-10-10"), [big], at("2026-10-10")).rankUp).toBe(true);
-    expect(claimTasks(started("2026-10-10"), [task({ duration: 15 })], at("2026-10-10")).rankUp).toBe(false);
+    // 80 experience is 20 short of the first stage (100), so an hour of work crosses it and a quarter of an hour does not.
+    const near = { ...started("2026-10-10"), total: 80 };
+    expect(claimTasks(near, [big], at("2026-10-10")).rankUp).toBe(true);
+    expect(claimTasks(near, [task({ duration: 15 })], at("2026-10-10")).rankUp).toBe(false);
   });
 
   test("a streak raises the experience", () => {

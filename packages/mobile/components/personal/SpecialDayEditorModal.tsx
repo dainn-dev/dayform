@@ -13,6 +13,7 @@ import {
 } from "../../lib/special-days";
 import { fillPlaceholders } from "../../lib/text-template";
 import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
+import { IconButton } from "../ui/IconButton";
 
 export type SpecialDayTarget = { kind: "new" } | { kind: "edit"; id: string };
 
@@ -129,11 +130,8 @@ function EditorBody({ target, onClose }: { target: SpecialDayTarget; onClose: ()
             <Text numberOfLines={1} style={[s.deleteText, confirmDelete && s.deleteTextArmed]}>{confirmDelete ? t("Tap again to delete") : t("Delete")}</Text>
           </Pressable>}
           <View style={s.flex} />
-          <Pressable onPress={onClose} accessibilityRole="button" style={s.ghost}><Text style={s.ghostText}>{t("Cancel")}</Text></Pressable>
-          <Pressable onPress={save} disabled={!canSave} accessibilityRole="button" accessibilityState={{ disabled: !canSave, busy }}
-            style={[s.save, !canSave && s.disabled]}>
-            <Text style={s.saveText}>{t("Save")}</Text>
-          </Pressable>
+          <IconButton icon="close" label={t("Cancel")} onPress={onClose} />
+          <IconButton icon="checkmark" tone="primary" label={t("Save")} disabled={!canSave} onPress={save} />
         </View>
       </View>
     </View>
@@ -158,9 +156,4 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   deleteArmed: { backgroundColor: c.errorBg },
   deleteText: { color: c.deleteText, fontSize: 13, fontWeight: "700" },
   deleteTextArmed: { color: c.errorMessage, fontWeight: "800" },
-  ghost: { minHeight: 44, paddingHorizontal: 14, borderRadius: 13, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  ghostText: { color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
-  save: { minHeight: 44, paddingHorizontal: 22, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  saveText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
 });

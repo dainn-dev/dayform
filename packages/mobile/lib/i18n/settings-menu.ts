@@ -32,9 +32,7 @@ export const vi: Record<string, string> = {
   "Titles hidden": "Ẩn tiêu đề",
   "Private tracker": "Theo dõi riêng tư",
   "Turn tracking off": "Tắt theo dõi",
-  "Export or import your data": "Xuất hoặc nhập dữ liệu của bạn",
-  "Old completed tasks": "Công việc đã xong từ lâu",
-  "Restore a saved copy": "Khôi phục từ bản đã lưu",
+  "Backup, archive and recovery": "Sao lưu, lưu trữ và khôi phục",
   "Version {version}": "Phiên bản {version}",
   "Your data stays with you": "Dữ liệu của bạn ở lại với bạn",
   // About page

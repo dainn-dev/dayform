@@ -5,6 +5,7 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
+import { IconButton } from "../ui/IconButton";
 
 const MIN_TOUCH_TARGET = 44;
 const CLOSE_ICON_SIZE = 18;
@@ -26,9 +27,7 @@ export function StaleBanner({ count, days, onReview, onDismiss }: Props) {
   return <View style={s.banner}>
     <View style={s.body}>
       <Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>
-      <Pressable onPress={onReview} accessibilityRole="button" accessibilityLabel={t("Review them")} style={s.button}>
-        <Text style={s.buttonText}>{t("Review them")}</Text>
-      </Pressable>
+      <IconButton icon="eye-outline" label={t("Review them")} onPress={onReview} style={s.button} />
     </View>
     <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel={t("Hide this reminder for today")} style={s.close}>
       <Ionicons name="close" size={CLOSE_ICON_SIZE} color={colors.mutedForeground} />
@@ -45,9 +44,7 @@ export function StaleReviewStrip({ onShowAll }: ReviewProps) {
   const s = useMemo(() => makeStyles(colors), [colors]);
   return <View style={s.banner}>
     <Text style={[s.message, s.strip]}>{t("Showing the tasks that have been waiting")}</Text>
-    <Pressable onPress={onShowAll} accessibilityRole="button" accessibilityLabel={t("Show all tasks again")} style={[s.button, s.showAll]}>
-      <Text style={s.buttonText}>{t("Show all tasks again")}</Text>
-    </Pressable>
+    <IconButton icon="list-outline" label={t("Show all tasks again")} onPress={onShowAll} style={s.showAll} />
   </View>;
 }
 
@@ -56,8 +53,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   body: { flex: 1, paddingVertical: 4 },
   message: { color: c.foreground, fontSize: 13, fontWeight: "700", lineHeight: 18 },
   strip: { flex: 1, paddingVertical: 4 },
-  button: { alignSelf: "flex-start", minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 16, marginTop: 8, justifyContent: "center", backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.primaryBorder },
-  showAll: { alignSelf: "center", marginTop: 0, marginRight: 8 },
-  buttonText: { color: c.primary, fontSize: 12, fontWeight: "700" },
+  button: { alignSelf: "flex-start", marginTop: 8 },
+  showAll: { alignSelf: "center", marginRight: 8 },
   close: { width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center", alignSelf: "flex-start" },
 });

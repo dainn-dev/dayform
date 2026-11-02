@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fill } from "./assistant-answers";
 import { vi } from "./i18n/realm";
 import { formatNumber, goalLine, rankLabel } from "./rank-label";
-import { rankOf, realmStart, stageCost, LAYERS, STAGES } from "./realm";
+import { layerCosts, rankOf, realmStart } from "./realm";
 import { noticeFor } from "./xp-notice";
 import type { SettleEvent } from "./xp";
 
@@ -56,17 +56,17 @@ describe("goal and numbers", () => {
 
   test("the goal is the next stage, with what is still missing", () => {
     const line = goalLine(rankOf(10), 10, english, "en")!;
-    expect(fill(line.text, line.vars)).toBe("30 more experience to reach Qi Refining, layer 1 – Middle stage");
+    expect(fill(line.text, line.vars)).toBe("90 more experience to reach Qi Refining, layer 1 – Middle stage");
   });
 
   test("on the last stage of a realm the goal is to start the breakthrough, then to break through", () => {
-    const gate = stageCost(0) * LAYERS * STAGES;
+    const gate = layerCosts(0).reduce((sum, cost) => sum + cost, 0);
     const last = rankOf(gate - 10);
     const first = goalLine(last, gate - 10, english, "en")!;
     expect(fill(first.text, first.vars)).toBe("10 more experience to start the breakthrough to Foundation Establishment");
     const gathering = rankOf(gate + 100);
     const second = goalLine(gathering, gate + 100, english, "en")!;
-    expect(fill(second.text, second.vars)).toBe(`${realmStart(1) - gate - 100} more experience to break through to Foundation Establishment`);
+    expect(fill(second.text, second.vars)).toBe(`${(realmStart(1) - gate - 100).toLocaleString("en-US")} more experience to break through to Foundation Establishment`);
   });
 
   test("there is no goal at the top, and the goal texts are translated", () => {

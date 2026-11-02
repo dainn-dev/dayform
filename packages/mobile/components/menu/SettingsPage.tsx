@@ -10,10 +10,10 @@ import type { ThemeColors } from "../../constants/theme";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import type { MenuRow } from "../../lib/settings-menu";
-import { PersonalCard } from "../personal/PersonalCard";
 import { SETTINGS_PAGES } from "../personal/sections";
 import { FLOATING_ACTION_CLEARANCE, FloatingActionProvider, FloatingAddButton, type FloatingAction } from "./floating-action";
 import { PageHeader } from "./PageHeader";
+import { PartCard } from "./PartCard";
 
 const CONTENT_PADDING_BOTTOM = 40;
 const SCROLL_EVENT_THROTTLE_MS = 16;
@@ -35,7 +35,7 @@ export function SettingsPage({ row }: { row: MenuRow }) {
   useBackToPersonal();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [floating, setFloating] = useState<FloatingAction | null>(null);
-  const { Component, hasTextInput } = SETTINGS_PAGES[row.slug];
+  const { parts, hasTextInput } = SETTINGS_PAGES[row.slug];
   // Pages with a text field keep the field reachable above the keyboard; a floating button gets room under the last row.
   const bottom = CONTENT_PADDING_BOTTOM + (hasTextInput ? keyboard.height : 0) + (floating ? FLOATING_ACTION_CLEARANCE : 0);
 
@@ -50,7 +50,9 @@ export function SettingsPage({ row }: { row: MenuRow }) {
         {saveError && <View accessibilityRole="alert" style={s.error}>
           <Text style={{ color: colors.errorMessage }}>{t("Could not save your settings. They will reset when you reopen the app.")}</Text>
         </View>}
-        <PersonalCard><Component /></PersonalCard>
+        {parts.map(part => <PartCard key={part.title ?? row.slug} title={part.title === undefined ? undefined : t(part.title)}>
+          <part.Component />
+        </PartCard>)}
       </ScrollView>
       </View>
       </RevealOnFocusProvider>

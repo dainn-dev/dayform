@@ -72,12 +72,19 @@ describe("conflictIds", () => {
 });
 
 describe("taskStats", () => {
-  test("counts every task regardless of any filter", () => {
+  const week = ["2026-05-04", "2026-05-05", "2026-05-06"];
+
+  test("counts only the tasks on the given days, ignoring backlog and other days", () => {
     const tasks = [
       task(), task({ status: "in_progress" }), task({ status: "done" }),
-      at("2026-05-04", "09:00", 30), at("2026-05-04", "10:00", 30, { status: "done" }),
+      at("2026-05-04", "09:00", 30), at("2026-05-05", "10:00", 30, { status: "done" }),
+      at("2026-05-11", "09:00", 30),
     ];
-    expect(taskStats(tasks)).toEqual({ todo: 3, scheduled: 2, done: 2 });
+    expect(taskStats(tasks, week)).toEqual({ todo: 1, scheduled: 2, done: 1 });
+  });
+
+  test("returns zeros when nothing is planned on those days", () => {
+    expect(taskStats([task(), at("2026-05-11", "09:00", 30)], week)).toEqual({ todo: 0, scheduled: 0, done: 0 });
   });
 });
 

@@ -13,6 +13,7 @@ import { useSettings } from "../../lib/settings-context";
 import { AssistantVoicePicker } from "./AssistantVoicePicker";
 import { SwitchRow } from "./SwitchRow";
 import { useRevealOnFocus } from "../editor/reveal-context";
+import { Collapsible } from "../ui/Collapsible";
 
 const LOOKS = [
   { id: "leo", label: "Leo", source: require("../../assets/assistant/leo.png") },
@@ -119,11 +120,6 @@ export function AssistantSection() {
       <TextInput onFocus={revealOnFocus} value={name} onChangeText={setName} onBlur={commitName} onSubmitEditing={commitName} maxLength={20}
         style={s.input} placeholder="Leo" placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("Assistant's name")} />
 
-      <SwitchRow label={t("Read the assistant's lines aloud")} value={assistant.voice}
-        onChange={next => { void update({ assistant: { voice: next } }); }}
-        hint={t("Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.")} />
-      {assistant.voice && <AssistantVoicePicker />}
-
       <SwitchRow label={t("Tips from the assistant")} value={assistant.tips}
         onChange={next => { void update({ assistant: { tips: next } }); }}
         hint={t("Now and then I pass on a short tip about the screen you are on or about your day. Only counts are used, never your task titles.")} />
@@ -139,6 +135,12 @@ export function AssistantSection() {
           </Pressable>
         ))}
       </View>
+
+      <Collapsible title={t("Voice and microphone")} summary={t(assistant.voice || assistant.wakeWord ? "On" : "Off")}>
+      <SwitchRow label={t("Read the assistant's lines aloud")} value={assistant.voice}
+        onChange={next => { void update({ assistant: { voice: next } }); }}
+        hint={t("Uses your phone's own voice. Off when a screen reader is on, so lines are not read twice.")} />
+      {assistant.voice && <AssistantVoicePicker />}
 
       <SwitchRow label={t("Call by voice: \"{name} ơi\"").replace("{name}", assistant.name)} value={assistant.wakeWord}
         onChange={next => { void setWakeWord(next); }}
@@ -169,8 +171,9 @@ export function AssistantSection() {
       {sonioxNote && <Text style={sonioxNote.ok ? s.ok : s.error} accessibilityLiveRegion="polite">{sonioxNote.text}</Text>}
       <Text style={s.hint}>{t("With a Soniox key, your voice is streamed to Soniox (stt-rt.soniox.com) in real time while you hold the assistant or tap the microphone in the chat, and the words appear as you speak. With \"Call by voice\" on, the microphone streams to Soniox the whole time the app is open and the assistant is idle, and Soniox charges for that listening time. The key stays in the phone's secure storage. Without a key, the phone's own speech recognizer is used.")}</Text>
 
-      <View style={s.divider} />
-      <Text style={s.heading} accessibilityRole="header">{t("AI chat")}</Text>
+      </Collapsible>
+
+      <Collapsible title={t("AI chat")} summary={t(ai.enabled ? "On" : "Off")}>
       <SwitchRow label={t("Answer with an AI")} value={ai.enabled}
         onChange={next => { void update({ ai: { enabled: next } }); }}
         hint={t("Off: the assistant answers a few questions on this phone. On: your questions, today's tasks and the tools' results go to the provider below, which can then create, change or finish tasks and change settings. Every change waits for you to agree.")} />
@@ -213,6 +216,7 @@ export function AssistantSection() {
         </Pressable>
         {testResult && <Text style={testResult.ok ? s.ok : s.error} accessibilityLiveRegion="polite">{testResult.text}</Text>}
       </>}
+      </Collapsible>
     </>}
   </View>;
 }
@@ -227,7 +231,6 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     minHeight: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.card,
     borderWidth: 1, borderColor: c.inputBorder, color: c.foreground, fontSize: 14,
   },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.hairline, marginVertical: 14 },
   keyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   keyText: { flex: 1, color: c.foreground, fontSize: 13 },
   keyInput: { flex: 1 },

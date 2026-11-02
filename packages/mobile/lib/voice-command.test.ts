@@ -1,5 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { chooseRecognizer, detectWake, matchPreset, MAX_QUICK_FAILURES, parseYesNo, restartDelay, saysGoodbye } from "./voice-command";
+import { chooseRecognizer, detectWake, matchPeriod, matchPreset, MAX_QUICK_FAILURES, parseYesNo, restartDelay, saysGoodbye } from "./voice-command";
+
+describe("matchPeriod", () => {
+  test("hears a question about the period in Vietnamese and in English", () => {
+    for (const text of ["Kỳ kinh tiếp theo của tôi khi nào?", "bao giờ tôi có kinh", "ngày kinh nguyệt", "When is my period?", "Is my next period close", "menstrual cycle"]) {
+      expect(matchPeriod(text)).toBe(true);
+    }
+  });
+
+  test("ignores sentences that only share a word", () => {
+    for (const text of ["dời việc đến tháng sau", "a period of time", "chu kỳ lặp hàng tuần", "việc hôm nay là gì", ""]) {
+      expect(matchPeriod(text)).toBe(false);
+    }
+  });
+});
 
 describe("recognition service", () => {
   test("the phone's default when it is set and installed", () => {

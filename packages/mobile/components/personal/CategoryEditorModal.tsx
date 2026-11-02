@@ -11,6 +11,7 @@ import { useCategories } from "../../lib/categories-context";
 import { failureMessage } from "../../lib/category-labels";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
+import { IconButton } from "../ui/IconButton";
 import { CategoryBadge } from "./CategoryBadge";
 import { ColorPicker, IconPicker } from "./CategoryPickers";
 
@@ -97,9 +98,7 @@ function EditorBody({ target, onClose }: { target: EditorTarget; onClose: () => 
           {builtin
             ? <>
               <Text style={s.helper}>{t("Built-in categories keep their color and icon. You can only change the name.")}</Text>
-              {canReset && <Pressable onPress={reset} disabled={blocked} accessibilityRole="button" style={s.reset}>
-                <Text style={s.resetText}>{t("Reset to default")}</Text>
-              </Pressable>}
+              {canReset && <IconButton icon="refresh-outline" label={t("Reset to default")} disabled={blocked} onPress={reset} style={s.reset} />}
             </>
             : <>
               <Text style={s.caption}>{t("Color")}</Text>
@@ -110,11 +109,8 @@ function EditorBody({ target, onClose }: { target: EditorTarget; onClose: () => 
         </ScrollView>
         <View style={s.actions}>
           <View style={s.flex} />
-          <Pressable onPress={onClose} accessibilityRole="button" style={s.ghost}><Text style={s.ghostText}>{t("Cancel")}</Text></Pressable>
-          <Pressable onPress={save} disabled={!canSave} accessibilityRole="button" accessibilityState={{ disabled: !canSave, busy }}
-            style={[s.save, !canSave && s.disabled]}>
-            <Text style={s.saveText}>{t("Save")}</Text>
-          </Pressable>
+          <IconButton icon="close" label={t("Cancel")} onPress={onClose} />
+          <IconButton icon="checkmark" tone="primary" label={t("Save")} disabled={!canSave} onPress={save} />
         </View>
       </View>
     </View>
@@ -146,12 +142,6 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   helper: { color: c.labelText, fontSize: 12, lineHeight: 18, marginTop: 16 },
   preview: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 },
   previewName: { flex: 1, color: c.foreground, fontSize: 15, fontWeight: "700" },
-  reset: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: 14, marginTop: 8, borderRadius: 13, backgroundColor: c.primaryTint },
-  resetText: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
+  reset: { alignSelf: "flex-start", marginTop: 8 },
   actions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
-  ghost: { minHeight: 44, paddingHorizontal: 14, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  ghostText: { color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
-  save: { minHeight: 44, paddingHorizontal: 22, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  saveText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
 });

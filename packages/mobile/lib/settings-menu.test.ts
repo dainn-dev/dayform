@@ -55,11 +55,11 @@ describe("registry", () => {
 
   test("lists the pages of the design in order", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
-      ["appearance", "language", "greeting", "assistant", "cultivation"],
-      ["new-tasks", "calendar", "categories", "special-days", "habits"],
+      ["appearance", "assistant", "cultivation"],
+      ["new-tasks", "calendar", "categories"],
       ["notifications", "widget"],
       ["cycle", "cycle-tracking"],
-      ["backup", "archive", "recovery"],
+      ["backup"],
       ["updates", "about"],
     ]);
   });
@@ -86,6 +86,15 @@ describe("findPage", () => {
   test("returns the first row of a slug", () => {
     expect(findPage("calendar")?.id).toBe("calendar");
     expect(findPage("cycle")?.id).toBe("cycle");
+  });
+
+  test("a merged page's old slug opens the page that now holds it", () => {
+    const merged: Array<[string, MenuRowId]> = [
+      ["language", "appearance"], ["greeting", "appearance"],
+      ["special-days", "categories"], ["habits", "categories"],
+      ["archive", "backup"], ["recovery", "backup"],
+    ];
+    for (const [old, now] of merged) expect(findPage(old)?.id).toBe(now);
   });
 
   test("is null for anything that is not a page", () => {
@@ -127,27 +136,20 @@ describe("rowHref", () => {
 });
 
 describe("summaries", () => {
-  test("appearance joins the theme and the accent", () => {
-    expect(say("appearance")).toBe("System · Violet");
-    expect(say("appearance", { accent: "forest" }, { themePreference: "dark" })).toBe("Dark · Forest");
-    expect(say("appearance", { accent: "blossom" }, { themePreference: "light" })).toBe("Light · Blossom");
+  test("appearance joins the theme, the accent and the language", () => {
+    expect(say("appearance")).toBe("System · Violet · English");
+    expect(say("appearance", { accent: "forest" }, { themePreference: "dark" })).toBe("Dark · Forest · English");
+    expect(say("appearance", { accent: "blossom" }, { themePreference: "light" })).toBe("Light · Blossom · English");
   });
 
-  test("language names the current language in itself, whatever the translator does", () => {
-    expect(say("language")).toBe("English");
-    expect(say("language", {}, { language: "vi", t: () => "never used" })).toBe("Tiếng Việt");
+  test("appearance names the current language in itself, whatever the translator does", () => {
+    expect(say("appearance", {}, { language: "vi", t: text => (text === "System" ? "Hệ thống" : text === "Violet" ? "Tím" : "never used") })).toBe("Hệ thống · Tím · Tiếng Việt");
   });
 
   test("assistant names it and says whether the AI chat is on", () => {
     expect(say("assistant")).toBe("Leo · AI off");
     expect(say("assistant", { assistant: { name: "Mây" }, ai: { enabled: true } })).toBe("Mây · AI on");
     expect(say("assistant", { assistant: { enabled: false } })).toBe("Hidden");
-  });
-
-  test("greeting says whether the name shows and which slogan style is on", () => {
-    expect(say("greeting")).toBe("Name shown · Rotating slogan");
-    expect(say("greeting", { greeting: { showName: false, sloganStyle: "custom" } })).toBe("Name hidden · Custom slogan");
-    expect(say("greeting", { greeting: { sloganStyle: "off" } })).toBe("Name shown · No slogan");
   });
 
   test("new tasks shows the default duration and category", () => {
@@ -161,15 +163,10 @@ describe("summaries", () => {
     expect(say("calendar", {}, { timeFormat: "12h" })).toBe("6 AM – 10 PM · Monday");
   });
 
-  test("categories counts with a singular form", () => {
-    expect(say("categories", {}, { categoryCount: 6 })).toBe("6 categories");
-    expect(say("categories", {}, { categoryCount: 1 })).toBe("1 category");
-    expect(say("categories", {}, { categoryCount: 0 })).toBe("0 categories");
-  });
-
-  test("habit hints are on or off", () => {
-    expect(say("habits")).toBe("On");
-    expect(say("habits", { habits: { hints: false } })).toBe("Off");
+  test("categories counts the categories and the special days, with singular forms", () => {
+    expect(say("categories", {}, { categoryCount: 6 })).toBe("6 categories · No special days");
+    expect(say("categories", {}, { categoryCount: 1, specialDayCount: 1 })).toBe("1 category · 1 special day");
+    expect(say("categories", {}, { categoryCount: 0, specialDayCount: 12 })).toBe("0 categories · 12 special days");
   });
 
   test("notifications list quiet hours and the morning summary", () => {
@@ -179,12 +176,6 @@ describe("summaries", () => {
     expect(say("notifications", { notifications: { quietEnabled: true, summaryEnabled: true } })).toBe("Quiet 22:00 – 07:00 · Morning summary 08:00");
   });
 
-  test("special days says how many there are", () => {
-    expect(say("special-days")).toBe("No special days");
-    expect(say("special-days", {}, { specialDayCount: 1 })).toBe("1 special day");
-    expect(say("special-days", {}, { specialDayCount: 12 })).toBe("12 special days");
-  });
-
   test("widget says whether titles show and names its pet", () => {
     expect(say("widget")).toBe("Titles shown · Gray cat · Strolling");
     expect(say("widget", { widget: { showTitles: false } })).toBe("Titles hidden · Gray cat · Strolling");
@@ -192,10 +183,8 @@ describe("summaries", () => {
     expect(say("widget", { pet: { kind: "off" } })).toBe("Titles shown · No pet");
   });
 
-  test("backup, archive and recovery have a fixed hint", () => {
-    expect(say("backup")).toBe("Export or import your data");
-    expect(say("archive")).toBe("Old completed tasks");
-    expect(say("recovery")).toBe("Restore a saved copy");
+  test("backup has a fixed hint covering the archive and the recovery on the same page", () => {
+    expect(say("backup")).toBe("Backup, archive and recovery");
   });
 
   test("updates show the merged status line or the version", () => {

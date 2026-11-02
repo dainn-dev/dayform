@@ -195,5 +195,13 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
     setEntries(list => [...list, { id: nextId(), kind: "error", text }]);
   }, []);
 
-  return { entries, busy, readiness, send, answer, stop, clear, refreshKey, pendingConfirm, addError };
+  /**
+   * A question answered on the device (the period question): shown in the chat like any other, but kept out of `history`,
+   * which is what goes to the AI provider with the next question, so neither the question nor the answer ever leaves.
+   */
+  const addLocalExchange = useCallback((question: string, reply: string) => {
+    setEntries(list => [...list, { id: nextId(), kind: "user", text: question }, { id: nextId(), kind: "assistant", text: reply }]);
+  }, []);
+
+  return { entries, busy, readiness, send, answer, stop, clear, refreshKey, pendingConfirm, addError, addLocalExchange };
 }

@@ -51,9 +51,12 @@ function flagDay(slots: readonly Slot[], from: number, to: number, flagged: Set<
 }
 
 /** Header stats, always computed from the full (unfiltered) list. */
-export function taskStats(tasks: readonly Task[]): TaskStats {
+/** Counts the tasks planned on the given days, e.g. this week (backlog and other days are left to the Stats tab). */
+export function taskStats(tasks: readonly Task[], days: readonly string[]): TaskStats {
+  const inRange = new Set(days);
   let todo = 0, scheduled = 0, done = 0;
   for (const task of tasks) {
+    if (task.date === null || !inRange.has(task.date)) continue;
     if (task.status === "done") done += 1; else todo += 1;
     if (task.start) scheduled += 1;
   }

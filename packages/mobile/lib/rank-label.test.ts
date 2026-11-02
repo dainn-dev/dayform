@@ -20,42 +20,42 @@ describe("rank label", () => {
 
   test("only the first step of a realm is a new realm", () => {
     expect(isNewRealm(rankOf(0))).toBe(true);
-    expect(isNewRealm(rankOf(40))).toBe(false);
+    expect(isNewRealm(rankOf(100))).toBe(false);
     expect(isNewRealm(rankOf(realmStart(1)))).toBe(true);
     expect(isNewRealm(rankOf(realmStart(1) + 1))).toBe(true);
-    expect(isNewRealm(rankOf(realmStart(1) + 60))).toBe(false);
+    expect(isNewRealm(rankOf(realmStart(1) + 150))).toBe(false);
   });
 });
 
 describe("the short experience line", () => {
   test("shows what is gathered of the current stage over what it takes", () => {
-    const rank = rankOf(20);
-    const line = expLine(rank, 20, "en");
-    expect(fill(line.text, line.vars)).toBe("20/40 exp");
-    const next = rankOf(95);
-    expect(fill(expLine(next, 95, "en").text, expLine(next, 95, "en").vars)).toBe("15/40 exp");
+    const rank = rankOf(25);
+    const line = expLine(rank, 25, "en");
+    expect(fill(line.text, line.vars)).toBe("25/100 exp");
+    const next = rankOf(495);
+    expect(fill(expLine(next, 495, "en").text, expLine(next, 495, "en").vars)).toBe("95/120 exp");
   });
 
   test("restarts for every stage and counts a bigger stage in a higher realm", () => {
     const start = realmStart(1);
-    const rank = rankOf(start + 30);
-    const line = expLine(rank, start + 30, "en");
-    expect(fill(line.text, line.vars)).toBe("30/60 exp");
+    const rank = rankOf(start + 15);
+    const line = expLine(rank, start + 15, "en");
+    expect(fill(line.text, line.vars)).toBe("15/150 exp");
   });
 
   test("while gathering the breakthrough, it counts the gate", () => {
-    const gate = 40 * 36;
+    const gate = 8340;
     const rank = rankOf(gate + 100);
     const line = expLine(rank, gate + 100, "en");
-    expect(fill(line.text, line.vars)).toBe("100/600 exp");
+    expect(fill(line.text, line.vars)).toBe("100/3,475 exp");
   });
 
   test("numbers are grouped, and the engineer style says XP", () => {
     const rank = rankOf(realmStart(3) + 1500);
     const line = expLine(rank, realmStart(3) + 1500, "vi");
     expect(fill(line.text, line.vars)).toMatch(/^[\d.]+\/[\d.]+ exp$/);
-    const engineer = expLine(rankOf(20, ENGINEER), 20, "en", ENGINEER);
-    expect(fill(engineer.text, engineer.vars)).toBe("20/40 XP");
+    const engineer = expLine(rankOf(25, ENGINEER), 25, "en", ENGINEER);
+    expect(fill(engineer.text, engineer.vars)).toBe("25/100 XP");
   });
 
   test("at the top of the ladder it shows the total", () => {

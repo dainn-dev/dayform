@@ -11,8 +11,8 @@ import { deleteCategoryWithTasks } from "../../lib/category-reassign";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
 import { useTasks } from "../../lib/tasks-context";
-import { useFloatingAction } from "../menu/floating-action";
 import { RecoveryConfirm } from "../settings/RecoveryConfirm";
+import { useHeaderAction } from "../menu/header-action";
 import { CategoryEditorModal, type EditorTarget } from "./CategoryEditorModal";
 import { CategoryRow, useTaskCountText } from "./CategoryRow";
 
@@ -74,8 +74,8 @@ export function CategoriesSection() {
 
   const lastVisible = (id: string) => cats.visible.length === 1 && cats.visible[0] === id;
 
-  // The settings page floats this plus over the list, like "new task" on the Timeline.
-  useFloatingAction({
+  // The page shows this plus beside the card's title.
+  useHeaderAction({
     label: t("Add category"), disabled: disabled || atLimit,
     onPress: () => { setNotice(null); setOpenId(null); setEditing({ kind: "new" }); },
   });
