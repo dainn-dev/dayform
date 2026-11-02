@@ -25,6 +25,8 @@ export const MIN_TITLE_PX = 56;
 const ROW_PADDING_PX = 16;
 /** Width of the overlap warning mark (and its gap) when it shares the row. */
 export const CONFLICT_MARK_PX = 17;
+/** Width of the tick box at the end of a compact row (20 px and its 6 px gap). */
+export const CHECK_BOX_PX = 26;
 
 /**
  * The right-hand text of a compact row: the first variant that still leaves the title `MIN_TITLE_PX`, or null when
@@ -39,9 +41,3 @@ export function compactMeta(blockWidth: number, variants: readonly string[], res
   return null;
 }
 
-/** A block narrower than this has no room for the category icon next to the title. */
-export const MIN_ICON_BLOCK_WIDTH = 120;
-
-export function showCompactIcon(blockWidth: number): boolean {
-  return blockWidth >= MIN_ICON_BLOCK_WIDTH;
-}

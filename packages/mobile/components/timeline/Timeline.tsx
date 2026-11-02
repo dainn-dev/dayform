@@ -21,6 +21,8 @@ type Props = {
   now: Date | null;
   onAddAt: (time: string) => void;
   onEdit: (task: Task) => void;
+  /** Ticks or unticks a task from its block. */
+  onToggle: (task: Task) => void;
   /** Persist a dragged/resized block (this occurrence only); resolves false when saving failed. */
   onMove: (task: Task, patch: TaskPatch) => Promise<boolean>;
   /** True while a finger drags a block: the page ScrollView must not scroll. */
@@ -28,7 +30,7 @@ type Props = {
 };
 
 /** Hour grid, tappable hour slots, now line, event layer and empty state for one day. */
-export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove, onLockChange }: Props) {
+export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onToggle, onMove, onLockChange }: Props) {
   const { t: tr, timeFormat } = useLanguage();
   const colors = useColors();
   const config = useTimelineConfig();
@@ -45,7 +47,7 @@ export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove
     <View pointerEvents="box-none" style={s.eventLayer}>{visible.map(task => {
       const { lane, lanes: laneCount, visualMinutes } = lanes[task.id];
       const conflict = visible.some(p => overlaps(task, p));
-      return <EventBlock key={task.id} task={task} lane={lane} lanes={laneCount} visualMinutes={visualMinutes} conflict={conflict} onPress={() => onEdit(task)} onCommit={patch => onMove(task, patch)} onLockChange={onLockChange} />;
+      return <EventBlock key={task.id} task={task} lane={lane} lanes={laneCount} visualMinutes={visualMinutes} conflict={conflict} onPress={() => onEdit(task)} onToggle={() => onToggle(task)} onCommit={patch => onMove(task, patch)} onLockChange={onLockChange} />;
     })}</View>
     {!scheduledCount && <View pointerEvents="none" style={s.emptyTimeline}><Ionicons name="sparkles-outline" size={24} color={colors.emptyIcon} /><Text style={s.emptyTitle}>{tr("A little breathing room")}</Text><Text style={s.emptyText}>{tr("Tap any hour to plan something here.")}</Text></View>}
   </View>;

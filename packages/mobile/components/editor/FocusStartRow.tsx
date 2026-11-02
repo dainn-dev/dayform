@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { focusMinutesFor } from "../../lib/focus";
@@ -20,7 +19,6 @@ export function FocusStartRow({ taskId, onStart }: Props) {
   const { openSheet, log } = useFocus();
   const spent = focusMinutesFor(log, taskId);
   return <Pressable onPress={() => { onStart(); setTimeout(() => openSheet(taskId), SHEET_DELAY_MS); }} accessibilityRole="button" style={s.row}>
-    <Ionicons name="timer-outline" size={20} color={colors.primary} />
     <Text style={s.text}>{t("Focus on this task")}</Text>
     {spent > 0 && <Text style={s.spent}>{duration(spent)}</Text>}
   </Pressable>;

@@ -130,8 +130,8 @@ function EditorBody({ target, onClose }: { target: SpecialDayTarget; onClose: ()
             <Text numberOfLines={1} style={[s.deleteText, confirmDelete && s.deleteTextArmed]}>{confirmDelete ? t("Tap again to delete") : t("Delete")}</Text>
           </Pressable>}
           <View style={s.flex} />
-          <IconButton icon="close" label={t("Cancel")} onPress={onClose} />
-          <IconButton icon="checkmark" tone="primary" label={t("Save")} disabled={!canSave} onPress={save} />
+          <IconButton icon="close" text={t("Cancel")} label={t("Cancel")} onPress={onClose} />
+          <IconButton icon="checkmark" text={t("Save")} tone="primary" label={t("Save")} disabled={!canSave} onPress={save} />
         </View>
       </View>
     </View>

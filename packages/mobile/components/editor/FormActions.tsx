@@ -19,14 +19,15 @@ export function FormActions({ saving, isEditing, confirmConflict, onSave, onDele
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const saveLabel = saving ? t("Saving...") : confirmConflict ? t("Save anyway") : isEditing ? t("Save changes") : t("Add task");
-  // One row of icons: delete on the left (editing only), the main action on the right. A conflict swaps its check for a warning.
+  // Delete on the left (editing only), the main action filling the rest. Both say what they do in words.
   return <View style={s.row}>
-    {isEditing && <IconButton icon="trash-outline" tone="danger" label={t("Delete task")} disabled={saving} onPress={onDelete} />}
-    <IconButton icon={confirmConflict ? "warning-outline" : "checkmark"} tone="primary" label={saveLabel} busy={saving} onPress={onSave} style={s.save} />
+    {isEditing && <IconButton icon="trash-outline" text={t("Delete")} tone="danger" label={t("Delete task")} disabled={saving} onPress={onDelete} style={s.delete} />}
+    <IconButton icon={confirmConflict ? "warning-outline" : "checkmark"} text={saveLabel} tone="primary" label={saveLabel} busy={saving} onPress={onSave} style={s.save} />
   </View>;
 }
 
 const makeStyles = (_c: ThemeColors) => StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
-  save: { marginLeft: "auto", minWidth: 64 },
+  delete: { paddingHorizontal: 18 },
+  save: { flex: 1 },
 });

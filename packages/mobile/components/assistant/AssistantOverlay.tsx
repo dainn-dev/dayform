@@ -14,6 +14,8 @@ import { noticeFor, type Notice } from "../../lib/xp-notice";
 import { IDLE_TIP_CHECK_MS, pickTip, ROUTE_TIP_DELAY_MS, routeOf, tipAllowed, type TipRoute } from "../../lib/assistant-tips";
 import { mouthAt, speechLocale, speechMs, speechTimeline, type Span, type SpeechLanguage } from "../../lib/assistant-speech";
 import { matchPeriod, matchPreset, parseYesNo, saysGoodbye } from "../../lib/voice-command";
+import { readAddRequest, spokenProposal } from "../../lib/assistant-add";
+import { useQuickAdd } from "../../lib/quick-add-context";
 import { periodAnswer, PERIOD_LINES, PERIOD_QUESTION } from "../../lib/assistant-period";
 import { useCycle } from "../../lib/cycle-context";
 import { dateKey, fromKey } from "../../lib/planner";
@@ -32,6 +34,7 @@ import { tabBarHeight } from "../../lib/shell-layout";
 import { useTasks } from "../../lib/tasks-context";
 import { ChatSheet } from "./ChatSheet";
 import { useAiChat } from "./use-ai-chat";
+import { useAssistantAdd } from "./use-assistant-add";
 
 // The flat picture of the assistant stands in until the Live2D model is rigged (see the assistant notes in CLAUDE.md).
 const ASSISTANT_IMAGES = {
@@ -99,6 +102,17 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       dispatch({ type: "answerStarted" });
     },
   });
+  // Adding a task by talking, when the AI chat is off: understood on the device, read out, written after a yes.
+  const add = useAssistantAdd();
+  const { openQuickAdd } = useQuickAdd();
+  const finishAdd = async (yes: boolean) => {
+    touched();
+    const title = add.pending?.title ?? "";
+    const saved = await add.answer(yes);
+    dispatch({ type: "asked" });
+    setSpoken(!yes ? LINES.addDeclined : saved ? { text: LINES.added.text, vars: { title } } : LINES.addFailed);
+    dispatch({ type: "questionChosen" });
+  };
   const openChat = () => {
     setChatOpen(true);
     dispatch({ type: machine.state === "sleepy" ? "poked" : "asked" });
@@ -445,6 +459,15 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       dispatch({ type: "cancelled" });
       return;
     }
+    if (add.pending) {
+      const word = parseYesNo(text);
+      if (word) {
+        void finishAdd(word === "yes");
+        return;
+      }
+      // Something else was said: the proposal is dropped and the sentence is understood on its own.
+      add.cancel();
+    }
     const pending = chat.pendingConfirm;
     if (pending) {
       const answerWord = parseYesNo(text);
@@ -469,9 +492,21 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     }
     // Without the AI chat: a preset question if the words match one, otherwise say how to ask anything.
     dispatch({ type: "asked" });
-    const preset = matchPreset(text);
+    // "Thêm ..." is an add even when it mentions today; without a verb, "lịch hôm nay" is the question it sounds like.
+    const preset = readAddRequest(text).explicit ? null : matchPreset(text);
     if (preset) {
       ask(preset);
+      return;
+    }
+    const proposal = add.propose(text);
+    if (proposal === "empty") {
+      setSpoken(LINES.addWhat);
+      dispatch({ type: "questionChosen" });
+      return;
+    }
+    if (proposal !== "none") {
+      setSpoken({ text: "{reply}", vars: { reply: spokenProposal(proposal.title, proposal.parts, t("Shall I?")) } });
+      dispatch({ type: "questionChosen" });
       return;
     }
     setSpoken(LINES.notUnderstood);
@@ -635,7 +670,15 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
 
   return <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
     <Animated.View style={[s.holder, { transform: position.getTranslateTransform() }]} {...pan.panHandlers}>
-      {chatOpen ? null : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question" || soniox.mode === "once")
+      {chatOpen ? null : add.pending
+        ? <View style={[s.bubble, ...bubblePlace]} accessibilityLiveRegion="polite">
+          <Text style={s.bubbleTitle}>{add.pending.title}</Text>
+          <Text style={s.bubbleText}>{add.pending.parts.join(" · ")}</Text>
+          {machine.state === "listening" && heard ? <Text style={s.bubbleText}>{`“${heard}”`}</Text> : null}
+          <Pressable onPress={() => { void finishAdd(true); }} accessibilityRole="button" style={s.question}><Text style={s.questionText}>{t("Agree")}</Text></Pressable>
+          <Pressable onPress={() => { void finishAdd(false); }} accessibilityRole="button" style={s.close}><Text style={s.closeText}>{t("No")}</Text></Pressable>
+        </View>
+        : machine.state === "listening" && (voiceTurn.current || voiceInput.mode === "question" || soniox.mode === "once")
         ? <View style={[s.bubble, ...bubblePlace]} pointerEvents="none" accessibilityLiveRegion="polite">
           <Text style={s.bubbleText}>{heard ? `“${heard}”` : t(LINES.listening.text)}</Text>
         </View>
@@ -645,6 +688,9 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
           {QUESTION_IDS.map(id => <Pressable key={id} onPress={() => ask(id)} accessibilityRole="button" style={s.question}>
             <Text style={s.questionText}>{t(QUESTIONS[id])}</Text>
           </Pressable>)}
+          <Pressable onPress={() => { touched(); dispatch({ type: "cancelled" }); openQuickAdd(); }} accessibilityRole="button" style={s.question}>
+            <Text style={s.questionText}>{t("Add a task")}</Text>
+          </Pressable>
           {periodOn && <Pressable onPress={() => { void askPeriod(t(PERIOD_QUESTION), false); }} accessibilityRole="button" style={s.question}>
             <Text style={s.questionText}>{t(PERIOD_QUESTION)}</Text>
           </Pressable>}
@@ -704,6 +750,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     shadowColor: c.shadowPanel, shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   bubbleText: { color: c.foreground, fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  bubbleTitle: { color: c.foreground, fontSize: 15, lineHeight: 20, fontWeight: "800" },
   question: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, justifyContent: "center", backgroundColor: c.primary },
   questionText: { color: c.onPrimary, fontSize: 13, fontWeight: "700" },
   close: { minHeight: 36, alignItems: "center", justifyContent: "center" },

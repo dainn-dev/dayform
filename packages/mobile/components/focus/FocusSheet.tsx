@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
 import { useFocusClock } from "../../hooks/use-focus-clock";
+import { FilterDropdown } from "../tasks/FilterDropdown";
 import type { ThemeColors } from "../../constants/theme";
 import { FOCUS_CHOICES, focusMinutesFor, focusMinutesIn, formatClock, remainingMs, type FocusSession } from "../../lib/focus";
 import { useFocus } from "../../lib/focus-context";
@@ -12,7 +13,9 @@ import { dateKey, minutes as clockMinutes, type Task } from "../../lib/planner";
 import { ensureReminderChannel, getReminderPermission, requestReminderPermission } from "../../lib/reminders-expo";
 import { useTasks } from "../../lib/tasks-context";
 
-const MAX_PICKABLE_TASKS = 6;
+const MAX_PICKABLE_TASKS = 40;
+/** The dropdown key of "no task"; a task id is never empty. */
+const FREE_KEY = "";
 
 /** Open tasks worth focusing on: today's first (by time), then the backlog. */
 function pickableTasks(tasks: readonly Task[], today: string): Task[] {
@@ -83,9 +86,9 @@ function Idle({ s, colors, tasks, chosenId, onPick, minutes, onMinutes, onStart,
   const { t, duration } = useLanguage();
   return <>
     <Text style={s.label}>{t("WORK ON")}</Text>
-    <View style={s.chips}>
-      <Chip s={s} selected={chosenId === null} label={t("Free focus")} onPress={() => onPick(null)} />
-      {tasks.map(task => <Chip key={task.id} s={s} selected={chosenId === task.id} label={task.title} onPress={() => onPick(task.id)} />)}
+    <View style={s.pick}>
+      <FilterDropdown title={t("WORK ON")} valueLabel={tasks.find(task => task.id === chosenId)?.title ?? t("Free focus")} options={[{ key: FREE_KEY, label: t("Free focus") }, ...tasks.map(task => ({ key: task.id, label: task.title }))]}
+        selected={[chosenId ?? FREE_KEY]} active={chosenId !== null} onPick={key => onPick(key === FREE_KEY ? null : key)} />
     </View>
     {taskMinutes > 0 && <Text style={s.hint}>{`${t("Already focused on this")}: ${duration(taskMinutes)}`}</Text>}
     <Text style={s.label}>{t("LENGTH")}</Text>
@@ -93,7 +96,7 @@ function Idle({ s, colors, tasks, chosenId, onPick, minutes, onMinutes, onStart,
       {FOCUS_CHOICES.map(m => <Chip key={m} s={s} selected={minutes === m} label={`${m} ${t("min")}`} onPress={() => onMinutes(m)} />)}
     </View>
     <Pressable onPress={onStart} accessibilityRole="button" style={s.primary}>
-      <Ionicons name="play" size={20} color={colors.onPrimary} /><Text style={s.primaryText}>{t("Start focus")}</Text>
+      <Text style={s.primaryText}>{t("Start focus")}</Text>
     </Pressable>
   </>;
 }
@@ -116,12 +119,12 @@ function Running({ s, colors, session, now, task, onPause, onResume, onStop, onS
     <Text style={s.hint}>{onBreak ? t("Break") : paused ? t("Paused") : `${t("Round")} ${session.round + 1}`}</Text>
     {onBreak
       ? <>
-        <Pressable onPress={onNext} accessibilityRole="button" style={s.primary}><Ionicons name="play" size={20} color={colors.onPrimary} /><Text style={s.primaryText}>{t("Another round")}</Text></Pressable>
+        <Pressable onPress={onNext} accessibilityRole="button" style={s.primary}><Text style={s.primaryText}>{t("Another round")}</Text></Pressable>
         <Pressable onPress={onSkip} accessibilityRole="button" style={s.secondary}><Text style={s.secondaryText}>{t("End the session")}</Text></Pressable>
       </>
       : <>
         <Pressable onPress={paused ? onResume : onPause} accessibilityRole="button" style={s.primary}>
-          <Ionicons name={paused ? "play" : "pause"} size={20} color={colors.onPrimary} /><Text style={s.primaryText}>{paused ? t("Resume") : t("Pause")}</Text>
+          <Text style={s.primaryText}>{paused ? t("Resume") : t("Pause")}</Text>
         </Pressable>
         {task && task.status !== "done" && <Pressable onPress={() => { onFinishTask(task.id); onStop(); }} accessibilityRole="button" style={s.secondary}><Text style={s.secondaryText}>{t("Mark done and stop")}</Text></Pressable>}
         <Pressable onPress={onStop} accessibilityRole="button" style={s.secondary}><Text style={s.secondaryText}>{t("Stop")}</Text></Pressable>
@@ -143,10 +146,11 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 24, paddingBottom: 32 },
   label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 9, marginTop: 19 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { minHeight: 40, maxWidth: "100%", paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder, justifyContent: "center" },
+  pick: { flexDirection: "row" },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: { minHeight: 34, maxWidth: "100%", paddingHorizontal: 11, borderRadius: 17, backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder, justifyContent: "center" },
   chipOn: { backgroundColor: c.primary, borderColor: c.primary },
-  chipText: { color: c.foreground, fontSize: 13, fontWeight: "700" },
+  chipText: { color: c.foreground, fontSize: 12.5, fontWeight: "700" },
   chipTextOn: { color: c.onPrimary },
   hint: { color: c.mutedForeground, fontSize: 12, marginTop: 10, textAlign: "center" },
   primary: { marginTop: 28, minHeight: 54, borderRadius: 18, backgroundColor: c.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },

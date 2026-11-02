@@ -99,7 +99,7 @@ export default function PlannerScreen() {
         {!loading && carryOver.length > 0 && <CarryOverBanner count={carryOver.length} onMove={moveToToday} />}
         {loading
           ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 42 }} />
-          : <Timeline visible={visible} scheduledCount={scheduled.length} now={selected === today ? now : null} onAddAt={openNew} onEdit={setEditing} onMove={moveBlock} onLockChange={setScrollLocked} />}
+          : <Timeline visible={visible} scheduledCount={scheduled.length} now={selected === today ? now : null} onAddAt={openNew} onEdit={setEditing} onToggle={toggle} onMove={moveBlock} onLockChange={setScrollLocked} />}
         <OutsideHours outside={outside} scheduled={scheduled} onEdit={setEditing} onToggle={toggle} />
       </View>
 

@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { pickBackupText } from "../../lib/backup-expo";
@@ -78,7 +77,7 @@ export function CalendarImportSection() {
   return <View>
     <Text style={s.hint}>{t("Choose a .ics file exported from your calendar. Events of the next 90 days become tasks; importing the same file again adds nothing twice.")}</Text>
     <Pressable onPress={() => void choose()} disabled={busy} accessibilityRole="button" style={s.button}>
-      {busy ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="calendar-outline" size={20} color={colors.primary} />}
+      {busy && <ActivityIndicator color={colors.primary} />}
       <Text style={s.buttonText}>{t("Choose a calendar file")}</Text>
     </Pressable>
     {stage.kind === "ready" && <View style={s.panel}>

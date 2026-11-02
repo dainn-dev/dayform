@@ -9,7 +9,7 @@ import { useLanguage } from "../../lib/language";
 import type { Task } from "../../lib/planner";
 import { formatMinutes, SNAP_MINUTES } from "../../lib/timeline-gestures";
 import { useTimelineConfig } from "../../hooks/use-timeline-config";
-import { CONFLICT_MARK_PX, compactMeta, eventDensity, showCompactIcon } from "../../lib/event-density";
+import { CHECK_BOX_PX, CONFLICT_MARK_PX, compactMeta, eventDensity } from "../../lib/event-density";
 import { eventGeometry } from "../../lib/timeline-config";
 import { EdgeHandle } from "./EdgeHandle";
 import type { TaskPatch } from "./drag-controller";
@@ -23,17 +23,20 @@ type Props = {
   visualMinutes: number;
   conflict: boolean;
   onPress: () => void;
+  /** Ticks or unticks the task (the checkbox at the start of the block). */
+  onToggle: () => void;
   /** Persist a new time/length for this block; resolves false when saving failed. */
   onCommit: (patch: TaskPatch) => Promise<boolean>;
   /** True while a finger drags this block: the page must not scroll. */
   onLockChange?: (locked: boolean) => void;
 };
 
+const CHECK_HIT_SLOP = { top: 10, bottom: 10, left: 6, right: 8 };
 const MOVE_EARLIER = "moveEarlier";
 const MOVE_LATER = "moveLater";
 
 /** One positioned task block on the timeline: tap to edit, long-press then drag to move or resize. */
-export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress, onCommit, onLockChange }: Props) {
+export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress, onToggle, onCommit, onLockChange }: Props) {
   const { t: tr, duration, time } = useLanguage();
   const colors = useColors();
   const categoryColors = useCategoryColors();
@@ -68,7 +71,13 @@ export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress
   const strike = done ? s.strike : null;
   const startText = time(shown.start!);
   // A short block is ONE row (its height only fits one): the icon, the title and as much of the time as the width allows.
-  const compactText = density === "compact" ? compactMeta(blockWidth, [`${startText} · ${duration(shown.duration)}`, startText], conflict ? CONFLICT_MARK_PX : 0) : null;
+  const compactText = density === "compact" ? compactMeta(blockWidth, [`${startText} · ${duration(shown.duration)}`, startText], CHECK_BOX_PX + (conflict ? CONFLICT_MARK_PX : 0)) : null;
+
+  // The tick sits at the end of the row and replaces the category icon: the block's colour already says the category.
+  const check = <Pressable onPress={onToggle} hitSlop={CHECK_HIT_SLOP} accessibilityRole="checkbox" accessibilityState={{ checked: done }}
+    accessibilityLabel={`${done ? tr("Reopen") : tr("Complete")} ${task.title}`} style={[s.check, { borderColor: color.accent }, done && { backgroundColor: color.accent }]}>
+    {done && <Ionicons name="checkmark" size={13} color={colors.onPrimary} />}
+  </Pressable>;
 
   return <>
     <View {...drag.body} onLayout={onLayout} style={[s.wrapper, { top, height, ...place }, lifted && s.liftedWrapper]}>
@@ -87,14 +96,14 @@ export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress
           { backgroundColor: color.bg, borderLeftColor: color.accent, opacity: done ? 0.62 : lifted ? 0.94 : 1 }, lifted && s.liftedEvent]}
       >
         {density === "compact" ? <View style={s.compactRow}>
-          {showCompactIcon(blockWidth) && <Ionicons name={color.icon} size={13} color={color.accent} />}
           <Text numberOfLines={1} style={[s.compactTitle, strike]}>{task.title}</Text>
           {conflict && <Text accessible={false} style={s.compactOverlap}>⚠</Text>}
           {compactText !== null && <Text numberOfLines={1} style={s.compactMeta}>{compactText}</Text>}
+          {check}
         </View> : <>
           <View style={s.eventTop}>
             <Text numberOfLines={1} style={[s.eventTitle, density === "medium" && s.eventTitleMedium, strike]}>{task.title}</Text>
-            {density === "full" && <Ionicons name={color.icon} size={18} color={color.accent} />}
+            {check}
           </View>
           <Text numberOfLines={1} style={[s.eventMeta, density === "medium" && s.eventMetaMedium]}>{startText} · {duration(shown.duration)}</Text>
           {conflict && height > 75 && <Text style={s.overlap}>{tr("⚠ Overlap")}</Text>}
@@ -123,7 +132,8 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   compactTitle: { flex: 1, minWidth: 0, color: c.foreground, fontSize: 12.5, fontWeight: "800" },
   compactMeta: { flexShrink: 0, color: c.eventMeta, fontSize: 10.5, fontWeight: "600" },
   compactOverlap: { flexShrink: 0, color: c.overlapText, fontSize: 11, fontWeight: "800" },
-  eventTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 4 },
+  eventTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  check: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   eventTitle: { flex: 1, color: c.foreground, fontSize: 14, fontWeight: "800" },
   eventTitleMedium: { fontSize: 13 },
   eventMeta: { marginTop: 4, color: c.eventMeta, fontSize: 10, fontWeight: "600" },

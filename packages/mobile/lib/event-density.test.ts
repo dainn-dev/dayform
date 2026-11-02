@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { MIN_EVENT_PX, makeTimelineConfig, eventGeometry } from "./timeline-config";
 import {
-  COMPACT_MAX_HEIGHT, CONFLICT_MARK_PX, FULL_MIN_HEIGHT, MIN_ICON_BLOCK_WIDTH, MIN_TITLE_PX, compactMeta, eventDensity, showCompactIcon,
+  COMPACT_MAX_HEIGHT, CONFLICT_MARK_PX, FULL_MIN_HEIGHT, MIN_TITLE_PX, compactMeta, eventDensity,
 } from "./event-density";
 import type { Task } from "./planner";
 
@@ -66,12 +66,5 @@ describe("compactMeta", () => {
   test("ignores empty variants and an empty list", () => {
     expect(compactMeta(300, ["", "09:00"])).toBe("09:00");
     expect(compactMeta(300, [])).toBeNull();
-  });
-});
-
-describe("showCompactIcon", () => {
-  test("the category icon needs a block of at least 120 px", () => {
-    expect(showCompactIcon(MIN_ICON_BLOCK_WIDTH)).toBe(true);
-    expect(showCompactIcon(MIN_ICON_BLOCK_WIDTH - 1)).toBe(false);
   });
 });

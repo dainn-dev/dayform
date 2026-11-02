@@ -59,7 +59,7 @@ export function CultivationSection() {
           {track > 0 && <View style={s.link} />}
           <View style={s.realm} accessible accessibilityLabel={t(name)}>
             <RankBadge style={style} realm={track} layer={1} stage={0} size={REALM_TILE} />
-            <Text style={[s.realmName, track === rank.realm && s.realmNameNow]} numberOfLines={1}>{t(name)}</Text>
+            <Text style={[s.realmName, track === rank.realm && s.realmNameNow]}>{t(name)}</Text>
           </View>
         </View>)}
         {rank.realm < ladder.tracks.length - 1 && <View style={s.pathStep}>
@@ -96,15 +96,15 @@ export function CultivationSection() {
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   hero: { alignItems: "center", paddingVertical: 12, gap: 8 },
-  rank: { color: c.foreground, fontSize: 20, fontWeight: "800", marginTop: 6, textAlign: "center" },
+  rank: { color: c.foreground, fontSize: 20, lineHeight: 26, fontWeight: "800", marginTop: 6, textAlign: "center", alignSelf: "stretch" },
   track: { alignSelf: "stretch", height: 8, borderRadius: 4, backgroundColor: c.track, overflow: "hidden", marginTop: 4 },
   fill: { height: 8, borderRadius: 4, backgroundColor: c.primary },
   teaser: { color: c.mutedForeground, fontSize: 12, fontStyle: "italic", textAlign: "center" },
   path: { alignItems: "flex-start", paddingVertical: 6, paddingRight: 8 },
   pathStep: { flexDirection: "row", alignItems: "flex-start" },
   link: { width: 14, height: 2, borderRadius: 1, backgroundColor: c.track, marginTop: REALM_TILE / 2 - 1 },
-  realm: { width: 62, alignItems: "center", gap: 4 },
-  realmName: { color: c.mutedForeground, fontSize: 10, fontWeight: "700", textAlign: "center" },
+  realm: { width: 76, alignItems: "center", gap: 4 },
+  realmName: { color: c.mutedForeground, fontSize: 11, lineHeight: 14, fontWeight: "700", textAlign: "center" },
   realmNameNow: { color: c.primary },
   unknown: { width: REALM_TILE, height: REALM_TILE, borderRadius: REALM_TILE / 2, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
   unknownMark: { color: c.mutedForeground, fontSize: 18, fontWeight: "800" },

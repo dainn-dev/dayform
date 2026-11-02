@@ -7,10 +7,9 @@ import type { ThemeColors } from "../../constants/theme";
 import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
 import { addDays, dateKey, fromKey, type Repeat } from "../../lib/planner";
-import { parseQuickAdd, quickAddForm } from "../../lib/quick-add";
-import { newTaskDefaults } from "../../lib/new-task-defaults";
+import { planQuickAdd } from "../../lib/quick-add-plan";
 import { useSettings } from "../../lib/settings-context";
-import { hasConflict, planSave } from "../../lib/task-save";
+import { hasConflict } from "../../lib/task-save";
 import { useTasks } from "../../lib/tasks-context";
 
 type Props = { visible: boolean; onClose: () => void; /** Text to start with, e.g. what another app shared. */ initialText?: string };
@@ -32,24 +31,12 @@ export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
   const [failed, setFailed] = useState(false);
   const saving = useRef(false);
   useEffect(() => { if (visible) { setText(initialText); setAdded(null); setFailed(false); } }, [visible, initialText]);
-  const now = new Date();
-  const today = dateKey(now);
+  const today = dateKey(new Date());
 
   const categories = useMemo(() => categoryIds.map(id => ({ id, name: label(id) })), [categoryIds, label]);
-  const parsed = useMemo(() => parseQuickAdd(text, { now: new Date(), categories }), [text, categories]);
-  const defaults = newTaskDefaults(settings, { now, slotTime: null, selectedDate: parsed.date ?? today, knownCategories: categoryIds });
-  const form = useMemo(
-    () => quickAddForm(parsed, { duration: defaults.duration, category: defaults.category, remind: settings.defaults.remind, startTime: defaults.time }),
-    [parsed, defaults.duration, defaults.category, defaults.time, settings.defaults.remind],
-  );
-  const plan = useMemo(() => {
-    if (form === null) return null;
-    const result = planSave(form, {
-      existing: null, scope: "this", today, nowIso: new Date().toISOString(),
-      newId: () => `${Date.now()}-${randomSuffix()}`, newSeriesId: () => `series-${Date.now()}-${randomSuffix()}`,
-    });
-    return result.ok ? result : null;
-  }, [form, today]);
+  const { form, plan } = useMemo(() => planQuickAdd(text, {
+    now: new Date(), categories, settings, newId: () => `${Date.now()}-${randomSuffix()}`, newSeriesId: () => `series-${Date.now()}-${randomSuffix()}`,
+  }), [text, categories, settings]);
   const overlapping = plan !== null && hasConflict(plan.candidate, tasks);
 
   const dateText = (key: string): string => {
@@ -57,16 +44,12 @@ export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
     if (key === addDays(today, 1)) return t("Tomorrow");
     return fromKey(key).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
   };
-  const chips: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }[] = [];
+  // What was understood, as plain words: the words say it, so the chips carry no icons.
+  const chips: string[] = [];
   if (form !== null) {
-    if (form.scheduled) {
-      chips.push({ icon: "calendar-outline", text: dateText(form.date) }, { icon: "time-outline", text: time(form.time) });
-    } else {
-      chips.push({ icon: "file-tray-outline", text: t("On your mind") });
-    }
-    chips.push({ icon: "hourglass-outline", text: duration(form.duration) });
-    if (form.repeat !== null) chips.push({ icon: "repeat-outline", text: t(REPEAT_LABEL[form.repeat]) });
-    chips.push({ icon: "pricetag-outline", text: label(form.category) });
+    chips.push(form.scheduled ? `${dateText(form.date)} ${time(form.time)}` : t("On your mind"), duration(form.duration));
+    if (form.repeat !== null) chips.push(t(REPEAT_LABEL[form.repeat]));
+    chips.push(label(form.category));
   }
 
   const add = async (): Promise<void> => {
@@ -98,12 +81,12 @@ export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
         {form !== null
           ? <>
             <Text accessibilityRole="header" style={s.title}>{form.title}</Text>
-            <View style={s.chips}>{chips.map((chip, i) => <View key={i} style={s.chip}><Ionicons name={chip.icon} size={14} color={colors.primary} /><Text style={s.chipText}>{chip.text}</Text></View>)}</View>
+            <View style={s.chips}>{chips.map((chip, i) => <View key={i} style={s.chip}><Text style={s.chipText}>{chip}</Text></View>)}</View>
             {overlapping && <Text style={s.warn}>{t("⚠ Overlaps another task")}</Text>}
           </>
           : <Text style={s.hint}>{t("Try: Gym 6pm Friday, Pay rent every month, Read for 20m")}</Text>}
         <Pressable onPress={() => void add()} disabled={plan === null} accessibilityRole="button" accessibilityState={{ disabled: plan === null }} style={[s.primary, plan === null && s.primaryOff]}>
-          <Ionicons name="add" size={20} color={colors.onPrimary} /><Text style={s.primaryText}>{t("Add task")}</Text>
+          <Text style={s.primaryText}>{t("Add task")}</Text>
         </Pressable>
         {added !== null && <Text accessibilityLiveRegion="polite" style={s.ok}>{`${t("Added")}: ${added}`}</Text>}
         {failed && <Text accessibilityLiveRegion="polite" style={s.warn}>{t("Your change could not be saved. Please try again.")}</Text>}
@@ -123,7 +106,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   input: { minHeight: 56, backgroundColor: c.card, borderRadius: 16, paddingHorizontal: 16, color: c.foreground, fontSize: 16, borderWidth: 1, borderColor: c.inputBorder },
   title: { color: c.foreground, fontSize: 20, fontWeight: "800", marginTop: 22 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: c.primarySoft },
+  chip: { justifyContent: "center", minHeight: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: c.primarySoft },
   chipText: { color: c.accentForeground, fontSize: 12, fontWeight: "700" },
   warn: { color: c.conflictText, fontSize: 12, fontWeight: "700", marginTop: 12 },
   hint: { color: c.mutedForeground, fontSize: 13, marginTop: 22 },

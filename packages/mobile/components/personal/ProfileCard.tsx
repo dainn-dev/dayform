@@ -58,8 +58,8 @@ export function ProfileCard() {
       <View style={s.who}>
         <Text style={s.name} numberOfLines={2}>{name || t("Add your name")}</Text>
         {ranked && <Pressable onPress={openRank} accessibilityRole="button" accessibilityLabel={`${label}. ${expText}`}>
-          <Text style={s.rank} numberOfLines={1}>{label}</Text>
-          <Text style={s.exp} numberOfLines={1}>{expText}</Text>
+          <Text style={s.rank}>{label}</Text>
+          <Text style={s.exp}>{expText}</Text>
           <View style={s.track} accessible={false}><View style={[s.fill, { width: `${Math.round(rank.progress * 100)}%` }]} /></View>
         </Pressable>}
       </View>
@@ -81,10 +81,11 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: c.accent, alignItems: "center", justifyContent: "center" },
   initial: { color: c.accentForeground, fontSize: 24, fontWeight: "800" },
   badge: { width: AVATAR_SIZE, height: AVATAR_SIZE },
-  who: { flex: 1 },
+  // minWidth 0 lets the rank and the experience line wrap under the badge instead of being cut off.
+  who: { flex: 1, minWidth: 0 },
   name: { color: c.foreground, fontSize: 19, fontWeight: "800" },
-  rank: { color: c.primary, fontSize: 12, fontWeight: "800", marginTop: 2 },
-  exp: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 1 },
+  rank: { color: c.primary, fontSize: 13, lineHeight: 18, fontWeight: "800", marginTop: 3 },
+  exp: { color: c.mutedForeground, fontSize: 12, lineHeight: 17, fontWeight: "700", marginTop: 1 },
   track: { height: 5, borderRadius: 3, backgroundColor: c.track, overflow: "hidden", marginTop: 5 },
   fill: { height: 5, borderRadius: 3, backgroundColor: c.primary },
   editor: { marginTop: 12 },

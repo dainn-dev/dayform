@@ -78,7 +78,7 @@ export function WeeklyReviewSheet({ visible, anchor, onClose }: Props) {
           </View>)}
           {review.unfinished.length > SHOWN_UNFINISHED && <Text style={s.hint}>{`+${review.unfinished.length - SHOWN_UNFINISHED} ${t("more")}`}</Text>}
           <Pressable onPress={() => void moveOn()} disabled={moving} accessibilityRole="button" style={s.primary}>
-            <Ionicons name="arrow-forward" size={20} color={colors.onPrimary} /><Text style={s.primaryText}>{t("Move them to next week")}</Text>
+            <Text style={s.primaryText}>{t("Move them to next week")}</Text>
           </Pressable>
           <Text style={s.hint}>{t("Each task keeps its time and moves to the same weekday a week later. You can undo it.")}</Text>
         </>}

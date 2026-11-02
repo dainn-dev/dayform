@@ -25,7 +25,8 @@ type Props = {
   title: string;
   /** Text shown inside the closed field. */
   valueLabel: string;
-  icon: IconName;
+  /** Left of the value; leave out when the value says it all (a Week / Month choice). */
+  icon?: IconName;
   options: readonly DropdownOption[];
   selected: readonly string[];
   /** Multi-select keeps the sheet open and adds an "Apply" button; single-select closes on pick. */
@@ -50,7 +51,7 @@ export const FilterDropdown = memo(function FilterDropdown({ title, valueLabel, 
   return <>
     <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`${title}: ${valueLabel}`} accessibilityState={{ expanded: open }}
       style={[s.field, active && s.fieldActive]}>
-      <Ionicons name={icon} size={17} color={active ? colors.primary : colors.mutedForeground} />
+      {icon !== undefined && <Ionicons name={icon} size={17} color={active ? colors.primary : colors.mutedForeground} />}
       <Text numberOfLines={1} style={[s.fieldText, active && s.fieldTextActive]}>{valueLabel}</Text>
       <Ionicons name="chevron-down" size={16} color={colors.mutedForeground} />
     </Pressable>
