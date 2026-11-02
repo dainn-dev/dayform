@@ -33,7 +33,7 @@ export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove
   const colors = useColors();
   const config = useTimelineConfig();
   const s = useMemo(() => makeStyles(colors, config), [colors, config]);
-  const lanes = layoutLanes(visible, config.minVisualMinutes);
+  const lanes = layoutLanes(visible, config.minVisualMinutes, config.floorVisualMinutes);
   const nowY = now ? nowOffset(config, now) : null;
   const hourTop = (hour: number) => (hour - config.firstHour) * 60 * config.scale;
 
@@ -43,9 +43,9 @@ export function Timeline({ visible, scheduledCount, now, onAddAt, onEdit, onMove
     {config.slotHours.map(hour => <Pressable key={hour} onPress={() => onAddAt(slotTime(hour))} accessible={false} importantForAccessibility="no" style={[s.hourHit, { top: hourTop(hour) }]} />)}
     {nowY !== null && <View pointerEvents="none" style={[s.nowLine, { top: nowY }]}><View style={s.nowCircle} /><View style={s.nowRule} /></View>}
     <View pointerEvents="box-none" style={s.eventLayer}>{visible.map(task => {
-      const { lane, lanes: laneCount } = lanes[task.id];
+      const { lane, lanes: laneCount, visualMinutes } = lanes[task.id];
       const conflict = visible.some(p => overlaps(task, p));
-      return <EventBlock key={task.id} task={task} lane={lane} lanes={laneCount} conflict={conflict} onPress={() => onEdit(task)} onCommit={patch => onMove(task, patch)} onLockChange={onLockChange} />;
+      return <EventBlock key={task.id} task={task} lane={lane} lanes={laneCount} visualMinutes={visualMinutes} conflict={conflict} onPress={() => onEdit(task)} onCommit={patch => onMove(task, patch)} onLockChange={onLockChange} />;
     })}</View>
     {!scheduledCount && <View pointerEvents="none" style={s.emptyTimeline}><Ionicons name="sparkles-outline" size={24} color={colors.emptyIcon} /><Text style={s.emptyTitle}>{tr("A little breathing room")}</Text><Text style={s.emptyText}>{tr("Tap any hour to plan something here.")}</Text></View>}
   </View>;

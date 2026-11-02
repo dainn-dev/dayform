@@ -163,3 +163,15 @@ describe("hour labels", () => {
     expect(windowLabel(normal, "24h")).toBe("06:00 – 22:00");
   });
 });
+
+describe("eventGeometry with a visual limit", () => {
+  test("a 30-minute block stays above the task that starts when it ends", () => {
+    const first = eventGeometry(normal, task("09:30", 30), 30);
+    const next = eventGeometry(normal, task("10:00", 30), 30);
+    expect(first.top + first.height).toBeLessThan(next.top);
+  });
+
+  test("without a limit the usual minimum height applies", () => {
+    expect(eventGeometry(normal, task("09:30", 30)).height).toBe(MIN_EVENT_PX);
+  });
+});

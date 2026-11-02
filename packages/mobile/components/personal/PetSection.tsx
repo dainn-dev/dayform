@@ -29,7 +29,7 @@ export function PetSection() {
         trackColor={{ false: colors.track, true: colors.primary }} thumbColor={colors.onPrimary} />
     </View>
     {enabled && <PetPicker labels={labels} value={settings.pet.kind} onChange={kind => { void update({ pet: { kind, last: kind } }); }} />}
-    {enabled && <SwitchRow label={t("Let the pet stroll")} hint={t("Off keeps it sitting in the corner.")}
+    {enabled && <SwitchRow label={t("Let the pet stroll")} hint={t("Off lets it rest in the corner, sleeping.")}
       value={settings.pet.walks} onChange={walks => { void update({ pet: { walks } }); }} />}
     <Text style={s.credit}>{t("The widget shows it when there is room below your tasks. Pixel pets: CC0 art by Shepardskin (OpenGameArt).")}</Text>
   </View>;

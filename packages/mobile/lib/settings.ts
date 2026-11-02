@@ -9,8 +9,8 @@ const MAX_CATEGORY_LENGTH = 40;
 
 export const ACCENT_IDS = ["violet", "ocean", "lagoon", "forest", "sunset", "blossom"] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
-/** The home-screen widget's pet: a pixel cat, a pixel dog, a kitsune, a chick, Paimon, Goku Black, or none. */
-export const PET_KINDS = ["gray-cat", "dog", "kitsune", "chicken", "paimon", "goku", "off"] as const;
+/** The home-screen widget's pet: a pixel cat, a pixel dog, a kitsune, a chick, Goku Black, the Love couple (Boy and Girl), or none. */
+export const PET_KINDS = ["gray-cat", "dog", "kitsune", "chicken", "goku", "love", "off"] as const;
 export type PetKind = (typeof PET_KINDS)[number];
 export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120] as const;
 export const SNOOZE_OPTIONS = [5, 10, 15] as const;

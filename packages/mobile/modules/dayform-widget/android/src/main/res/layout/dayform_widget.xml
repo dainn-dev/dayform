@@ -412,6 +412,17 @@
         android:flipInterval="300"
         android:visibility="gone" />
 
+    <!-- Love's second character (Girl), flipping in step with the first; every other pet leaves it empty. -->
+    <ViewFlipper
+        android:id="@+id/dayform_widget_pet2"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:autoStart="true"
+        android:flipInterval="300"
+        android:visibility="gone" />
+
     <!-- A full-card layer that flips in step with the pet: Goku's script uses it for white flashes. -->
     <ViewFlipper
         android:id="@+id/dayform_widget_fx"

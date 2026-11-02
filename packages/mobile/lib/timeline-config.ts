@@ -5,6 +5,8 @@ import { DEFAULT_SETTINGS, type Settings } from "./settings";
 
 /** Minimum rendered height of an event block, in px. */
 export const MIN_EVENT_PX = 38;
+/** Smallest height a block is squeezed to when the next task starts right after it, in px. */
+export const MIN_SQUEEZED_EVENT_PX = 24;
 
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 1440;
@@ -43,6 +45,8 @@ export interface TimelineConfig {
   readonly slotHeight: number;
   /** Minimum visual duration in minutes (the 38px minimum block height), used for lane assignment. */
   readonly minVisualMinutes: number;
+  /** Shortest a block may be squeezed to (MIN_SQUEEZED_EVENT_PX) so it does not cover the next task, in minutes. */
+  readonly floorVisualMinutes: number;
   /** Top offset (px) of the empty-state box. */
   readonly emptyTop: number;
 }
@@ -71,6 +75,7 @@ export function makeTimelineConfig(calendar: TimelineSettings): TimelineConfig {
     height,
     slotHeight: SLOT_MINUTES * scale,
     minVisualMinutes: Math.ceil(MIN_EVENT_PX / scale),
+    floorVisualMinutes: Math.ceil(MIN_SQUEEZED_EVENT_PX / scale),
     emptyTop: Math.min(EMPTY_TOP_PX, Math.max(EMPTY_TOP_MIN_PX, (height - EMPTY_BOX_PX) / 2)),
   };
 }
@@ -89,11 +94,13 @@ export function partitionVisible(config: TimelineConfig, scheduled: readonly Tas
 }
 
 /** Pixel position of a timeline block; the bottom is clamped to the end of the window. */
-export function eventGeometry(config: TimelineConfig, task: Task): EventGeometry {
+export function eventGeometry(config: TimelineConfig, task: Task, visualMinutes?: number): EventGeometry {
   const start = minutes(task.start!);
   const { scale } = config;
   const top = (start - config.startMin) * scale;
-  const height = Math.max(MIN_EVENT_PX, Math.min(task.duration * scale - 3, (config.endMin - start) * scale - 3));
+  // A block that may not cover the next task (visualMinutes) can be shorter than the usual minimum height.
+  const minHeight = visualMinutes === undefined ? MIN_EVENT_PX : Math.min(MIN_EVENT_PX, visualMinutes * scale - 3);
+  const height = Math.max(minHeight, Math.min(task.duration * scale - 3, (config.endMin - start) * scale - 3));
   return { top, height };
 }
 

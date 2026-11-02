@@ -23,7 +23,7 @@ internal object WidgetPet {
   const val DEFAULT_KIND = "gray-cat"
 
   /** Pet kinds of the settings page mapped to the name part of their drawables; "off" and unknown kinds draw nothing. */
-  private val ART = mapOf("gray-cat" to "gray", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "paimon" to "paimon", "goku" to "goku")
+  private val ART = mapOf("gray-cat" to "gray", "dog" to "dog", "kitsune" to "kitsune", "chicken" to "chicken", "goku" to "goku", "love" to "boy")
 
   private const val SPRITE_DP = 44
   /** The card's left and right padding, and the gap kept under the pet. */
@@ -33,11 +33,16 @@ internal object WidgetPet {
    * One frame per flip (the layout's flipInterval is 300 ms): new actions are planned until the script is this long (about
    * a 48 second stroll), then the pet walks back to where it began, so the loop restarts without a jump.
    */
-  private const val TICKS = 160
+  internal const val TICKS = 160
   private const val RETURN_RESERVE_TICKS = 40
-  private const val WALK_STEP_DP = 6f
-  private const val RUN_STEP_DP = 12f
-  private const val MIN_TRIP_DP = 40f
+  internal const val WALK_STEP_DP = 6f
+  internal const val RUN_STEP_DP = 12f
+  internal const val MIN_TRIP_DP = 40f
+  /** The resting loop: how long a sleep and a sit last (at least, plus up to as much again), ticks per frame, and the chance of sitting up after a sleep. */
+  private const val REST_SLEEP_TICKS = 16
+  private const val REST_SIT_TICKS = 6
+  private const val REST_HOLD_TICKS = 4
+  private const val REST_SIT_PERCENT = 40
   private const val DEFAULT_WIDTH_DP = 250
   private const val JUMP_HEIGHT_DP = 14f
   /**
@@ -45,11 +50,11 @@ internal object WidgetPet {
    * horizontal walk, never a slide straight up or down) and the sprite bobs a little with each step.
    */
   private const val MAX_SLOPE = 0.35f
-  private const val WALK_BOB_DP = 2f
-  private const val RUN_BOB_DP = 3.5f
+  internal const val WALK_BOB_DP = 2f
+  internal const val RUN_BOB_DP = 3.5f
   /** Share of trips that go straight up or down (when the art has frames for it) and the least height worth it. */
   private const val VERTICAL_PERCENT = 50
-  private const val MIN_VERTICAL_DP = 16f
+  internal const val MIN_VERTICAL_DP = 16f
   /** A straight up/down trip only starts this far from both side edges: along an edge it looked like the pet pushing into the wall. */
   private const val EDGE_MARGIN_DP = 30f
 
@@ -114,12 +119,17 @@ internal object WidgetPet {
   internal const val FX_FLASH_50 = 2
   internal const val FX_FLASH_75 = 3
   internal const val FX_FLASH_100 = 4
+  /** The heart border around the card (Love, after the flowers), at full strength and softer so it can pulse. */
+  internal const val FX_HEARTS = 5
+  internal const val FX_HEARTS_SOFT = 6
   private val FX_LAYOUTS = intArrayOf(
     R.layout.dayform_fx_none,
     R.layout.dayform_fx_flash_25,
     R.layout.dayform_fx_flash_50,
     R.layout.dayform_fx_flash_75,
     R.layout.dayform_fx_flash_100,
+    R.layout.dayform_fx_hearts,
+    R.layout.dayform_fx_hearts_soft,
   )
 
   /** The drawables of one art, looked up by name once. */
@@ -152,6 +162,8 @@ internal object WidgetPet {
   fun bind(context: Context, views: RemoteViews, kind: String, walks: Boolean, mood: PetMood?, widthDp: Int, freeHeightDp: Int) {
     views.removeAllViews(R.id.dayform_widget_pet)
     views.setViewVisibility(R.id.dayform_widget_pet, View.GONE)
+    views.removeAllViews(R.id.dayform_widget_pet2)
+    views.setViewVisibility(R.id.dayform_widget_pet2, View.GONE)
     views.removeAllViews(R.id.dayform_widget_fx)
     views.setViewVisibility(R.id.dayform_widget_fx, View.GONE)
     val art = ART[kind] ?: return
@@ -162,26 +174,47 @@ internal object WidgetPet {
     val sprites = Sprites(context, art)
     val random = Random(System.currentTimeMillis())
     val roams = walks && areaW >= MIN_TRIP_DP
-    // Paimon floats and Goku fights, so each has their own script (PaimonPet.kt, GokuPet.kt) instead of the walking one.
-    val frames = when (art) {
-      PaimonPet.ART -> PaimonPet.script(sprites, mood, roams, areaW, areaH, random)
-      GokuPet.ART -> GokuPet.script(sprites, mood, roams, areaW, areaH, random)
+    // Love is two characters: Boy in the first flipper, Girl in the second, scripts of the same length so they stay in step.
+    if (art == LovePet.ART) {
+      val partner = Sprites(context, LovePet.PARTNER_ART)
+      val duo = LovePet.script(sprites, partner, !roams || mood == PetMood.RESTING, areaW, areaH, random)
+      if (duo == null || duo.boy.isEmpty()) return
+      fill(context, views, R.id.dayform_widget_pet, duo.boy)
+      fill(context, views, R.id.dayform_widget_pet2, duo.girl)
+      fillFx(context, views, duo.boy)
+      return
+    }
+    // A pet that does not stroll, or whose day is done (every task finished, or nothing planned), rests: its own sleeping and
+    // sitting frames in the corner, whatever its art, never the barking, jumping, floating or fighting of the lively scripts.
+    val frames = when {
+      !walks || mood == PetMood.RESTING -> restScript(sprites, random)
+      // Goku fights, so he has his own script (GokuPet.kt) instead of the walking one.
+      art == GokuPet.ART -> GokuPet.script(sprites, mood, roams, areaW, areaH, random)
       else -> script(sprites, mood, roams, areaW, areaH, random)
     }
     if (frames.isEmpty()) return
+    fill(context, views, R.id.dayform_widget_pet, frames)
+    // The full-card layer flips in step with the pet (same interval, one child per frame), and only a script that uses it adds it.
+    fillFx(context, views, frames)
+  }
+
+  /** The full-card layer flips in step with the pet (same interval, one child per frame), and only a script that uses it adds it. */
+  private fun fillFx(context: Context, views: RemoteViews, frames: List<Frame>) {
+    if (frames.none { it.fx != FX_NONE }) return
+    for (frame in frames) views.addView(R.id.dayform_widget_fx, RemoteViews(context.packageName, FX_LAYOUTS[frame.fx.coerceIn(0, FX_LAYOUTS.size - 1)]))
+    views.setViewVisibility(R.id.dayform_widget_fx, View.VISIBLE)
+  }
+
+  /** One child per frame in a ViewFlipper of the widget: the sprite's place along the width and its height above the bottom. */
+  private fun fill(context: Context, views: RemoteViews, flipperId: Int, frames: List<Frame>) {
     val density = context.resources.displayMetrics.density
     for (frame in frames) {
       val view = RemoteViews(context.packageName, FRAME_LAYOUTS[frame.step])
       view.setImageViewResource(R.id.dayform_pet_frame_image, frame.drawable)
       view.setViewPadding(R.id.dayform_pet_frame_root, 0, 0, 0, ((frame.yDp + BOTTOM_MARGIN_DP) * density + 0.5f).toInt())
-      views.addView(R.id.dayform_widget_pet, view)
+      views.addView(flipperId, view)
     }
-    views.setViewVisibility(R.id.dayform_widget_pet, View.VISIBLE)
-    // The full-card layer flips in step with the pet (same interval, one child per frame), and only a script that uses it adds it.
-    if (frames.any { it.fx != FX_NONE }) {
-      for (frame in frames) views.addView(R.id.dayform_widget_fx, RemoteViews(context.packageName, FX_LAYOUTS[frame.fx.coerceIn(0, FX_LAYOUTS.size - 1)]))
-      views.setViewVisibility(R.id.dayform_widget_fx, View.VISIBLE)
-    }
+    views.setViewVisibility(flipperId, View.VISIBLE)
   }
 
   /** Which actions the mood allows, with their weights; poses the art lacks are dropped later. */
@@ -321,8 +354,29 @@ internal object WidgetPet {
     return out
   }
 
+  /**
+   * The resting loop of a pet that does not stroll, the same for every art: it stays in the corner (facing away from the
+   * edge) and mostly sleeps, now and then sitting up for a while. Only the `sleep` and `sit` frames of that art are used
+   * (one falls back to the other), so no art can bark, jump, float about or fight while it rests.
+   */
+  internal fun restScript(sprites: Sprites, random: Random, step: Int = STEPS): List<Frame> {
+    val sleep = sprites.frames("sleep", false).ifEmpty { sprites.frames("sit", false) }
+    val sit = sprites.frames("sit", false).ifEmpty { sleep }
+    if (sleep.isEmpty()) return emptyList()
+    val out = ArrayList<Frame>(TICKS)
+    var sleeping = true
+    while (out.size < TICKS) {
+      val frames = if (sleeping) sleep else sit
+      val ticks = if (sleeping) REST_SLEEP_TICKS + random.nextInt(REST_SLEEP_TICKS) else REST_SIT_TICKS + random.nextInt(REST_SIT_TICKS)
+      for (i in 0 until ticks) out.add(Frame(frames[(i / REST_HOLD_TICKS) % frames.size], step, 0))
+      // Sleeping is the main state: sitting up is never followed by another sit.
+      sleeping = if (sleeping) random.nextInt(100) >= REST_SIT_PERCENT else true
+    }
+    return out
+  }
+
   /** A step is half a stride: the sprite is lowest at the start of a step and highest in the middle of it. */
-  private fun stepBob(tick: Int, frameCount: Int, amplitude: Float): Float {
+  internal fun stepBob(tick: Int, frameCount: Int, amplitude: Float): Float {
     val period = (frameCount / 2).coerceAtLeast(2)
     return kotlin.math.abs(sin(PI * (tick % period) / period)).toFloat() * amplitude
   }

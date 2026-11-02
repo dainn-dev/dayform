@@ -5,13 +5,13 @@ export const vi: Record<string, string> = {
   "Dog": "Chó",
   "Kitsune": "Hồ ly",
   "Chicken": "Gà",
-  "Paimon": "Paimon",
   "Goku Black": "Goku Black",
+  "Love": "Love",
   "No pet": "Không có thú cưng",
   "Strolling": "Đi dạo",
   "Resting": "Nghỉ ngơi",
   "Let the pet stroll": "Cho thú cưng đi dạo",
-  "Off keeps it sitting in the corner.": "Tắt để nó ngồi yên ở góc.",
+  "Off lets it rest in the corner, sleeping.": "Tắt để nó nằm nghỉ, ngủ ở góc.",
   "The widget shows it when there is room below your tasks. Pixel pets: CC0 art by Shepardskin (OpenGameArt).":
     "Tiện ích hiện nó khi còn chỗ dưới danh sách việc. Thú cưng pixel: tranh CC0 của Shepardskin (OpenGameArt).",
 };

@@ -19,6 +19,8 @@ type Props = {
   /** Zero-based lane within the overlap cluster, and the cluster's lane count. */
   lane: number;
   lanes: number;
+  /** How far down the day the block may be drawn without covering the next task, in minutes. */
+  visualMinutes: number;
   conflict: boolean;
   onPress: () => void;
   /** Persist a new time/length for this block; resolves false when saving failed. */
@@ -31,7 +33,7 @@ const MOVE_EARLIER = "moveEarlier";
 const MOVE_LATER = "moveLater";
 
 /** One positioned task block on the timeline: tap to edit, long-press then drag to move or resize. */
-export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onLockChange }: Props) {
+export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress, onCommit, onLockChange }: Props) {
   const { t: tr, duration, time } = useLanguage();
   const colors = useColors();
   const categoryColors = useCategoryColors();
@@ -42,7 +44,8 @@ export function EventBlock({ task, lane, lanes, conflict, onPress, onCommit, onL
   const [blockWidth, setBlockWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent) => setBlockWidth(Math.round(event.nativeEvent.layout.width));
   const shown = drag.shown;
-  const { top, height } = eventGeometry(config, shown);
+  // While dragging or resizing, the block is free of its neighbours' limit: its place in the layout is not known yet.
+  const { top, height } = eventGeometry(config, shown, drag.phase === "idle" ? visualMinutes : undefined);
   const color = categoryColors.get(task.category);
   const width = 100 / lanes;
   const place = { left: `${lane * width}%` as const, width: `${width}%` as const };

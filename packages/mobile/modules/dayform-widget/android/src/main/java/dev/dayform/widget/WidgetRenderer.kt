@@ -105,7 +105,7 @@ internal object WidgetRenderer {
 
   /**
    * Shows the pet when there is room below the rows, in the mood of the day: it roams the free area while tasks are
-   * left, plays when all are done and mostly sleeps when nothing is planned (see WidgetPet).
+   * left, cheers on a special day and rests (sleeping in the corner) when all are done or nothing is planned (see WidgetPet).
    */
   private fun bindPet(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, capacity: Int, options: Bundle?, hasMarks: Boolean) {
     val total = day?.total ?: 0
@@ -127,7 +127,7 @@ internal object WidgetRenderer {
       freeHeightDp < PET_MIN_FREE_DP -> null
       day?.special == true -> PetMood.CHEERING
       total <= 0 -> PetMood.RESTING
-      (day?.done ?: 0) >= total -> PetMood.CHEERING
+      (day?.done ?: 0) >= total -> PetMood.RESTING
       else -> PetMood.WALKING
     }
     WidgetPet.bind(context, views, snapshot?.pet ?: WidgetPet.DEFAULT_KIND, snapshot?.petWalks ?: true, mood, widthDp, freeHeightDp)
