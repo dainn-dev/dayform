@@ -120,13 +120,13 @@ async function readAsset(asset: DocumentPicker.DocumentPickerAsset): Promise<Pic
   }
 }
 
-/** Opens the document picker and returns the chosen file's UTF-8 text. */
-export async function pickBackupText(): Promise<PickResult> {
+/** Opens the document picker and returns the chosen file's UTF-8 text (a backup by default; `types` picks another kind of file, e.g. a calendar). */
+export async function pickBackupText(types: string[] = [JSON_MIME_TYPE, "*/*"]): Promise<PickResult> {
   if (Platform.OS === "web") return { ok: false, reason: "unsupported-platform" };
   let picked: DocumentPicker.DocumentPickerResult;
   try {
     picked = await DocumentPicker.getDocumentAsync({
-      type: [JSON_MIME_TYPE, "*/*"],
+      type: types,
       copyToCacheDirectory: true,
       multiple: false,
     });

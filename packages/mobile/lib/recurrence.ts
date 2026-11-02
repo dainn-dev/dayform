@@ -20,7 +20,7 @@ export const DEFAULT_HORIZON_WEEKS = 8;
 
 export type EditScope = "this" | "following" | "all";
 
-const CONTENT_FIELDS = ["title", "start", "duration", "category", "notes", "remind"] as const;
+const CONTENT_FIELDS = ["title", "start", "duration", "category", "notes", "remind", "checklist"] as const;
 
 type SeriesMember = Task & { seriesId: string; repeat: Repeat; date: string };
 
@@ -48,7 +48,8 @@ export function keepUntilValid(task: Task): Task {
 }
 
 function occurrence(template: Task, seriesId: string, rule: Repeat, date: string): Task {
-  return { ...template, id: `${seriesId}:${date}`, date, status: "todo", seriesId, repeat: rule };
+  const fresh = template.checklist ? { checklist: template.checklist.map(step => ({ ...step, done: false })) } : {};
+  return { ...template, id: `${seriesId}:${date}`, date, status: "todo", seriesId, repeat: rule, ...fresh };
 }
 
 function isSeriesMember(task: Task): task is SeriesMember {

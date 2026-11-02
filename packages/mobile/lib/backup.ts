@@ -112,8 +112,13 @@ export function parseBackup(text: string): ParseResult {
   };
 }
 
+/** Fields are primitives except the checklist, which is compared by content. */
+function sameValue(a: unknown, b: unknown): boolean {
+  return typeof a === "object" && a !== null ? JSON.stringify(a) === JSON.stringify(b) : a === b;
+}
+
 function sameTask(a: Task, b: Task): boolean {
-  return COMPARED_KEYS.every(key => (a[key] ?? null) === (b[key] ?? null));
+  return COMPARED_KEYS.every(key => sameValue(a[key] ?? null, b[key] ?? null));
 }
 
 function firstById(tasks: readonly Task[]): Map<string, Task> {

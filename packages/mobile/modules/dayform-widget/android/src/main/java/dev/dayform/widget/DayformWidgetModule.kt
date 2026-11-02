@@ -37,6 +37,27 @@ class DayformWidgetModule : Module() {
       true
     }
 
+    // Text shared to the app from another app: a share while the app runs arrives here, the one that started the app is read from the activity's intent.
+    OnNewIntent { intent -> SharedText.capture(intent) }
+
+    Function("takeSharedText") {
+      SharedText.capture(appContext.currentActivity?.intent)
+      SharedText.take()
+    }
+
+    // Ticks made on the widget that the app has not applied yet: a JSON list of {id, done, at}.
+    Function("getPendingToggles") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetStore.loadToggles(context)
+    }
+
+    // The app applied these; `receipt` is a JSON list of their `at` times.
+    AsyncFunction("ackToggles") { receipt: String ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      WidgetToggle.acknowledge(context, receipt)
+      true
+    }
+
     // [1 when a picture is set else 0, the veil in percent]
     Function("getBackground") {
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()

@@ -3,8 +3,11 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { useFocus } from "../../lib/focus-context";
+import { useQuickAdd } from "../../lib/quick-add-context";
 import { useLanguage } from "../../lib/language";
 import { TaskEditor } from "../../components/editor/TaskEditor";
+import { RoutineSheet } from "../../components/routines/RoutineSheet";
 import { TaskCard } from "../../components/TaskCard";
 import { CarryOverBanner } from "../../components/timeline/CarryOverBanner";
 import { DayHeader, GreetingHeader } from "../../components/timeline/DayHeader";
@@ -49,6 +52,9 @@ export default function PlannerScreen() {
   const [editing, setEditing] = useState<Task | null | undefined>(undefined);
   const [slot, setSlot] = useState<string | null>(null);
   const [scrollLocked, setScrollLocked] = useState(false);
+  const [routinesOpen, setRoutinesOpen] = useState(false);
+  const { openSheet: openFocus } = useFocus();
+  const { openQuickAdd } = useQuickAdd();
   const { tasks, loading, error, clearError, mutate } = useTasks();
   // A tapped reminder opens its task: `?edit=<id>` (validated by findEditTarget), cleared once consumed.
   // An editor that is already open is never replaced (its unsaved edits would be lost): the param waits
@@ -84,12 +90,12 @@ export default function PlannerScreen() {
 
   return <SafeAreaView edges={["top", "left", "right"]} style={s.root}>
     <ScrollView scrollEnabled={!scrollLocked} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-      <GreetingHeader onToday={chooseToday} now={now} />
+      <GreetingHeader onToday={chooseToday} onFocus={() => openFocus()} now={now} />
       <WeekStrip week={week} selected={selected} today={today} tasks={tasks} onSelect={setSelected} onShiftWeek={days => setWeekAnchor(addDays(week, days))} />
 
       {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.errorBanner}><Ionicons name="alert-circle-outline" size={18} color={colors.errorIcon} /><Text style={{ color: colors.errorBannerText, fontSize: 12, flex: 1 }}>{tr(error)}</Text><Ionicons name="close" size={16} color={colors.errorIcon} /></Pressable>}
       <View style={s.dailyPanel}>
-        <DayHeader selected={selected} today={today} scheduled={scheduled} onAdd={() => openNew()} />
+        <DayHeader selected={selected} today={today} scheduled={scheduled} onAdd={() => openNew()} onQuickAdd={() => openQuickAdd()} onRoutines={() => setRoutinesOpen(true)} />
         {!loading && carryOver.length > 0 && <CarryOverBanner count={carryOver.length} onMove={moveToToday} />}
         {loading
           ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 42 }} />
@@ -100,6 +106,7 @@ export default function PlannerScreen() {
       <View style={s.backlogHeader}><View><SectionEyebrow>{tr("WHEN YOU'RE READY")}</SectionEyebrow><Text accessibilityRole="header" style={s.backlogTitle}>{tr("On your mind")} <Text style={s.backlogCount}>{backlog.length}</Text></Text></View><Pressable onPress={() => router.push("/(tabs)/explore")} accessibilityRole="link" accessibilityLabel={tr("View all tasks")}><Text style={s.seeAll}>{tr("View all  →")}</Text></Pressable></View>
       {backlog.length ? backlog.slice(0, 2).map(t => <View key={t.id} style={{ marginBottom: 10 }}><TaskCard task={t} onPress={() => setEditing(t)} onToggle={() => toggle(t)} onSchedule={() => setEditing(t)} /></View>) : <Text style={s.backlogEmpty}>{tr("Your backlog is clear. Enjoy the space.")}</Text>}
     </ScrollView>
+    <RoutineSheet visible={routinesOpen} date={selected} onClose={() => setRoutinesOpen(false)} />
     {editing !== undefined && <TaskEditor key={editing?.id ?? `new-${slot ?? "blank"}`} visible task={editing} defaultDate={selected} defaultTime={slot} onClose={close} />}
   </SafeAreaView>;
 }

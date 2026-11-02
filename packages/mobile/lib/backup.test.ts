@@ -219,6 +219,7 @@ describe("mergeBackup field comparison", () => {
     id: "other", title: "Other", date: "2026-03-03", start: "10:00", duration: 45, status: "done",
     category: "Personal", notes: "changed", createdAt: "2026-03-02T08:00:00.000Z",
     remind: 5, seriesId: "series", repeat: "daily", repeatUntil: "2026-12-31",
+    checklist: [{ text: "Step", done: true }],
   };
   const full = task("a", { remind: 15, seriesId: "s", repeat: "weekly" });
 

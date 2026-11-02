@@ -23,6 +23,7 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
   const color = useCategoryColors().get(task.category);
   const { label: categoryLabel } = useCategories();
   const done = task.status === "done";
+  const steps = { total: task.checklist?.length ?? 0, done: task.checklist?.filter(step => step.done).length ?? 0 };
   const toggleLabel = `${done ? t("Reopen") : t("Complete")} ${task.title}`;
   const label = [
     `${t("Edit")} ${task.title}`,
@@ -30,6 +31,7 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
     duration(task.duration),
     categoryLabel(task.category),
     t(STATUS_TEXT[task.status]),
+    steps.total > 0 ? `${steps.done}/${steps.total} ${t("steps")}` : null,
     conflict ? t("⚠ Overlaps another task") : null,
   ].filter(Boolean).join(", ");
   // The check and arrow sit inside an accessible Pressable, which hides them from VoiceOver and is unclear on
@@ -47,7 +49,7 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
     <View style={[s.icon, { backgroundColor: withAlpha(color.accent, ICON_TINT_ALPHA) }]}><Ionicons name={color.icon} size={21} color={color.accent} /></View>
     <View style={{ flex: 1, minWidth: 0 }}>
       <HighlightedText numberOfLines={1} style={[s.title, done && s.done]} text={task.title} query={highlight ?? ""} />
-      <Text style={s.meta}>{task.start ? `${time(task.start)}  ·  ` : ""}{duration(task.duration)}  ·  {categoryLabel(task.category)}</Text>
+      <Text style={s.meta}>{task.start ? `${time(task.start)}  ·  ` : ""}{duration(task.duration)}  ·  {categoryLabel(task.category)}{steps.total > 0 ? `  ·  ${steps.done}/${steps.total}` : ""}</Text>
       {conflict && <Text style={s.conflict}>{t("⚠ Overlaps another task")}</Text>}
     </View>
     <Pressable onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={toggleLabel} style={s.checkTarget}>

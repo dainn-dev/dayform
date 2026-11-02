@@ -9,6 +9,9 @@ import { RemindersBridge } from "../components/RemindersBridge";
 import { SeriesExtender } from "../components/SeriesExtender";
 import { SnapshotScheduler } from "../components/SnapshotScheduler";
 import { UndoBar } from "../components/UndoBar";
+import { FocusOverlay } from "../components/focus/FocusOverlay";
+import { QuickAddHost } from "../components/quickadd/QuickAddHost";
+import { WidgetActions } from "../components/WidgetActions";
 import { AssistantOverlay } from "../components/assistant/AssistantOverlay";
 import { OtaAutoCheck } from "../components/OtaAutoCheck";
 import { UpdatePrompt } from "../components/update/UpdatePrompt";
@@ -16,6 +19,10 @@ import { OtaProvider } from "../lib/ota-context";
 import { WidgetSync } from "../components/WidgetSync";
 import { CategoriesProvider, useCategories } from "../lib/categories-context";
 import { SpecialDaysProvider } from "../lib/special-days-context";
+import { RoutinesProvider } from "../lib/routines-context";
+import { FocusProvider } from "../lib/focus-context";
+import { GoalsProvider } from "../lib/goals-context";
+import { QuickAddProvider } from "../lib/quick-add-context";
 import { CycleProvider } from "../lib/cycle-context";
 import { SettingsProvider, useSettings } from "../lib/settings-context";
 import { XpProvider } from "../lib/xp-context";
@@ -76,6 +83,10 @@ export default function RootLayout() {
             <LanguageProvider>
               <CategoriesProvider>
               <SpecialDaysProvider>
+              <RoutinesProvider>
+              <FocusProvider>
+              <GoalsProvider>
+              <QuickAddProvider>
               <CycleProvider>
               <XpProvider>
               <TasksProvider>
@@ -85,6 +96,8 @@ export default function RootLayout() {
                     <NamePrompt />
                     <Slot />
                     <UndoBar />
+                    <FocusOverlay />
+                    <QuickAddHost />
                     <AssistantOverlay />
                     <RemindersBridge />
                     <NotificationActions />
@@ -92,6 +105,7 @@ export default function RootLayout() {
                     <XpSettler />
                     <SnapshotScheduler />
                     <WidgetBridge />
+                    <WidgetActions />
                     <UpdatePrompt />
                     <OtaAutoCheck />
                   </OtaProvider>
@@ -99,6 +113,10 @@ export default function RootLayout() {
               </TasksProvider>
               </XpProvider>
               </CycleProvider>
+              </QuickAddProvider>
+              </GoalsProvider>
+              </FocusProvider>
+              </RoutinesProvider>
               </SpecialDaysProvider>
               </CategoriesProvider>
             </LanguageProvider>

@@ -8,6 +8,12 @@ type DayformWidgetNative = {
   setBackgroundVeil(percent: number): Promise<boolean>;
   /** `[1 when a picture is set else 0, veil in percent]`. */
   getBackground(): number[];
+  /** Text shared to the app from another app, once; null when there is none. */
+  takeSharedText(): string | null;
+  /** JSON list of the ticks made on the widget that the app has not applied yet. */
+  getPendingToggles(): string;
+  /** Removes the ticks whose `at` times are in the JSON list. */
+  ackToggles(receipt: string): Promise<boolean>;
 };
 
 /** Null on web, iOS, Expo Go and any build that does not contain the Android module. */
@@ -74,5 +80,35 @@ export async function setWidgetBackgroundVeil(percent: number): Promise<boolean>
     return (await native.setBackgroundVeil(Math.round(Math.min(MAX_BACKGROUND_VEIL, Math.max(0, percent))))) === true;
   } catch {
     return false;
+  }
+}
+
+/** The ticks made on the widget that the app has not applied yet, as the JSON the widget wrote (empty `[]` when none or no module). */
+export function getPendingWidgetToggles(): string {
+  if (native === null) return "[]";
+  try {
+    return native.getPendingToggles();
+  } catch {
+    return "[]";
+  }
+}
+
+/** Tells the widget which ticks were applied (`receipt` from `toggleReceipt`). Resolves false (never rejects) on failure. */
+export async function ackWidgetToggles(receipt: string): Promise<boolean> {
+  if (native === null) return false;
+  try {
+    return (await native.ackToggles(receipt)) === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Text another app shared to Dayform through the system share sheet, once; null when there is none or no module. */
+export function takeSharedText(): string | null {
+  if (native === null) return null;
+  try {
+    return native.takeSharedText();
+  } catch {
+    return null;
   }
 }

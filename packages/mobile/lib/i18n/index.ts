@@ -23,6 +23,7 @@ import { vi as ota } from "./ota";
 import { vi as personal } from "./personal";
 import { vi as pet } from "./pet";
 import { vi as pickers } from "./pickers";
+import { vi as productivity } from "./productivity";
 import { vi as recovery } from "./recovery";
 import { vi as recurrence } from "./recurrence";
 import { vi as reminders } from "./reminders";
@@ -67,6 +68,7 @@ export const extraTranslations: Record<string, string> = {
   ...personal,
   ...pet,
   ...pickers,
+  ...productivity,
   ...recovery,
   ...recurrence,
   ...reminders,

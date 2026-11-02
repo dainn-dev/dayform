@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useTasks } from "../../lib/tasks-context";
 import { SAVE_ERROR } from "../../lib/tasks-store";
-import { dateKey, type Category, type Repeat, type Status, type Task } from "../../lib/planner";
+import { dateKey, type Category, type ChecklistItem, type Repeat, type Status, type Task } from "../../lib/planner";
 import type { EditScope } from "../../lib/recurrence";
 import { allowedScopes, hasConflict, needsScopeChoice, planDelete, planSave, RULE_CHANGE_MESSAGE, validateForm, type SaveForm } from "../../lib/task-save";
 
@@ -19,6 +19,8 @@ export type EditorValues = {
   repeat: Repeat | null;
   /** Inclusive end date of the repeat ('YYYY-MM-DD'); null = never ends. */
   repeatUntil: string | null;
+  /** The steps of the task; an empty list removes them. */
+  checklist: ChecklistItem[];
 };
 
 /** `mode` stays put while the dialog fades out, so its title does not flicker. */

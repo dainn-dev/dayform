@@ -14,6 +14,8 @@ export type WidgetItem = {
   d: number;
   /** 1 when the task is done. */
   x: 0 | 1;
+  /** The task id, only on today's items: the widget sends it back when the user taps the row to tick it (lib/widget-actions.ts). */
+  i?: string;
 };
 export type WidgetDay = {
   /** Scheduled tasks that day (may be larger than `items.length`). */
@@ -66,6 +68,7 @@ export const MAX_SNAPSHOT_BYTES = 60_000;
 const DEFAULT_DAYS = 14;
 const DEFAULT_MAX_PER_DAY = 12;
 const MAX_TITLE_CHARS = 60;
+const MAX_ITEM_ID_CHARS = 100;
 /** The widget shows at most this many names under its header, each cut to this many characters. */
 const MAX_MARKS = 2;
 const MAX_MARK_CHARS = 40;
@@ -119,12 +122,13 @@ function markLines(marks: readonly DayMark[], showTitles: boolean, genericLabel:
   return marks.slice(0, MAX_MARKS).map((mark) => (mark.userText && !showTitles ? genericLabel : shortText(mark.label, MAX_MARK_CHARS)));
 }
 
-function toItem(task: Task, showTitles: boolean): WidgetItem {
+function toItem(task: Task, showTitles: boolean, tappable: boolean): WidgetItem {
   return {
     t: showTitles ? shortTitle(task.title) : null,
     s: task.start ?? "",
     d: task.duration,
     x: task.status === "done" ? 1 : 0,
+    ...(tappable && task.id.length <= MAX_ITEM_ID_CHARS ? { i: task.id } : {}),
   };
 }
 
@@ -132,10 +136,10 @@ function byStart(a: Task, b: Task): number {
   return minutes(a.start ?? "00:00") - minutes(b.start ?? "00:00") || a.id.localeCompare(b.id);
 }
 
-type DayContext = { showTitles: boolean; maxPerDay: number; marks: Record<string, DayMark[]>; genericLabel: string };
+type DayContext = { showTitles: boolean; maxPerDay: number; marks: Record<string, DayMark[]>; genericLabel: string; today: string };
 
 function buildDays(tasks: readonly Task[], keys: readonly string[], context: DayContext) {
-  const { showTitles, maxPerDay, marks, genericLabel } = context;
+  const { showTitles, maxPerDay, marks, genericLabel, today } = context;
   const days: Record<string, WidgetDay> = {};
   for (const key of keys) {
     const sameDay = tasks
@@ -148,7 +152,7 @@ function buildDays(tasks: readonly Task[], keys: readonly string[], context: Day
     days[key] = {
       n: sameDay.length,
       done: sameDay.filter((task) => task.status === "done").length,
-      items: sameDay.slice(0, maxPerDay).map((task) => toItem(task, showTitles)),
+      items: sameDay.slice(0, maxPerDay).map((task) => toItem(task, showTitles, key === today)),
       ...(lines.length > 0 ? { m: lines } : {}),
       ...(dayMarks.some((mark) => mark.kind === "special") ? { sp: 1 as const } : {}),
     };
@@ -187,7 +191,7 @@ export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOption
     version: 1,
     generatedAt: now.getTime(),
     locale,
-    days: buildDays(tasks, keys, { showTitles, maxPerDay, marks: marksFor?.(keys) ?? {}, genericLabel: labels.special }),
+    days: buildDays(tasks, keys, { showTitles, maxPerDay, marks: marksFor?.(keys) ?? {}, genericLabel: labels.special, today }),
     labels,
     pet,
     petWalks,

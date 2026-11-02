@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseJson } from "./json";
-import { Task, dateKey, fromKey, repeats, seedTasks } from "./planner";
+import { MAX_CHECKLIST_ITEMS, MAX_CHECKLIST_TEXT, Task, dateKey, fromKey, repeats, seedTasks } from "./planner";
 
 export const TASKS_STORAGE_KEY = "dayform.tasks.v1";
 export const CORRUPT_KEY_PREFIX = "dayform.tasks.corrupt.";
@@ -47,6 +47,7 @@ export const taskSchema = z.object({
   seriesId: z.string().min(1).max(MAX_ID_LENGTH).nullable().optional(),
   repeat: z.enum(repeats).nullable().optional(),
   repeatUntil: dateString.nullable().optional(),
+  checklist: z.array(z.object({ text: z.string().max(MAX_CHECKLIST_TEXT), done: z.boolean() })).max(MAX_CHECKLIST_ITEMS).optional(),
 })
   .refine(task => (task.date === null) === (task.start === null))
   .refine(task => task.remind == null || task.start !== null)

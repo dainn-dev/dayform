@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
@@ -12,6 +13,9 @@ import { useHabitHints } from "../../components/habits/useHabitHints";
 import { CategoryBreakdown } from "../../components/stats/CategoryBreakdown";
 import { DayBars } from "../../components/stats/DayBars";
 import { FocusHoursCard } from "../../components/stats/FocusHoursCard";
+import { FocusTimeCard } from "../../components/stats/FocusTimeCard";
+import { GoalsCard } from "../../components/stats/GoalsCard";
+import { WeeklyReviewSheet } from "../../components/stats/WeeklyReviewSheet";
 import { EmptyStats } from "../../components/stats/EmptyStats";
 import { RangePicker } from "../../components/stats/RangePicker";
 import { StreakCard } from "../../components/stats/StreakCard";
@@ -28,6 +32,7 @@ export default function StatsScreen() {
   // Null when habit hints are off or there is not enough history yet.
   const { focus } = useHabitHints({ summary: true });
   const [kind, setKind] = useState<RangeKind>("week");
+  const [reviewing, setReviewing] = useState(false);
   // Any date inside the shown week/month; the range is derived from it so switching Week/Month keeps the position.
   const [anchor, setAnchor] = useState(today);
   const previousToday = useRef(today);
@@ -46,6 +51,9 @@ export default function StatsScreen() {
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <Text style={s.kicker}>{t("Stats").toUpperCase()}</Text>
       <Text accessibilityRole="header" style={s.title}>{t("Insights")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
+      <Pressable onPress={() => setReviewing(true)} accessibilityRole="button" style={s.review}>
+        <Ionicons name="sparkles-outline" size={18} color={colors.primary} /><Text style={s.reviewText}>{t("Weekly review")}</Text>
+      </Pressable>
       <RangePicker kind={kind} title={rangeTitle(kind, range, locale)} onKindChange={setKind} onShift={shift} />
       {loading
         ? <ActivityIndicator color={colors.primary} style={s.loading} />
@@ -55,10 +63,13 @@ export default function StatsScreen() {
             <DayBars perDay={stats.perDay} kind={kind} />
             <CategoryBreakdown perCategory={stats.perCategory} />
           </>}
+          <GoalsCard stats={stats} range={range} />
           <StreakCard streak={stats.streak} busiestDay={stats.busiestDay} />
+          <FocusTimeCard range={range} />
           {focus && <FocusHoursCard focus={focus} />}
         </View>}
     </ScrollView>
+    <WeeklyReviewSheet visible={reviewing} anchor={kind === "week" ? range.from : today} onClose={() => setReviewing(false)} />
   </SafeAreaView>;
 }
 
@@ -68,4 +79,6 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2, marginBottom: 10 },
   title: { color: c.foreground, fontSize: 31, fontWeight: "800", letterSpacing: -1 },
   loading: { marginTop: 40 },
+  review: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: c.primarySoft, marginTop: 14 },
+  reviewText: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
 });

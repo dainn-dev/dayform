@@ -437,3 +437,63 @@ describe("validateForm: end date", () => {
     expect(validateForm({ ...ok, scheduled: false, repeatUntil: "2020-01-01" })).toBeNull();
   });
 });
+
+describe("checklist", () => {
+  const steps = [{ text: " Eggs ", done: false }, { text: "", done: true }, { text: "Milk", done: true }];
+
+  test("a new task keeps trimmed, non-blank steps", () => {
+    const { candidate } = plan(form({ checklist: steps }), ctx());
+    expect(candidate.checklist).toEqual([{ text: "Eggs", done: false }, { text: "Milk", done: true }]);
+  });
+
+  test("a task without steps has no checklist key at all", () => {
+    expect("checklist" in plan(form({ checklist: [] }), ctx()).candidate).toBe(false);
+    expect("checklist" in plan(form(), ctx()).candidate).toBe(false);
+  });
+
+  test("an omitted checklist keeps the steps of the edited task; an empty one removes them", () => {
+    const existing = plain({ checklist: [{ text: "A", done: true }] });
+    expect(plan(form(), ctx({ existing })).candidate.checklist).toEqual([{ text: "A", done: true }]);
+    const cleared = plan(form({ checklist: [] }), ctx({ existing })).update([existing]);
+    expect(cleared[0].checklist ?? []).toEqual([]);
+    expect(valid(cleared)).toBe(true);
+  });
+
+  test("steps over the limits are cut", () => {
+    const many = Array.from({ length: 40 }, (_, i) => ({ text: `step ${i}`.padEnd(300, "x"), done: false }));
+    const { candidate } = plan(form({ checklist: many }), ctx());
+    expect(candidate.checklist).toHaveLength(30);
+    expect(candidate.checklist?.[0].text).toHaveLength(200);
+    expect(valid([candidate])).toBe(true);
+  });
+
+  describe("in a series", () => {
+    const series = makeSeries("daily").map(t => ({ ...t, checklist: [{ text: "Warm up", done: false }] }));
+    const first = byDate(series, TODAY);
+    const second = byDate(series, "2026-03-03");
+    const ticked = series.map(t => (t.id === second.id ? { ...t, checklist: [{ text: "Warm up", done: true }] } : t));
+
+    test("editing another field with 'all' leaves every occurrence's ticks alone", () => {
+      const { update } = plan(form({ title: "New title", time: "09:30", repeat: "daily", checklist: [{ text: "Warm up", done: true }] }), ctx({ existing: first, scope: "all" }));
+      const result = update(ticked);
+      expect(byDate(result, "2026-03-03").checklist).toEqual([{ text: "Warm up", done: true }]);
+      expect(byDate(result, TODAY).checklist).toEqual([{ text: "Warm up", done: true }]);
+      expect(byDate(result, "2026-03-04").checklist).toEqual([{ text: "Warm up", done: false }]);
+    });
+
+    test("changing the steps with 'following' gives the later days the new steps unticked and this one its own ticks", () => {
+      const edit = form({ repeat: "daily", checklist: [{ text: "Warm up", done: true }, { text: "Stretch", done: true }] });
+      const result = plan(edit, ctx({ existing: first, scope: "following" })).update(ticked);
+      expect(byDate(result, TODAY).checklist).toEqual([{ text: "Warm up", done: true }, { text: "Stretch", done: true }]);
+      expect(byDate(result, "2026-03-03").checklist).toEqual([{ text: "Warm up", done: false }, { text: "Stretch", done: false }]);
+    });
+
+    test("new occurrences made by extending a series start unticked", () => {
+      const doneSteps = series.map(t => ({ ...t, checklist: [{ text: "Warm up", done: true }] }));
+      const extended = extendSeries(doneSteps, "2026-04-15");
+      const added = extended.filter(t => !doneSteps.some(o => o.id === t.id));
+      expect(added.length).toBeGreaterThan(0);
+      expect(added.every(t => t.checklist?.[0].done === false)).toBe(true);
+    });
+  });
+});

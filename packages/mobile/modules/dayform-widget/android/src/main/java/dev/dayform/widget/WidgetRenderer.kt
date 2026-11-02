@@ -197,6 +197,7 @@ internal object WidgetRenderer {
           else -> RowState.UPCOMING
         }
         bindRow(context, views, ROWS[index], items[index], state, accent, tints)
+        bindToggle(context, views, ROWS[index].row, index, items[index])
       } else {
         views.setViewVisibility(ROWS[index].row, View.GONE)
       }
@@ -252,6 +253,23 @@ internal object WidgetRenderer {
     views.setTextViewText(ids.duration, if (item.durationMin > 0) formatDuration(item.durationMin) else "")
     views.setTextColor(ids.duration, if (state == RowState.DONE) muted else secondary)
   }
+
+  /**
+   * A tap on a row ticks (or unticks) its task: an explicit broadcast to [WidgetActionReceiver], which flips the row in the
+   * stored snapshot and queues the wish for the app. The request code is the row's place and the intent is updated on
+   * every draw, so a row always carries the id it shows now. Rows without an id (not today's) stay plain.
+   */
+  private fun bindToggle(context: Context, views: RemoteViews, rowId: Int, index: Int, item: WidgetItem) {
+    val taskId = item.id ?: return
+    val intent = Intent(context, WidgetActionReceiver::class.java)
+      .setAction(WidgetToggle.ACTION)
+      .putExtra(WidgetToggle.EXTRA_ID, taskId)
+    val pending = PendingIntent.getBroadcast(context, TOGGLE_REQUEST_BASE + index, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    views.setOnClickPendingIntent(rowId, pending)
+  }
+
+  /** Request codes of the row taps; 0 is the tap on the card itself, which opens the app. */
+  private const val TOGGLE_REQUEST_BASE = 100
 
   /** The first unfinished task that has not ended yet; earlier unfinished ones stay plain rows (they are overdue). */
   private fun nextIndex(items: List<WidgetItem>, nowMs: Long): Int {

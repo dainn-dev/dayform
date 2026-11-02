@@ -4,7 +4,8 @@ import android.graphics.Color
 import org.json.JSONException
 import org.json.JSONObject
 
-internal data class WidgetItem(val title: String?, val start: String, val durationMin: Int, val done: Boolean)
+/** `id` is the app's task id, sent only for today's items: tapping the row ticks it (see [WidgetToggle]). */
+internal data class WidgetItem(val title: String?, val start: String, val durationMin: Int, val done: Boolean, val id: String? = null)
 
 /** `marks` are the lines under the header (holidays and special days); `special` is true when one is the user's own. */
 internal data class WidgetDay(val total: Int, val done: Int, val items: List<WidgetItem>, val marks: List<String>, val special: Boolean)
@@ -98,5 +99,6 @@ internal object WidgetSnapshotParser {
     start = item.getString("s"),
     durationMin = item.optInt("d", 0),
     done = item.optInt("x", 0) == 1,
+    id = item.optString("i", "").ifEmpty { null },
   )
 }

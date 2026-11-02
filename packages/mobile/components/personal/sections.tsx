@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { PageSlug } from "../../lib/settings-menu";
 import { ArchiveSection } from "../settings/ArchiveSection";
+import { CalendarImportSection } from "../settings/CalendarImportSection";
 import { BackupSection } from "../settings/BackupSection";
 import { RecoverySection } from "../settings/RecoverySection";
 import { UpdateSection } from "../update/UpdateSection";
@@ -10,6 +11,7 @@ import { AssistantSection } from "./AssistantSection";
 import { CalendarSection } from "./CalendarSection";
 import { CultivationSection } from "./CultivationSection";
 import { CategoriesSection } from "./CategoriesSection";
+import { RoutinesSection } from "./RoutinesSection";
 import { SpecialDaysSection } from "./SpecialDaysSection";
 import { CycleSection } from "./CycleSection";
 import { DefaultsSection } from "./DefaultsSection";
@@ -38,8 +40,8 @@ const single = (Component: ComponentType, hasTextInput = false): SettingsPageEnt
  * Bodies of the settings pages, one per slug of lib/settings-menu.ts (the menu rows, their titles, icons, groups and
  * summaries live there). `Record<PageSlug, ...>` makes a menu row without a body a compile error. To add a Personal
  * page: add its row in lib/settings-menu.ts and its body here. Three pages hold several parts, each in its own card:
- * Appearance (theme, language, greeting), Categories (categories, special days, habit hints) and Backup (backup,
- * archive, data recovery). Add buttons sit inside their part's card (an `IconButton` under the list); no page floats one now.
+ * Appearance (theme, language, greeting), Categories (categories, special days, routines, habit hints) and Backup (backup,
+ * calendar file, archive, data recovery). Add buttons sit inside their part's card (an `IconButton` under the list); no page floats one now.
  */
 export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   appearance: {
@@ -58,6 +60,7 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
     parts: [
       { title: "Categories", Component: CategoriesSection },
       { title: "Special days", Component: SpecialDaysSection },
+      { title: "Routines", Component: RoutinesSection },
       { title: "Habit hints", Component: HabitsSection },
     ],
   },
@@ -67,6 +70,7 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
   backup: {
     parts: [
       { title: "Backup", Component: BackupSection },
+      { title: "Calendar file", Component: CalendarImportSection },
       { title: "Archive", Component: ArchiveSection },
       { title: "Data recovery", Component: RecoverySection },
     ],

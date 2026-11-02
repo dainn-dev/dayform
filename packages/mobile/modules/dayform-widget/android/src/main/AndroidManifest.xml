@@ -27,6 +27,11 @@
         android:resource="@xml/dayform_widget_info_large" />
     </receiver>
 
+    <!-- A tap on a widget row (explicit PendingIntent of the widget itself). Not reachable by other apps. -->
+    <receiver
+      android:name="dev.dayform.widget.WidgetActionReceiver"
+      android:exported="false" />
+
     <!-- Midnight alarm (explicit PendingIntent) and system time/boot broadcasts. Not reachable by other apps. -->
     <receiver
       android:name="dev.dayform.widget.WidgetRefreshReceiver"

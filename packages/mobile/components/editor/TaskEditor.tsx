@@ -7,7 +7,7 @@ import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
 import { useRevealFocusedInput } from "../../hooks/use-reveal-focused-input";
 import { liftCorrection } from "../../lib/keyboard-inset";
 import type { ThemeColors } from "../../constants/theme";
-import type { Category, Repeat, Status, Task } from "../../lib/planner";
+import type { Category, ChecklistItem, Repeat, Status, Task } from "../../lib/planner";
 import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
 import { newTaskDefaults, type NewTaskDefaults } from "../../lib/new-task-defaults";
@@ -16,8 +16,10 @@ import { useSettings } from "../../lib/settings-context";
 import { useTasks } from "../../lib/tasks-context";
 import { NewTaskHints } from "../habits/NewTaskHints";
 import { CategoryChips } from "./CategoryChips";
+import { ChecklistField } from "./ChecklistField";
 import { ConflictWarning } from "./ConflictWarning";
 import { DurationStatusRow } from "./DurationStatusRow";
+import { FocusStartRow } from "./FocusStartRow";
 import { FormActions } from "./FormActions";
 import { FormMessages } from "./FormMessages";
 import { NotesField } from "./NotesField";
@@ -83,6 +85,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [status, setStatus] = useState<Status>(task?.status ?? "todo");
   const [notes, setNotes] = useState(task?.notes ?? "");
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(task?.checklist ?? []);
   const [remind, setRemind] = useState<number | null>(initial.remind);
   const [repeat, setRepeat] = useState<Repeat | null>(task?.repeat ?? null);
   const [repeatUntil, setRepeatUntil] = useState<string | null>(task?.repeatUntil ?? null);
@@ -106,7 +109,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
     return () => clearTimeout(timer);
   }, [keyboard.top, footerMargin]);
   const contentStyle = useMemo(() => [s.content, { paddingBottom: CONTENT_BOTTOM_PADDING }], [s.content]);
-  const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil } });
+  const actions = useEditorActions({ task, onClose, values: { title, duration, scheduled, date, time, category, status, notes, remind, repeat, repeatUntil, checklist } });
 
   const setCategory = (next: Category) => { setCategoryState(next); setCategoryTouched(true); };
   /** A field that affects the overlap check or the scope choice: editing it drops a stale "Save anyway". */
@@ -126,6 +129,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
           onScroll={onScroll} scrollEventThrottle={SCROLL_EVENT_THROTTLE_MS} onContentSizeChange={reveal}>
           <TitleField value={title} onChange={setTitle} />
           <DurationStatusRow duration={duration} onDurationChange={resetting(setDuration)} status={status} onStatusChange={setStatus} />
+          {task && task.status !== "done" && <FocusStartRow taskId={task.id} onStart={onClose} />}
           {!task && <NewTaskHints title={title} duration={duration} category={category} categoryTouched={categoryTouched} repeat={repeat} scheduled={scheduled}
             onApplyDuration={resetting(setDuration)} onApplyCategory={setCategory} onApplyRepeat={changeRepeat} />}
           <CategoryChips value={category} onChange={setCategory} />
@@ -135,6 +139,7 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
           {scheduled && Platform.OS !== "web" && <ReminderField value={remind} onChange={setRemind} />}
           {scheduled && <RepeatField value={repeat} onChange={changeRepeat} until={repeatUntil} onUntilChange={resetting(setRepeatUntil)} taskDate={date} onPickerError={() => actions.setValidation(PICKER_ERROR)} />}
           {extraFields}
+          <ChecklistField value={checklist} onChange={setChecklist} />
           <NotesField value={notes} onChange={setNotes} />
         </ScrollView>
         </View>

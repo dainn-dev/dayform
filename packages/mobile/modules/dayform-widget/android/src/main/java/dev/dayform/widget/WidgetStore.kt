@@ -25,4 +25,14 @@ internal object WidgetStore {
 
   fun load(context: Context): String? =
     context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE).getString(KEY_SNAPSHOT, null)
+
+  /** Ticks made on the widget that the app has not applied yet: a JSON list of `{id, done, at}` (see lib/widget-actions.ts). */
+  fun loadToggles(context: Context): String =
+    context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE).getString(KEY_TOGGLES, null) ?: "[]"
+
+  fun saveToggles(context: Context, json: String) {
+    context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE).edit().putString(KEY_TOGGLES, json).apply()
+  }
+
+  private const val KEY_TOGGLES = "pending_toggles"
 }

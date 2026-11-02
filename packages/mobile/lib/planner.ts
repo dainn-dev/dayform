@@ -8,6 +8,10 @@ export type Repeat = "daily" | "weekdays" | "weekly" | "monthly";
 export const repeats: Repeat[] = ["daily", "weekdays", "weekly", "monthly"];
 /** Minutes before `start` that a reminder can fire. */
 export const reminderOptions = [0, 5, 15, 30, 60] as const;
+/** One step of a task. Steps have no ids: they are edited as a list and shown in order. */
+export type ChecklistItem = { text: string; done: boolean };
+export const MAX_CHECKLIST_ITEMS = 30;
+export const MAX_CHECKLIST_TEXT = 200;
 export type Task = {
   id: string;
   title: string;
@@ -25,6 +29,8 @@ export type Task = {
   repeat?: Repeat | null;
   /** Last day (local YYYY-MM-DD, inclusive) a repeating task may occur; null/undefined = never ends. Needs `repeat`. */
   repeatUntil?: string | null;
+  /** Small steps of the task; absent when it has none. Each occurrence of a series keeps its own ticks. */
+  checklist?: ChecklistItem[];
 };
 
 /** Ids of the categories that ship with the app. Their display names are translated; the ids never change. */

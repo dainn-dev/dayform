@@ -34,7 +34,7 @@ export function GreetingLines({ now }: { now: Date }) {
 }
 
 /** Page header: DAYFORM kicker, language switch, greeting and the jump-to-today shortcut. */
-export function GreetingHeader({ onToday, now }: { onToday: () => void; now: Date }) {
+export function GreetingHeader({ onToday, onFocus, now }: { onToday: () => void; onFocus: () => void; now: Date }) {
   const { t: tr } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -42,15 +42,18 @@ export function GreetingHeader({ onToday, now }: { onToday: () => void; now: Dat
     <View style={s.kickerRow}><Text style={s.kicker}>DAYFORM ✦</Text></View>
     <View style={s.header}>
       <GreetingLines now={now} />
-      <Pressable onPress={onToday} style={s.todayShortcut} accessibilityRole="button" accessibilityLabel={tr("Jump to today")}><Ionicons name="calendar-outline" size={21} color={colors.foreground} /></Pressable>
+      <View style={s.headerButtons}>
+        <Pressable onPress={onFocus} style={s.todayShortcut} accessibilityRole="button" accessibilityLabel={tr("Focus timer")}><Ionicons name="timer-outline" size={21} color={colors.foreground} /></Pressable>
+        <Pressable onPress={onToday} style={s.todayShortcut} accessibilityRole="button" accessibilityLabel={tr("Jump to today")}><Ionicons name="calendar-outline" size={21} color={colors.foreground} /></Pressable>
+      </View>
     </View>
   </>;
 }
 
-type DayHeaderProps = { selected: string; today: string; scheduled: Task[]; onAdd: () => void };
+type DayHeaderProps = { selected: string; today: string; scheduled: Task[]; onAdd: () => void; onQuickAdd: () => void; onRoutines: () => void };
 
 /** Day panel header: date, title, add button, summary, progress bar and the DAILY TIMELINE heading. */
-export function DayHeader({ selected, today, scheduled, onAdd }: DayHeaderProps) {
+export function DayHeader({ selected, today, scheduled, onAdd, onQuickAdd, onRoutines }: DayHeaderProps) {
   const { t: tr, locale, summary, timeFormat } = useLanguage();
   const config = useTimelineConfig();
   const colors = useColors();
@@ -67,7 +70,11 @@ export function DayHeader({ selected, today, scheduled, onAdd }: DayHeaderProps)
   return <>
     <View style={s.dailyTop}>
       <View><Text style={s.panelEyebrow}>{selectedDate.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }).toUpperCase()}{lunarText}</Text><Text accessibilityRole="header" style={s.dailyTitle}>{dateTitle}<Text style={{ color: colors.punctuation }}>.</Text></Text></View>
-      <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
+      <View style={s.addButtons}>
+        <Pressable onPress={onRoutines} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Routines")}><Ionicons name="layers-outline" size={20} color={colors.primary} /></Pressable>
+        <Pressable onPress={onQuickAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Quick add")}><Ionicons name="flash-outline" size={20} color={colors.primary} /></Pressable>
+        <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
+      </View>
     </View>
     {marks && <View style={s.marksRow} accessible accessibilityLabel={marksLine(marks)}>
       <Ionicons name={markKinds(marks).holiday ? "flag" : "heart"} size={12} color={markKinds(marks).holiday ? colors.sun : colors.primary} />
@@ -84,6 +91,8 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 36 },
   kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2.4, marginBottom: 9 },
   greetingText: { flex: 1, minWidth: 0, marginRight: 12 },
+  headerButtons: { flexDirection: "row", gap: 10 },
+  addButtons: { flexDirection: "row", gap: 8 },
   greeting: { color: c.foreground, fontSize: 27, fontWeight: "800", letterSpacing: -1.1 },
   subtitle: { color: c.mutedForeground, fontSize: 13, marginTop: 6 },
   todayShortcut: { width: 44, height: 44, backgroundColor: c.card, borderRadius: 16, alignItems: "center", justifyContent: "center", shadowColor: c.shadowSoft, shadowOpacity: 0.08, shadowRadius: 14, elevation: 2 },

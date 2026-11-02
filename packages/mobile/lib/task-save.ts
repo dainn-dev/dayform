@@ -1,4 +1,4 @@
-import { dateKey, fromKey, minutes, overlaps, type Category, type Repeat, type Status, type Task } from "./planner";
+import { MAX_CHECKLIST_ITEMS, MAX_CHECKLIST_TEXT, dateKey, fromKey, minutes, overlaps, type Category, type ChecklistItem, type Repeat, type Status, type Task } from "./planner";
 import { applyEdit, changeRule, createSeries, removeScope, type EditScope } from "./recurrence";
 
 /**
@@ -20,6 +20,8 @@ export type SaveForm = {
   repeat: Repeat | null;
   /** Inclusive last day of the repeat ('YYYY-MM-DD'); null/omitted = never ends. Ignored without `repeat`. */
   repeatUntil?: string | null;
+  /** The steps as the form holds them; omitted = the task keeps the steps it has (an empty list removes them). */
+  checklist?: ChecklistItem[];
 };
 
 export type SaveContext = {
@@ -117,10 +119,25 @@ export function allowedScopes(original: Task, form: { repeat: Repeat | null; rep
   return ALL_SCOPES.filter(scope => scope !== "this" || !ruleChanged(original, form.repeat, until));
 }
 
+/** Trimmed texts, blank steps dropped, at most MAX_CHECKLIST_ITEMS of MAX_CHECKLIST_TEXT characters. */
+export function cleanChecklist(steps: readonly ChecklistItem[]): ChecklistItem[] {
+  return steps
+    .map(step => ({ text: step.text.trim().slice(0, MAX_CHECKLIST_TEXT), done: step.done }))
+    .filter(step => step.text !== "")
+    .slice(0, MAX_CHECKLIST_ITEMS);
+}
+
+function sameSteps(a: readonly ChecklistItem[] | undefined, b: readonly ChecklistItem[] | undefined): boolean {
+  const x = a ?? [];
+  const y = b ?? [];
+  return x.length === y.length && x.every((step, i) => step.text === y[i].text);
+}
+
 function buildCandidate(form: SaveForm, ctx: SaveContext): Task {
   const { existing } = ctx;
   const scheduled = form.scheduled;
   const until = effectiveUntil(form, scheduled);
+  const steps = cleanChecklist(form.checklist ?? existing?.checklist ?? []);
   return {
     id: existing?.id ?? ctx.newId(),
     title: form.title.trim(),
@@ -135,6 +152,7 @@ function buildCandidate(form: SaveForm, ctx: SaveContext): Task {
     seriesId: scheduled ? existing?.seriesId ?? null : null,
     repeat: scheduled ? existing?.repeat ?? null : null,
     ...(until === null ? {} : { repeatUntil: until }),
+    ...(steps.length === 0 ? {} : { checklist: steps }),
   };
 }
 
@@ -144,13 +162,21 @@ function upsert(tasks: Task[], task: Task): Task[] {
 
 function patchOf(candidate: Task): Partial<Task> {
   const { title, date, start, duration, status, category, notes, remind } = candidate;
-  return { title, date, start, duration, status, category, notes, remind };
+  return { title, date, start, duration, status, category, notes, remind, checklist: candidate.checklist ?? [] };
 }
 
-/** Scoped edit; the status is per occurrence, so it is always applied to this occurrence too. */
+/**
+ * Scoped edit; the status and the ticks are per occurrence, so they are always applied to this occurrence too.
+ * Other occurrences get the new steps unticked, and only when the steps themselves changed (editing a title
+ * must not wipe the ticks of the other days).
+ */
 function scopedEdit(tasks: Task[], stored: Task, patch: Partial<Task>, scope: EditScope): Task[] {
-  const edited = applyEdit(tasks, stored, patch, scope);
-  return scope === "this" ? edited : applyEdit(edited, stored, { status: patch.status }, "this");
+  if (scope === "this") return applyEdit(tasks, stored, patch, scope);
+  const { checklist, ...shared } = patch;
+  const changed = !sameSteps(checklist, stored.checklist);
+  const broad = changed ? { ...shared, checklist: (checklist ?? []).map(step => ({ ...step, done: false })) } : shared;
+  const edited = applyEdit(tasks, stored, broad, scope);
+  return applyEdit(edited, stored, { status: patch.status, checklist }, "this");
 }
 
 function editSeriesMember(candidate: Task, repeat: Repeat | null, scope: EditScope, ctx: SaveContext, existing: Task): Update {

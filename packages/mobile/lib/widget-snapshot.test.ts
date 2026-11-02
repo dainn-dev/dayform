@@ -76,10 +76,17 @@ describe("buildWidgetSnapshot content", () => {
       n: 2,
       done: 1,
       items: [
-        { t: "Early", s: "08:00", d: 20, x: 0 },
-        { t: "Later", s: "13:00", d: 60, x: 1 },
+        { t: "Early", s: "08:00", d: 20, x: 0, i: "a" },
+        { t: "Later", s: "13:00", d: 60, x: 1, i: "b" },
       ],
     });
+  });
+
+  test("only today's items carry the task id the widget sends back when a row is tapped", () => {
+    const tasks = [makeTask({ id: "today" }), makeTask({ id: "tomorrow", date: "2026-10-30" }), makeTask({ id: "x".repeat(101), start: "10:00" })];
+    const { snapshot } = buildWidgetSnapshot(tasks, OPTIONS);
+    expect(snapshot.days["2026-10-29"].items.map((item) => item.i)).toEqual(["today", undefined]);
+    expect(snapshot.days["2026-10-30"].items[0].i).toBeUndefined();
   });
 
   test("breaks start-time ties by id so the order is stable", () => {
