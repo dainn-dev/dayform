@@ -9,17 +9,24 @@ import kotlin.math.min
 
 /**
  * The Love pet: Boy and Girl, two characters with a script each (Boy in the widget's first ViewFlipper, Girl in the second).
- * A launcher cannot run logic while the widget is shown, so the whole loop is planned in advance:
+ * A launcher cannot run logic while the widget is shown, so the whole loop is planned in advance. The card is split into
+ * a few small zones across its width and the loop holds one scene in each of two different zones, so the flowers are given in
+ * different places instead of one spot that repeats:
  *
- *  1. Each of them wanders on their own: walks, runs, looks around, sits, barks (their own random path and poses).
- *  2. The first time they come within TRIGGER_DP of each other (or, when they never do, when the wandering is over), Girl
- *     stops and looks around while Boy comes up to her, running when she is far.
+ *  1. Each of them wanders on their own for a while: walks, runs, looks around, sits, barks (their own random path and poses).
+ *  2. Girl picks a spot inside the scene's zone and walks (or runs) there, then stops and looks around while Boy comes up to
+ *     her, running when she is far. A scene only starts when the two face each other: Boy watches the spot she is heading for
+ *     (he never stands with his back to it) and Girl turns toward the side he comes from, so nobody is ever approached from
+ *     behind or runs up to someone who looks away.
  *  3. Boy gives her the flowers (`dayform_pet_boy_gift_*`) while Girl receives them (`dayform_pet_girl_receive_*`), turned
  *     toward each other, then they sit down side by side, shoulder to shoulder, for a while.
- *  4. Each walks back to where they began, so the loop restarts without a jump.
+ *  4. The next scene is in another zone; after the last one each walks back to where they began, so the loop restarts without
+ *     a jump.
  *
- * The scene happens once per loop. A loop repeats unchanged, so the rest between two scenes is the loop minus the scene: it is
- * at least COOLDOWN_SECONDS (29). From the handover to the end of the sitting a heart border frames the whole card.
+ * A loop repeats unchanged, so the rest between two scenes (also from the last scene to the first one of the next loop) is
+ * at least COOLDOWN_SECONDS (29): where the wandering and the walk to the spot are too short for that, both sit for a while
+ * first. A narrow card has fewer zones and so fewer scenes, and a loop that comes out too long has just one scene. From the
+ * handover to the end of the sitting a heart border frames the whole card.
  * When they rest (the pet does not stroll, or the day is done) they sleep side by side in the corner, out of step.
  * Frames are `dayform_pet_<boy|girl>_<set>_<dir>_<n>`, like the other pets; the art faces right and `_l` is its mirror.
  */
@@ -30,9 +37,6 @@ internal object LovePet {
   /** The two scripts, one per ViewFlipper. They always have the same length, so the flippers stay in step. */
   internal class Duo(val boy: List<WidgetPet.Frame>, val girl: List<WidgetPet.Frame>)
 
-  /** Within this distance (dp, measured between the two sprites) the scene starts; it is not before MIN_MEET_TICK. */
-  private const val TRIGGER_DP = 72f
-  private const val MIN_MEET_TICK = 20
   /** Boy stands this far (dp) from Girl: the tip of his bouquet reaches her hands (measured on the frames). */
   private const val GIFT_GAP_DP = 26f
   private const val GIFT_TICKS = 16
@@ -44,14 +48,21 @@ internal object LovePet {
   private const val SIT_GAP_DP = 18f
   private const val SIT_HOLD = 4
   private const val SHUFFLE_TICKS = 2
+  /** Wandering of a card that has no flowers frames (no scene), in ticks. */
   private const val WANDER_TICKS = 36
   /** The rest between two scenes, in seconds. */
   private const val COOLDOWN_SECONDS = 29
   private const val COOLDOWN_TICKS = (COOLDOWN_SECONDS * 1000 + TICK_MS - 1) / TICK_MS
-  private const val MIN_LOOP_TICKS = COOLDOWN_TICKS + GIFT_TICKS + SIT_TICKS
+  /** Scenes in one loop (each in a different zone), the zones the width is split into and the least width of a zone (dp). */
+  private const val SCENES_PER_LOOP = 2
+  private const val MAX_ZONES = 3
+  private const val ZONE_MIN_DP = 60f
+  /** Each scene is preceded by this much wandering of their own, in ticks. */
+  private const val SCENE_WANDER_TICKS = 16
+  /** A loop longer than this (ticks, about 108 s) would make the widget heavy to draw: it is planned again with one scene. */
+  private const val MAX_LOOP_TICKS = 360
   /** The heart border pulses: full for this many ticks, then soft for as many. */
   private const val HEARTS_PULSE_TICKS = 2
-  private const val MAX_PLAN_TRIES = 3
   private const val RUN_ABOVE_DP = 90f
   private const val RETURN_WALK_MAX_TICKS = 36
   private const val REST_GAP_DP = 30f
@@ -63,56 +74,102 @@ internal object LovePet {
   fun script(boy: WidgetPet.Sprites, girl: WidgetPet.Sprites, resting: Boolean, areaW: Float, areaH: Float, random: Random): Duo? {
     if (boy.frames("walk", true).isEmpty() || girl.frames("walk", true).isEmpty()) return null
     if (resting) return rest(boy, girl, areaW, random)
-    // The plan is a function of the seed and the wandering time, so a loop that came out short is planned again, longer.
+    // The plan is a function of the seed, so a loop that came out too long is planned again, with a single scene.
     val seed = random.nextLong()
-    var wander = WANDER_TICKS
-    var duo = plan(boy, girl, areaW, areaH, wander, Random(seed))
-    repeat(MAX_PLAN_TRIES - 1) {
-      val missing = MIN_LOOP_TICKS - duo.boy.size
-      if (missing > 0) {
-        wander += missing
-        duo = plan(boy, girl, areaW, areaH, wander, Random(seed))
-      }
-    }
-    return duo
+    val duo = plan(boy, girl, areaW, areaH, SCENES_PER_LOOP, Random(seed))
+    return if (duo.boy.size > MAX_LOOP_TICKS) plan(boy, girl, areaW, areaH, 1, Random(seed)) else duo
   }
 
-  /** One loop: both wander, they meet, the flowers, both walk home. */
-  private fun plan(boySprites: WidgetPet.Sprites, girlSprites: WidgetPet.Sprites, areaW: Float, areaH: Float, wander: Int, random: Random): Duo {
+  /** A stretch of the card's width (dp) in which one scene happens. */
+  private class Zone(val from: Float, val to: Float) {
+    /** A place inside, kept off its two ends so that Boy has room to stand beside Girl. */
+    fun pick(random: Random): Float {
+      val margin = min(GIFT_GAP_DP, (to - from) / 3f)
+      return from + margin + random.nextFloat() * max(0f, to - from - 2f * margin)
+    }
+  }
+
+  /** The card's width split into as many zones as fit (at least ZONE_MIN_DP each, at most MAX_ZONES); a narrow card has one. */
+  private fun zonesOf(areaW: Float): List<Zone> {
+    val count = (areaW / ZONE_MIN_DP).toInt().coerceIn(1, MAX_ZONES)
+    return List(count) { i -> Zone(areaW * i / count, areaW * (i + 1) / count) }
+  }
+
+  /** Boy takes the side he is already on, unless Girl stands too close to the edge for it. True when he stands on her left. */
+  private fun giftSide(boyX: Float, girlX: Float, areaW: Float): Boolean = when {
+    girlX - GIFT_GAP_DP < 0f -> false
+    girlX + GIFT_GAP_DP > areaW -> true
+    else -> boyX < girlX
+  }
+
+  /** One loop: both wander, a scene with the flowers in each of up to `scenes` different zones, both walk home. */
+  private fun plan(boySprites: WidgetPet.Sprites, girlSprites: WidgetPet.Sprites, areaW: Float, areaH: Float, scenes: Int, random: Random): Duo {
     val boy = Walker(boySprites, areaW, areaH, random, random.nextFloat() * areaW, random.nextFloat() * areaH)
     val girl = Walker(girlSprites, areaW, areaH, random, random.nextFloat() * areaW, random.nextFloat() * areaH)
     val boyHome = boy.x to boy.y
     val girlHome = girl.x to girl.y
 
-    boy.wander(wander)
-    girl.wander(wander)
-    // The scene starts the first time they are near enough; if they never are, once both have finished wandering.
-    val start = firstNear(boy, girl) ?: max(boy.size, girl.size)
-    boy.settleAt(start)
-    girl.settleAt(start)
+    val hasFlowers = boySprites.frames("gift", true).isNotEmpty() && girlSprites.frames("receive", true).isNotEmpty()
+    // Different zones for the scenes, in a random order.
+    val zones = if (hasFlowers) zonesOf(areaW).shuffled(random).take(minOf(scenes, MAX_ZONES)) else emptyList()
+    if (zones.isEmpty()) {
+      boy.wander(WANDER_TICKS)
+      girl.wander(WANDER_TICKS)
+      val ready = max(boy.size, girl.size)
+      boy.idleUntil(ready)
+      girl.idleUntil(ready)
+    }
 
-    val gift = boySprites.frames("gift", true)
-    val receive = girlSprites.frames("receive", true)
-    val hearts = if (gift.isNotEmpty() && receive.isNotEmpty()) meet(boy, girl, boySprites, girlSprites, areaW) else null
+    val hearts = ArrayList<IntRange>()
+    var lastEnd = -1
+    var firstGiftStart = -1
+    for (zone in zones) {
+      // Each does their own thing for a while; then both stand until the later one is done.
+      boy.wander(boy.size + SCENE_WANDER_TICKS)
+      girl.wander(girl.size + SCENE_WANDER_TICKS)
+      val ready = max(boy.size, girl.size)
+      boy.idleUntil(ready)
+      girl.idleUntil(ready)
+
+      // Girl picks her spot in the zone. The walk there and Boy's way up to her are known, so the tick of the handover is too.
+      val spotX = zone.pick(random)
+      val spotY = random.nextFloat() * areaH
+      val girlRuns = hypot(spotX - girl.x, spotY - girl.y) > RUN_ABOVE_DP
+      val sideLeft = giftSide(boy.x, spotX, areaW)
+      val targetX = (if (sideLeft) spotX - GIFT_GAP_DP else spotX + GIFT_GAP_DP).coerceIn(0f, areaW)
+      val boyRuns = hypot(targetX - boy.x, spotY - boy.y) > RUN_ABOVE_DP
+      // Boy turns to the spot Girl is heading for before anything else (the sitting or looking he does while he waits shows his
+      // face to it, not his back); she sets off towards it.
+      boy.face(spotX)
+      girl.face(spotX)
+      val giftStart = ready + girl.tripTicks(spotX, spotY, girlRuns) + boy.tripTicks(targetX, spotY, boyRuns)
+      // Where the rest since the last scene would be shorter than the cooldown, they sit for the missing time first.
+      val pad = if (lastEnd >= 0) max(0, lastEnd + COOLDOWN_TICKS - giftStart) else 0
+      if (pad > 0) {
+        boy.pose("sit", pad, IDLE_HOLD)
+        girl.pose("sit", pad, IDLE_HOLD)
+      }
+      girl.goTo(spotX, spotY, girlRuns)
+      boy.idleUntil(girl.size)
+      val given = meet(boy, girl, boySprites, girlSprites, areaW)
+      hearts.add(given)
+      if (firstGiftStart < 0) firstGiftStart = given.first - GIFT_TICKS / 2
+      lastEnd = boy.size
+    }
 
     boy.goTo(boyHome.first, boyHome.second, run = hypot(boyHome.first - boy.x, boyHome.second - boy.y) / WidgetPet.WALK_STEP_DP > RETURN_WALK_MAX_TICKS)
     girl.goTo(girlHome.first, girlHome.second, run = hypot(girlHome.first - girl.x, girlHome.second - girl.y) / WidgetPet.WALK_STEP_DP > RETURN_WALK_MAX_TICKS)
-    val end = max(max(boy.size, girl.size), MIN_LOOP_TICKS)
+    // The loop repeats, so the rest from the last scene to the first scene of the next loop must be long enough too.
+    val wrapMin = if (lastEnd >= 0) lastEnd + COOLDOWN_TICKS - firstGiftStart else 0
+    val end = max(max(boy.size, girl.size), wrapMin)
     boy.idleUntil(end)
     girl.idleUntil(end)
     // The heart border belongs to the whole card, so it rides on Boy's frames (the widget reads the fx layer from the first script).
     val boyFrames = boy.frames.mapIndexed { tick, frame ->
-      if (hearts != null && tick in hearts) frame.copy(fx = if ((tick - hearts.first) / HEARTS_PULSE_TICKS % 2 == 0) WidgetPet.FX_HEARTS else WidgetPet.FX_HEARTS_SOFT) else frame
+      val shown = hearts.firstOrNull { tick in it }
+      if (shown != null) frame.copy(fx = if ((tick - shown.first) / HEARTS_PULSE_TICKS % 2 == 0) WidgetPet.FX_HEARTS else WidgetPet.FX_HEARTS_SOFT) else frame
     }
     return Duo(boyFrames, girl.frames)
-  }
-
-  /** The tick at which the two are within TRIGGER_DP of each other, when they are at some tick from MIN_MEET_TICK on. */
-  private fun firstNear(boy: Walker, girl: Walker): Int? {
-    for (tick in MIN_MEET_TICK until min(boy.size, girl.size)) {
-      if (hypot(boy.xs[tick] - girl.xs[tick], boy.ys[tick] - girl.ys[tick]) <= TRIGGER_DP) return tick
-    }
-    return null
   }
 
   /**
@@ -120,13 +177,12 @@ internal object LovePet {
    * ticks from the handover to the end of the sitting (when the heart border shows).
    */
   private fun meet(boy: Walker, girl: Walker, boySprites: WidgetPet.Sprites, girlSprites: WidgetPet.Sprites, areaW: Float): IntRange {
-    // Boy takes the side he is already on, unless Girl stands too close to the edge for it.
-    val boyOnLeft = when {
-      girl.x - GIFT_GAP_DP < 0f -> false
-      girl.x + GIFT_GAP_DP > areaW -> true
-      else -> boy.x < girl.x
-    }
+    val boyOnLeft = giftSide(boy.x, girl.x, areaW)
     val targetX = (if (boyOnLeft) girl.x - GIFT_GAP_DP else girl.x + GIFT_GAP_DP).coerceIn(0f, areaW)
+    // The two face each other from the start: Girl turns to the side he comes from (she may have walked in from the other
+    // side, with her back to him) and Boy, who walks towards her, faces her all the way.
+    girl.face(targetX)
+    boy.face(girl.x)
     val before = boy.size
     boy.goTo(targetX, girl.y, run = hypot(targetX - boy.x, girl.y - boy.y) > RUN_ABOVE_DP)
     girl.pose("look", boy.size - before, IDLE_HOLD)
@@ -184,6 +240,11 @@ internal object LovePet {
       ys.add(atY)
     }
 
+    /** Turns to face a place (it keeps its way when the place is straight above or below it). */
+    fun face(toX: Float) {
+      if (abs(toX - x) > 1f) right = toX > x
+    }
+
     /** Stands still playing a front-facing set (the fallback is the look-around). */
     fun pose(set: String, ticks: Int, hold: Int) {
       val drawables = sprites.frames(set, right).ifEmpty { sprites.frames("look", right) }
@@ -203,6 +264,23 @@ internal object LovePet {
     fun idleUntil(length: Int) {
       if (size < length) pose("look", length - size, IDLE_HOLD)
     }
+
+    /** How many ticks `goTo` would take from here, without moving (the same steps: first straight up or down, then sideways). */
+    fun tripTicks(toX: Float, toY: Float, run: Boolean): Int {
+      var ticks = 0
+      var currentY = y
+      val rise = toY - y
+      val vertical = if (rise > 0f) sprites.up("walk") else sprites.down("walk")
+      if (abs(rise) >= WidgetPet.MIN_VERTICAL_DP && vertical.isNotEmpty()) {
+        ticks += stepsFor(abs(rise), WidgetPet.WALK_STEP_DP)
+        currentY = toY
+      }
+      val distance = hypot(toX - x, toY - currentY)
+      if (distance < 1f) return ticks
+      return ticks + stepsFor(distance, if (run) WidgetPet.RUN_STEP_DP else WidgetPet.WALK_STEP_DP)
+    }
+
+    private fun stepsFor(distance: Float, step: Float): Int = ceil(distance / step).toInt().coerceAtLeast(1)
 
     /** Makes this script exactly `tick` ticks long: cut where it is longer, standing and looking around where it is shorter. */
     fun settleAt(tick: Int) {
