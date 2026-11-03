@@ -1,0 +1,26 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.dayform.ssh'
+version = '1.0.0'
+
+expoModule {
+  // Local module: it is built from source with the app and never published to a Maven repository.
+  canBePublished false
+}
+
+android {
+  namespace "dev.dayform.ssh"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+    consumerProguardFiles "consumer-rules.pro"
+  }
+}
+
+dependencies {
+  // A maintained fork of JSch: ed25519 and ecdsa keys, rsa-sha2 signatures, modern key exchange.
+  implementation 'com.github.mwiede:jsch:2.28.8'
+}

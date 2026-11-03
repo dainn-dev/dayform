@@ -73,6 +73,11 @@ android
 /packages/mobile/modules/dayform-widget/android/build/
 /packages/mobile/modules/dayform-widget/android/.gradle/
 /packages/mobile/modules/dayform-widget/android/.cxx/
+# ...and so is the SSH module's (Kotlin, manifest, Gradle file); only its build output stays ignored
+!/packages/mobile/modules/dayform-ssh/android/
+/packages/mobile/modules/dayform-ssh/android/build/
+/packages/mobile/modules/dayform-ssh/android/.gradle/
+/packages/mobile/modules/dayform-ssh/android/.cxx/
 
 # scripts (local-only provisioning); only the root release scripts are tracked
 /scripts/*
