@@ -2,13 +2,17 @@ import { fetch } from "expo/fetch";
 import { chatUrl } from "./ai-config";
 import type { ChatMessage } from "./ai-loop";
 import { applyChunk, completionFromJson, emptyCompletion, errorOf, sseData, takeLines, Utf8Stream, type Completion } from "./ai-stream";
-import { TOOL_DEFINITIONS } from "./ai-tools";
+import { TOOL_DEFINITIONS, type toolsFor } from "./ai-tools";
 
 /**
  * The network call of the AI chat (untested glue): one OpenAI-compatible `POST {baseUrl}/chat/completions`, streamed
  * with `expo/fetch` (React Native's own fetch cannot read a body as it arrives). The parsing is in ai-stream.ts.
  */
-export type ProviderConfig = { baseUrl: string; model: string; apiKey: string };
+export type ProviderConfig = {
+  baseUrl: string; model: string; apiKey: string;
+  /** The tools of this request (see `toolsFor`); omitted = the general tools without SSH. */
+  tools?: ReturnType<typeof toolsFor>;
+};
 
 export class AiError extends Error {
   constructor(message: string, readonly status: number | null) {
@@ -37,7 +41,7 @@ export async function streamCompletion(
         model: config.model,
         messages,
         stream: true,
-        ...(withTools ? { tools: TOOL_DEFINITIONS, tool_choice: "auto" } : {}),
+        ...(withTools ? { tools: config.tools ?? TOOL_DEFINITIONS, tool_choice: "auto" } : {}),
       }),
       signal: timeout.signal,
     });

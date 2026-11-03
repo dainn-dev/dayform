@@ -24,6 +24,7 @@ function inputs(patch: DeepPartial<Settings> = {}, extra: Partial<MenuInputs> = 
     categoryCount: 4,
     categoryName: id => id,
     specialDayCount: 0,
+    sshHostCount: 0,
     version: "1.2.1",
     updateLine: null,
     cycle: { ready: true, enabled: false, lockEnabled: false },
@@ -55,7 +56,7 @@ describe("registry", () => {
 
   test("lists the pages of the design in order", () => {
     expect(MENU_GROUPS.map(group => group.rows.map(row => row.id))).toEqual([
-      ["appearance", "assistant", "cultivation"],
+      ["appearance", "assistant", "ssh", "cultivation"],
       ["new-tasks", "calendar", "categories"],
       ["notifications", "widget"],
       ["cycle", "cycle-tracking"],
@@ -165,6 +166,9 @@ describe("summaries", () => {
 
   test("categories counts the categories and the special days, with singular forms", () => {
     expect(say("categories", {}, { categoryCount: 6 })).toBe("6 categories · No special days");
+    expect(say("ssh", {}, { sshHostCount: 0 })).toBe("No servers");
+    expect(say("ssh", {}, { sshHostCount: 1 })).toBe("1 server");
+    expect(say("ssh", {}, { sshHostCount: 3 })).toBe("3 servers");
     expect(say("categories", {}, { categoryCount: 1, specialDayCount: 1 })).toBe("1 category · 1 special day");
     expect(say("categories", {}, { categoryCount: 0, specialDayCount: 12 })).toBe("0 categories · 12 special days");
   });

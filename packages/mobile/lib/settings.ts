@@ -167,6 +167,12 @@ const settingsSchema = z.object({
     model: z.string().trim().max(120).catch(""),
     shareTitles: flag(true),
   })),
+  /**
+   * SSH (lib/ssh-hosts.ts, components/personal/SshSection.tsx). Both switches are off by default: `assistant` lets the
+   * assistant propose commands (each one still needs the user's tap), `shareOutput` lets a command's output go back to the
+   * AI provider (off: the assistant only learns the exit code).
+   */
+  ssh: group(z.object({ assistant: flag(false), shareOutput: flag(false) })),
   widget: group(z.object({ showTitles: flag(true) })),
   /**
    * The widget's pet; `walks` false keeps it in the corner instead of strolling along the bottom. `kind` is "off" while the

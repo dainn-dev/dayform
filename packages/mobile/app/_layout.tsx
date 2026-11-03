@@ -22,6 +22,8 @@ import { SpecialDaysProvider } from "../lib/special-days-context";
 import { RoutinesProvider } from "../lib/routines-context";
 import { FocusProvider } from "../lib/focus-context";
 import { GoalsProvider } from "../lib/goals-context";
+import { SshHistoryProvider } from "../lib/ssh-history-context";
+import { SshHostsProvider } from "../lib/ssh-hosts-context";
 import { QuickAddProvider } from "../lib/quick-add-context";
 import { CycleProvider } from "../lib/cycle-context";
 import { SettingsProvider, useSettings } from "../lib/settings-context";
@@ -86,6 +88,8 @@ export default function RootLayout() {
               <RoutinesProvider>
               <FocusProvider>
               <GoalsProvider>
+              <SshHostsProvider>
+              <SshHistoryProvider>
               <QuickAddProvider>
               <CycleProvider>
               <XpProvider>
@@ -114,6 +118,8 @@ export default function RootLayout() {
               </XpProvider>
               </CycleProvider>
               </QuickAddProvider>
+              </SshHistoryProvider>
+              </SshHostsProvider>
               </GoalsProvider>
               </FocusProvider>
               </RoutinesProvider>

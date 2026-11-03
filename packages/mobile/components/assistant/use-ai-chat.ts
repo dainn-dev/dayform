@@ -4,17 +4,25 @@ import { AiError, streamCompletion } from "../../lib/ai-client";
 import { readApiKey } from "../../lib/ai-key-expo";
 import { runTurn, trimHistory, type ChatMessage } from "../../lib/ai-loop";
 import { systemPrompt, todayContext } from "../../lib/ai-prompt";
-import { describeAction, parseToolCall, taskUpdate, type Action, type CategoryRef, type Line } from "../../lib/ai-tools";
+import { actionIsRisky, describeAction, parseToolCall, taskUpdate, toolsFor, type Action, type CategoryRef, type Line } from "../../lib/ai-tools";
+import { AI_SSH_TIMEOUT_MS, MAX_SSH_PER_TURN, SSH_LIMIT_ERROR, sshResultForModel } from "../../lib/ssh-ai";
+import { readSshCredentials } from "../../lib/ssh-credentials-expo";
+import { useSshHistory } from "../../lib/ssh-history-context";
+import { useSshHosts } from "../../lib/ssh-hosts-context";
+import { TERMINAL_MAX_BYTES, formatDuration, runOnHost } from "../../lib/ssh-run";
+import { isSshSupported, runSshCommand } from "../../modules/dayform-ssh";
 import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { useTasks } from "../../lib/tasks-context";
 import { useSpecialDays } from "../../lib/special-days-context";
+import { SSH_ERROR_TEXTS } from "../../lib/ssh";
 
 export type ChatEntry =
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "assistant"; text: string }
-  | { id: string; kind: "confirm"; lines: Line[]; state: "pending" | "approved" | "declined" | "failed" }
+  | { id: string; kind: "confirm"; lines: Line[]; state: "pending" | "approved" | "declined" | "failed"; /** A command with a recognised risk: it needs a tap, never a spoken yes. */ risky: boolean }
+  | { id: string; kind: "output"; text: string; bad: boolean }
   | { id: string; kind: "error"; text: string };
 
 type Callbacks = {
@@ -37,6 +45,8 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
   const { tasks, mutate, undoLast } = useTasks();
   const { visible, label, add: addCategory, rename: renameCategory } = useCategories();
   const { items: specialItems, add: addSpecialDay, remove: removeSpecialDay } = useSpecialDays();
+  const { items: sshItems } = useSshHosts();
+  const sshHistory = useSshHistory();
   const { language, setLanguage, time, t } = useLanguage();
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [busy, setBusy] = useState(false);
@@ -51,6 +61,9 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
   latest.current = { tasks, settings, categories };
   const latestSpecial = useRef(specialItems);
   latestSpecial.current = specialItems;
+  const latestSsh = useRef(sshItems);
+  latestSsh.current = sshItems;
+  const sshRuns = useRef(0);
 
   const refreshKey = useCallback(() => { void readApiKey().then(key => setHasKey(key !== null)); }, []);
   useEffect(refreshKey, [refreshKey, settings.ai]);
@@ -63,7 +76,7 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
   const confirm = (action: Action): Promise<boolean> => new Promise(resolve => {
     const id = nextId();
     decisions.current.set(id, resolve);
-    setEntries(list => [...list, { id, kind: "confirm", lines: describeAction(action, { categories: latest.current.categories, time }), state: "pending" }]);
+    setEntries(list => [...list, { id, kind: "confirm", lines: describeAction(action, { categories: latest.current.categories, time }), state: "pending", risky: actionIsRisky(action) }]);
     pendingCard.current = id;
   });
   const pendingCard = useRef<string | null>(null);
@@ -92,6 +105,20 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
     return false;
   };
 
+  /** Runs a command the user agreed to; shows its output to the user and returns what the model may know of it. */
+  const runSsh = async (action: Extract<Action, { kind: "ssh-run" }>): Promise<unknown> => {
+    const host = latestSsh.current.find(item => item.id === action.hostId);
+    if (!host) return { ok: false, error: "That server no longer exists." };
+    const outcome = await runOnHost(host, action.command, { readCredentials: readSshCredentials, run: (target, options) => runSshCommand(target, options), now: Date.now },
+      { timeoutMs: AI_SSH_TIMEOUT_MS, maxBytes: TERMINAL_MAX_BYTES });
+    if (outcome.entry !== null) void sshHistory.record({ ...outcome.entry, by: "assistant" });
+    const shown = outcome.ok
+      ? [`$ ${action.command}`, outcome.result.stdout.trimEnd(), outcome.result.stderr.trimEnd(), `${t("Exit code")} ${outcome.result.timedOut ? "-" : outcome.result.exitCode} · ${formatDuration(outcome.ms)}`].filter(line => line !== "").join("\n")
+      : [`$ ${action.command}`, t(SSH_ERROR_TEXTS[outcome.code])].join("\n");
+    setEntries(list => [...list, { id: nextId(), kind: "output", text: shown, bad: !outcome.ok || outcome.result.timedOut || outcome.result.exitCode !== 0 }]);
+    return sshResultForModel(outcome, latest.current.settings.ssh.shareOutput);
+  };
+
   const send = useCallback(async (text: string) => {
     const question = text.trim();
     if (!question || busy) return;
@@ -103,14 +130,16 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
       return;
     }
     setBusy(true);
+    sshRuns.current = 0;
     onStart();
     const controller = new AbortController();
     abort.current = controller;
-    const { ai, assistant, calendar } = latest.current.settings;
+    const { ai, assistant, calendar, ssh } = latest.current.settings;
+    const sshOn = ssh.assistant && isSshSupported();
     const now = new Date();
     const lang = language === "vi" ? "vi" : "en";
     const lead: ChatMessage[] = [
-      { role: "system", content: systemPrompt({ name: assistant.name, language: lang, now, weekStart: calendar.weekStart }) },
+      { role: "system", content: systemPrompt({ name: assistant.name, language: lang, now, weekStart: calendar.weekStart, ssh: sshOn }) },
       { role: "system", content: todayContext(latest.current.tasks, now, ai.shareTitles) },
     ];
     const asked: ChatMessage = { role: "user", content: question };
@@ -120,7 +149,7 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
         cancelled: () => controller.signal.aborted,
         complete: messages => {
           streamingId = null;
-          return streamCompletion({ baseUrl: ai.baseUrl, model: ai.model, apiKey: key }, messages, delta => {
+          return streamCompletion({ baseUrl: ai.baseUrl, model: ai.model, apiKey: key, tools: toolsFor(sshOn) }, messages, delta => {
             if (streamingId === null) {
               const id = nextId();
               streamingId = id;
@@ -138,11 +167,17 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
             shareTitles: currentSettings.ai.shareTitles, now: new Date(), newId: newTaskId,
             newSeriesId: () => `series-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             specialDays: latestSpecial.current, time,
+            ssh: { enabled: sshOn, hosts: latestSsh.current.map(item => ({ id: item.id, name: item.name, trusted: item.fingerprint !== null })) },
           });
           if (parsed.kind === "read") return parsed.result;
           if (parsed.kind === "error") return { ok: false, error: parsed.message };
+          if (parsed.action.kind === "ssh-run" && sshRuns.current >= MAX_SSH_PER_TURN) return { ok: false, error: SSH_LIMIT_ERROR };
           const agreed = await confirm(parsed.action);
           if (!agreed) return { ok: false, declined: true, error: "The user declined this change." };
+          if (parsed.action.kind === "ssh-run") {
+            sshRuns.current += 1;
+            return runSsh(parsed.action);
+          }
           const saved = await apply(parsed.action);
           if (!saved && pendingCard.current) patch(pendingCard.current, entry => (entry.kind === "confirm" ? { ...entry, state: "failed" } : entry));
           return saved ? { ok: true } : { ok: false, error: "The app could not save the change." };
@@ -185,7 +220,7 @@ export function useAiChat({ onStart, onReply }: Callbacks) {
   const pendingConfirm = useMemo(() => {
     for (let i = entries.length - 1; i >= 0; i--) {
       const entry = entries[i];
-      if (entry.kind === "confirm" && entry.state === "pending") return { id: entry.id, lines: entry.lines };
+      if (entry.kind === "confirm" && entry.state === "pending") return { id: entry.id, lines: entry.lines, risky: entry.risky };
     }
     return null;
   }, [entries]);

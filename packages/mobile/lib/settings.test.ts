@@ -46,6 +46,7 @@ describe("defaults", () => {
       xp: { enabled: true, sound: true, style: "cultivation" },
       assistant: { enabled: true, voice: true, voiceId: "", name: "Leo", wakeWord: false, tips: true, look: "leo" },
       ai: { enabled: false, baseUrl: "https://api.openai.com/v1", model: "", shareTitles: true },
+      ssh: { assistant: false, shareOutput: false },
       widget: { showTitles: true },
       pet: { kind: "gray-cat", walks: true, last: "gray-cat" },
       updates: { autoOta: true },
@@ -80,6 +81,7 @@ describe("resolveSettings", () => {
       xp: { enabled: false, sound: false, style: "engineer" },
       assistant: { enabled: false, voice: false, voiceId: "vi-vn-x-gft-local", name: "Mây", wakeWord: true, tips: false, look: "ice-bear" },
       ai: { enabled: true, baseUrl: "https://openrouter.ai/api/v1", model: "some/model", shareTitles: false },
+      ssh: { assistant: true, shareOutput: true },
       widget: { showTitles: false },
       pet: { kind: "off", walks: false, last: "dog" },
       updates: { autoOta: false },
@@ -105,6 +107,7 @@ describe("resolveSettings", () => {
       greeting: { sloganStyle: "loud", showName: false },
       calendar: { hourHeight: "tiny", weekStart: "fri", timeFormat: "36h", showHolidays: "yes", holidayGroups: "all", showLunar: 1 },
       habits: { hints: "no" },
+      ssh: { assistant: "yes", shareOutput: 1 },
       widget: { showTitles: 0 },
       pet: { kind: "unicorn", walks: "sometimes" },
       updates: { autoOta: "off" },
@@ -116,6 +119,7 @@ describe("resolveSettings", () => {
     expect(result.greeting).toEqual({ ...DEFAULT_SETTINGS.greeting, showName: false });
     expect(result.calendar).toEqual(DEFAULT_SETTINGS.calendar);
     expect(result.habits.hints).toBe(true);
+    expect(result.ssh).toEqual({ assistant: false, shareOutput: false });
     expect(result.widget.showTitles).toBe(true);
     expect(result.pet).toEqual(DEFAULT_SETTINGS.pet);
     expect(result.updates.autoOta).toBe(true);

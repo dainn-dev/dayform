@@ -70,10 +70,10 @@ export function DayHeader({ selected, today, scheduled, onAdd, onRoutines }: Day
   return <>
     <View style={s.dailyTop}>
       <View style={s.dailyHead}><Text numberOfLines={1} style={s.panelEyebrow}>{selectedDate.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }).toUpperCase()}{lunarText}</Text><Text accessibilityRole="header" style={s.dailyTitle}>{dateTitle}<Text style={{ color: colors.punctuation }}>.</Text></Text></View>
-      <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
-    </View>
-    <View style={s.shortcuts}>
-      <Pressable onPress={onRoutines} style={s.shortcut} accessibilityRole="button" accessibilityLabel={tr("Routines")}><Text numberOfLines={1} style={s.shortcutText}>{tr("Routines")}</Text></Pressable>
+      <View style={s.actions}>
+        <Pressable onPress={onRoutines} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Routines")}><Ionicons name="layers-outline" size={20} color={colors.primary} /></Pressable>
+        <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
+      </View>
     </View>
     {marks && <View style={s.marksRow} accessible accessibilityLabel={marksLine(marks)}>
       <Ionicons name={markKinds(marks).holiday ? "flag" : "heart"} size={12} color={markKinds(marks).holiday ? colors.sun : colors.primary} />
@@ -92,15 +92,13 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   greetingText: { flex: 1, minWidth: 0, marginRight: 12 },
   headerButtons: { flexDirection: "row", gap: 10 },
   dailyHead: { flex: 1, minWidth: 0, marginRight: 12 },
-  shortcuts: { flexDirection: "row", gap: 10, marginTop: 14, paddingHorizontal: 4 },
-  shortcut: { flex: 1, minWidth: 0, minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 12, borderRadius: 15, backgroundColor: c.primarySoft },
-  shortcutText: { flexShrink: 1, color: c.accentForeground, fontSize: 13, fontWeight: "800" },
   greeting: { color: c.foreground, fontSize: 27, fontWeight: "800", letterSpacing: -1.1 },
   subtitle: { color: c.mutedForeground, fontSize: 13, marginTop: 6 },
   todayShortcut: { width: 44, height: 44, backgroundColor: c.card, borderRadius: 16, alignItems: "center", justifyContent: "center", shadowColor: c.shadowSoft, shadowOpacity: 0.08, shadowRadius: 14, elevation: 2 },
   dailyTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 },
   panelEyebrow: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginBottom: 6 },
   dailyTitle: { fontSize: 26, color: c.foreground, fontWeight: "800", letterSpacing: -0.9 },
+  actions: { flexDirection: "row", gap: 8 },
   addSmall: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.primarySoft, alignItems: "center", justifyContent: "center" },
   marksRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginLeft: 4 },
   marksText: { flexShrink: 1, color: c.accentForeground, fontSize: 12, fontWeight: "700" },

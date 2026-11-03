@@ -471,6 +471,11 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     const pending = chat.pendingConfirm;
     if (pending) {
       const answerWord = parseYesNo(text);
+      // A command with a recognised risk can be refused by voice but only agreed to with a tap on the card.
+      if (answerWord === "yes" && pending.risky) {
+        void say(t("This one needs a tap: press Agree on the card."));
+        return;
+      }
       if (answerWord) chat.answer(pending.id, answerWord === "yes");
       return;
     }
@@ -658,8 +663,13 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     const pending = chat.pendingConfirm;
     if (!pending || !voiceTurn.current || spokenCard.current === pending.id) return;
     spokenCard.current = pending.id;
-    const first = pending.lines[0];
-    sayThen(`${fill(t(first.text), first.vars)}. ${t("Shall I?")}`, () => { void captureOnce(); });
+    // A command is read out in full (the user decides by ear), and one with a recognised risk waits for a tap instead.
+    const read = pending.lines.slice(0, pending.lines[0].text.startsWith("Run on server") ? 2 : 1).map(item => fill(t(item.text), item.vars)).join(". ");
+    if (pending.risky) {
+      sayThen(`${read}. ${t("Careful, this command may be dangerous:")} ${t("This one needs a tap: press Agree on the card.")}`, () => undefined);
+      return;
+    }
+    sayThen(`${read}. ${t("Shall I?")}`, () => { void captureOnce(); });
   }, [chat.pendingConfirm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const line = announcement ?? lineFor(machine.state, name, spoken);

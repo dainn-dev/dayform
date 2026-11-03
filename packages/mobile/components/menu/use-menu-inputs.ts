@@ -7,6 +7,7 @@ import { rankLabel } from "../../lib/rank-label";
 import { useSettings } from "../../lib/settings-context";
 import { useXp } from "../../lib/xp-context";
 import { useSpecialDays } from "../../lib/special-days-context";
+import { useSshHosts } from "../../lib/ssh-hosts-context";
 import type { MenuInputs } from "../../lib/settings-menu";
 import { useThemePreference } from "../../lib/theme-context";
 import { useUpdates } from "../../lib/update-context";
@@ -22,6 +23,7 @@ export function useMenuInputs(): MenuInputs {
   const { preference } = useThemePreference();
   const categories = useCategories();
   const specialDays = useSpecialDays();
+  const sshHosts = useSshHosts();
   const apk = useUpdates();
   const ota = useOta();
   const { state, ready } = useCycle();
@@ -38,6 +40,7 @@ export function useMenuInputs(): MenuInputs {
     categoryCount: categories.visible.length,
     categoryName: categories.label,
     specialDayCount: specialDays.items.length,
+    sshHostCount: sshHosts.items.length,
     version: apk.currentVersion,
     updateLine,
     cultivationLine,
@@ -46,6 +49,6 @@ export function useMenuInputs(): MenuInputs {
     duration,
     time,
     t,
-  }), [settings, preference, language, categories.visible.length, categories.label, specialDays.items.length, apk.currentVersion, updateLine, cultivationLine,
+  }), [settings, preference, language, categories.visible.length, categories.label, specialDays.items.length, sshHosts.items.length, apk.currentVersion, updateLine, cultivationLine,
     ready, cycleEnabled, lockEnabled, timeFormat, duration, time, t]);
 }

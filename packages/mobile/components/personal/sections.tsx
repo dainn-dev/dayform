@@ -8,6 +8,7 @@ import { UpdateSection } from "../update/UpdateSection";
 import { AboutSection } from "./AboutSection";
 import { AppearanceSection } from "./AppearanceSection";
 import { AssistantSection } from "./AssistantSection";
+import { SshSection } from "./SshSection";
 import { CalendarSection } from "./CalendarSection";
 import { CultivationSection } from "./CultivationSection";
 import { CategoriesSection } from "./CategoriesSection";
@@ -53,6 +54,7 @@ export const SETTINGS_PAGES: Record<PageSlug, SettingsPageEntry> = {
     hasTextInput: true,
   },
   assistant: single(AssistantSection, true),
+  ssh: single(SshSection, true),
   cultivation: single(CultivationSection),
   "new-tasks": single(DefaultsSection, true),
   calendar: single(CalendarSection),

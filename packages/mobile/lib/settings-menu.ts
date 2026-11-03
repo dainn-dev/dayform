@@ -14,7 +14,7 @@ type Translate = (text: string) => string;
 
 export type MenuGroupId = "personalise" | "tasks" | "reminders" | "health" | "data" | "app";
 export type PageSlug =
-  | "appearance" | "assistant" | "cultivation" | "new-tasks" | "calendar" | "categories" | "notifications" | "widget"
+  | "appearance" | "assistant" | "ssh" | "cultivation" | "new-tasks" | "calendar" | "categories" | "notifications" | "widget"
   | "cycle" | "backup" | "updates" | "about";
 export type MenuRowId = PageSlug | "cycle-tracking";
 /** A color slot of `Colors.<scheme>.category`: the chip is drawn with its `bg` and `accent`. */
@@ -46,6 +46,8 @@ export type MenuInputs = {
   cultivationLine?: string | null;
   /** How many special days (birthdays, anniversaries) the user keeps. */
   specialDayCount: number;
+  /** How many SSH servers the user configured (never their names or addresses). */
+  sshHostCount: number;
   version: string;
   /** The merged, already translated update status, or null when there is nothing to say. */
   updateLine: string | null;
@@ -65,6 +67,7 @@ const MINUTES_PER_HOUR = 60;
 export const MENU_ROWS: readonly MenuRow[] = [
   { id: "appearance", slug: "appearance", group: "personalise", title: "Appearance", icon: "color-palette-outline", tint: "violet" },
   { id: "assistant", slug: "assistant", group: "personalise", title: "Assistant", icon: "sparkles-outline", tint: "violet" },
+  { id: "ssh", slug: "ssh", group: "personalise", title: "SSH servers", icon: "terminal-outline", tint: "slate" },
   { id: "cultivation", slug: "cultivation", group: "personalise", title: "Rank", icon: "flame-outline", tint: "amber" },
   { id: "new-tasks", slug: "new-tasks", group: "tasks", title: "New tasks", icon: "add-circle-outline", tint: "Focus" },
   { id: "calendar", slug: "calendar", group: "tasks", title: "Calendar & time", icon: "calendar-outline", tint: "sky" },
@@ -147,6 +150,11 @@ function specialDaySummary(count: number, t: Translate): string {
   return count === 1 ? t("1 special day") : fillPlaceholders(t("{count} special days"), { count: String(count) });
 }
 
+function sshSummary(count: number, t: Translate): string {
+  if (count === 0) return t("No servers");
+  return count === 1 ? t("1 server") : fillPlaceholders(t("{count} servers"), { count: String(count) });
+}
+
 function calendarSummary({ settings: { calendar }, timeFormat, t }: MenuInputs): string {
   const window = `${hourLabel(calendar.dayStart / MINUTES_PER_HOUR, timeFormat)} – ${hourLabel(calendar.dayEnd / MINUTES_PER_HOUR, timeFormat)}`;
   return join([window, t(WEEK_START_LABELS[calendar.weekStart])]);
@@ -174,6 +182,7 @@ const SUMMARIES: Record<MenuRowId, (inputs: MenuInputs) => string> = {
   // The page holds the theme, the language and the greeting. A language is always named in itself, so that name is never translated.
   appearance: ({ themePreference, settings, language, t }) => join([t(THEME_LABELS[themePreference]), t(ACCENT_LABELS[settings.accent]), language === "vi" ? "Tiếng Việt" : "English"]),
   assistant: ({ settings: { assistant, ai }, t }) => assistant.enabled ? join([assistant.name, t(ai.enabled ? "AI on" : "AI off")]) : t("Hidden"),
+  ssh: ({ sshHostCount, t }) => sshSummary(sshHostCount, t),
   cultivation: ({ settings, cultivationLine, t }) => (settings.xp.enabled ? cultivationLine ?? t(settings.xp.style === "engineer" ? "XP for finished tasks" : "Experience for finished tasks") : t("Off")),
   "new-tasks": ({ settings: { defaults }, duration, categoryName }) => join([duration(defaults.duration), categoryName(defaults.category)]),
   calendar: calendarSummary,

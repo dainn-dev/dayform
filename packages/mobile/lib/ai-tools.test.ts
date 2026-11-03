@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AI_TOOL_NAMES, CARD_TEXTS, checkSettingsChanges, describeAction, openSettings, parseToolCall, taskUpdate, TOOL_DEFINITIONS, type Action, type ToolContext } from "./ai-tools";
+import { AI_TOOL_NAMES, CARD_TEXTS, checkSettingsChanges, describeAction, openSettings, parseToolCall, SSH_TOOL_DEFINITIONS, taskUpdate, TOOL_DEFINITIONS, type Action, type ToolContext } from "./ai-tools";
 import type { ToolCall } from "./ai-stream";
 import type { Task } from "./planner";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -32,7 +32,7 @@ const base = () => ctx().tasks as Task[];
 
 describe("tool definitions", () => {
   test("every defined tool has a schema and the other way round", () => {
-    expect(TOOL_DEFINITIONS.map(tool => tool.function.name).sort()).toEqual([...AI_TOOL_NAMES].sort());
+    expect([...TOOL_DEFINITIONS, ...SSH_TOOL_DEFINITIONS].map(tool => tool.function.name).sort()).toEqual([...AI_TOOL_NAMES].sort());
   });
 
   test("every line a confirmation card can show is translated", () => {

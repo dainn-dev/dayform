@@ -123,9 +123,11 @@ function EntryView({ entry, s, onAnswer }: { entry: ChatEntry; s: ReturnType<typ
       return entry.text.trim() ? <View style={[s.bubble, s.theirs]}><Text style={s.theirsText}>{entry.text}</Text></View> : null;
     case "error":
       return <View style={[s.bubble, s.errorBubble]} accessibilityRole="alert"><Text style={s.errorText}>{entry.text}</Text></View>;
+    case "output":
+      return <View style={[s.output, entry.bad && s.outputBad]}><Text selectable style={s.outputText}>{entry.text}</Text></View>;
     case "confirm": {
       const pending = entry.state === "pending";
-      return <View style={s.card}>
+      return <View style={[s.card, entry.risky && s.cardRisky]}>
         {entry.lines.map((line, index) => <Text key={index} style={index === 0 ? s.cardTitle : s.cardLine}>{fill(t(line.text), line.vars)}</Text>)}
         {pending
           ? <View style={s.cardButtons}>
@@ -165,6 +167,10 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   errorBubble: { alignSelf: "flex-start", backgroundColor: c.card, borderWidth: 1, borderColor: c.destructive },
   errorText: { color: c.foreground, fontSize: 13, lineHeight: 18 },
   card: { alignSelf: "stretch", padding: 12, gap: 4, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.primary },
+  cardRisky: { borderColor: c.destructive, borderWidth: 2 },
+  output: { alignSelf: "stretch", padding: 10, borderRadius: 12, backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder },
+  outputBad: { borderColor: c.destructive },
+  outputText: { color: c.foreground, fontFamily: "monospace", fontSize: 11, lineHeight: 16 },
   cardTitle: { color: c.foreground, fontSize: 14, fontWeight: "800" },
   cardLine: { color: c.foreground, fontSize: 13 },
   cardButtons: { flexDirection: "row", gap: 8, marginTop: 8 },
