@@ -3,7 +3,7 @@
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.dayform.hpxhrm5k",
-      "versionCode": 88,
+      "versionCode": 89,
       "allowBackup": true,
       "intentFilters": [
         {
@@ -49,7 +49,7 @@
     },
     "name": "Dayform",
     "slug": "dayform",
-    "version": "1.2.76",
+    "version": "1.2.77",
     "runtimeVersion": {
       "policy": "appVersion"
     },

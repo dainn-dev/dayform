@@ -4,6 +4,8 @@ import {
   parseRoutinesText,
   removeRoutine,
   renameRoutine,
+  updateRoutine,
+  type RoutineEdit,
   type RoutineFailure,
   type RoutineResult,
   type RoutinesState,
@@ -31,7 +33,9 @@ export type RoutinesStore = {
   subscribe(listener: () => void): () => void;
   load(): Promise<void>;
   /** Saves the scheduled tasks of `date` as a routine named `name`. */
-  addFromDay(name: string, tasks: readonly Task[], date: string): Promise<RoutinesActionResult>;
+  addFromDay(name: string, tasks: readonly Task[], date: string, taskIds?: readonly string[]): Promise<RoutinesActionResult>;
+  /** Replaces the name and the tasks of a routine. */
+  update(id: string, edit: RoutineEdit): Promise<RoutinesActionResult>;
   rename(id: string, name: string): Promise<RoutinesActionResult>;
   remove(id: string): Promise<RoutinesActionResult>;
   dispose(): void;
@@ -118,7 +122,8 @@ export function createRoutinesStore(storage: KeyValueStorage): RoutinesStore {
       return () => { listeners.delete(listener); };
     },
     load,
-    addFromDay: (name, tasks, date) => apply(state => addRoutineFromDay(state, name, tasks, date)),
+    addFromDay: (name, tasks, date, taskIds) => apply(state => addRoutineFromDay(state, name, tasks, date, undefined, taskIds)),
+    update: (id, edit) => apply(state => updateRoutine(state, id, edit)),
     rename: (id, name) => apply(state => renameRoutine(state, id, name)),
     remove: id => apply(state => removeRoutine(state, id)),
     dispose() { token += 1; },

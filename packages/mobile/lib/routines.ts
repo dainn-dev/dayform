@@ -31,7 +31,7 @@ export type Routine = { id: string; name: string; items: RoutineItem[] };
 export type RoutinesState = { items: Routine[] };
 export const DEFAULT_ROUTINES_STATE: RoutinesState = { items: [] };
 
-export type RoutineFailure = "invalid-name" | "no-tasks" | "limit" | "unknown";
+export type RoutineFailure = "invalid-name" | "no-tasks" | "invalid-item" | "limit" | "unknown";
 export type RoutineResult = { ok: true; state: RoutinesState; id?: string } | { ok: false; reason: RoutineFailure };
 
 export function generateRoutineId(random: () => number = Math.random): string {
@@ -89,10 +89,13 @@ export function savableTasks(tasks: readonly Task[], date: string): Task[] {
 }
 
 /** Saves the scheduled tasks of `date` as a new routine. */
-export function addRoutineFromDay(state: RoutinesState, name: string, tasks: readonly Task[], date: string, id: string = generateRoutineId()): RoutineResult {
+export function addRoutineFromDay(
+  state: RoutinesState, name: string, tasks: readonly Task[], date: string, id: string = generateRoutineId(), taskIds?: readonly string[],
+): RoutineResult {
   const clean = cleanRoutineName(name);
   if (clean === "") return { ok: false, reason: "invalid-name" };
-  const day = savableTasks(tasks, date);
+  // `taskIds` lets the user pick which tasks of the day go into the routine; omitted = all of them.
+  const day = savableTasks(tasks, date).filter(task => taskIds === undefined || taskIds.includes(task.id));
   if (day.length === 0) return { ok: false, reason: "no-tasks" };
   if (state.items.length >= MAX_ROUTINES) return { ok: false, reason: "limit" };
   const items: RoutineItem[] = day.map(task => ({
@@ -110,6 +113,24 @@ export function renameRoutine(state: RoutinesState, id: string, name: string): R
   if (clean === "") return { ok: false, reason: "invalid-name" };
   if (!state.items.some(routine => routine.id === id)) return { ok: false, reason: "unknown" };
   return { ok: true, state: { items: state.items.map(routine => (routine.id === id ? { ...routine, name: clean } : routine)) } };
+}
+
+export type RoutineEdit = { name: string; items: readonly RoutineItem[] };
+
+/** Replaces a routine's name and tasks (the user edited, removed or retimed some); the tasks are checked like stored ones and kept in time order. */
+export function updateRoutine(state: RoutinesState, id: string, edit: RoutineEdit): RoutineResult {
+  const clean = cleanRoutineName(edit.name);
+  if (clean === "") return { ok: false, reason: "invalid-name" };
+  if (!state.items.some(routine => routine.id === id)) return { ok: false, reason: "unknown" };
+  if (edit.items.length === 0) return { ok: false, reason: "no-tasks" };
+  const items: RoutineItem[] = [];
+  for (const item of edit.items.slice(0, MAX_ROUTINE_ITEMS)) {
+    const parsed = itemSchema.safeParse({ ...item, title: item.title.trim() });
+    if (!parsed.success) return { ok: false, reason: "invalid-item" };
+    items.push(parsed.data);
+  }
+  items.sort((a, b) => minutes(a.start) - minutes(b.start));
+  return { ok: true, state: { items: state.items.map(routine => (routine.id === id ? { ...routine, name: clean, items } : routine)) } };
 }
 
 export function removeRoutine(state: RoutinesState, id: string): RoutineResult {
@@ -159,4 +180,26 @@ export function routineTasks(routine: Routine, options: ApplyOptions): Task[] {
     });
   }
   return tasks;
+}
+
+export type RoutinePlan = {
+  /** What to add to the day. */
+  tasks: Task[];
+  /** Routine tasks left out because the day already has the same task (same title at the same time). */
+  duplicates: number;
+  /** Routine tasks left out because moving the routine pushed them past the day. */
+  outside: number;
+};
+
+const sameText = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * What applying `routine` to `options.date` would add without doubling up: a task whose title and start time are
+ * already on that day (`existing`) is skipped, so tapping the same routine twice adds nothing the second time.
+ */
+export function planRoutine(routine: Routine, options: ApplyOptions, existing: readonly Task[]): RoutinePlan {
+  const all = routineTasks(routine, options);
+  const onDay = existing.filter(task => task.date === options.date && task.start !== null);
+  const tasks = all.filter(task => !onDay.some(other => other.start === task.start && sameText(other.title, task.title)));
+  return { tasks, duplicates: all.length - tasks.length, outside: routine.items.length - all.length };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Task } from "./planner";
 import {
-  MAX_ROUTINES, MAX_ROUTINE_ITEMS, addRoutineFromDay, parseRoutinesText, removeRoutine, renameRoutine, routineTasks,
+  MAX_ROUTINES, MAX_ROUTINE_ITEMS, addRoutineFromDay, parseRoutinesText, removeRoutine, renameRoutine, routineTasks, planRoutine, updateRoutine,
   type Routine, type RoutinesState,
 } from "./routines";
 import { taskSchema } from "./task-storage";
@@ -119,5 +119,50 @@ describe("parseRoutinesText", () => {
   test("not JSON or the wrong shape is invalid", () => {
     expect(parseRoutinesText("{").valid).toBe(false);
     expect(parseRoutinesText("[]").valid).toBe(false);
+  });
+});
+
+describe("routines: picking tasks, editing and not doubling up", () => {
+  const task = (id: string, title: string, start: string, date = "2026-03-02") => ({
+    id, title, date, start, duration: 30, status: "todo" as const, category: "Focus", notes: "", createdAt: "2026-03-01T00:00:00.000Z",
+    remind: null, seriesId: null, repeat: null,
+  });
+  const day = [task("a", "Run", "07:00"), task("b", "Read", "08:00"), task("c", "Plan", "09:00")];
+
+  test("only the ticked tasks of the day go into the routine", () => {
+    const result = addRoutineFromDay({ items: [] }, "Morning", day, "2026-03-02", "r_aaaaaaaa", ["a", "c"]);
+    expect(result.ok && result.state.items[0].items.map(item => item.title)).toEqual(["Run", "Plan"]);
+  });
+
+  test("ticking nothing saves nothing", () => {
+    expect(addRoutineFromDay({ items: [] }, "Morning", day, "2026-03-02", "r_aaaaaaaa", [])).toEqual({ ok: false, reason: "no-tasks" });
+  });
+
+  test("an edit renames, retimes and removes tasks, keeps time order and rejects bad values", () => {
+    const made = addRoutineFromDay({ items: [] }, "Morning", day, "2026-03-02", "r_aaaaaaaa");
+    if (!made.ok) throw new Error("setup");
+    const [run, read] = made.state.items[0].items;
+    const edited = updateRoutine(made.state, "r_aaaaaaaa", { name: "  Early  ", items: [{ ...read, start: "06:00" }, run] });
+    expect(edited.ok && edited.state.items[0].name).toBe("Early");
+    expect(edited.ok && edited.state.items[0].items.map(item => item.title)).toEqual(["Read", "Run"]);
+    expect(updateRoutine(made.state, "r_aaaaaaaa", { name: "x", items: [{ ...run, start: "25:00" }] })).toEqual({ ok: false, reason: "invalid-item" });
+    expect(updateRoutine(made.state, "r_aaaaaaaa", { name: "x", items: [{ ...run, start: "23:50", duration: 30 }] })).toEqual({ ok: false, reason: "invalid-item" });
+    expect(updateRoutine(made.state, "r_aaaaaaaa", { name: "x", items: [] })).toEqual({ ok: false, reason: "no-tasks" });
+    expect(updateRoutine(made.state, "r_aaaaaaaa", { name: " ", items: [run] })).toEqual({ ok: false, reason: "invalid-name" });
+    expect(updateRoutine(made.state, "r_zzzzzzzz", { name: "x", items: [run] })).toEqual({ ok: false, reason: "unknown" });
+  });
+
+  test("applying a routine skips tasks the day already has (same title at the same time), so a second tap adds nothing", () => {
+    const made = addRoutineFromDay({ items: [] }, "Morning", day, "2026-03-02", "r_aaaaaaaa");
+    if (!made.ok) throw new Error("setup");
+    let n = 0;
+    const options = { date: "2026-03-09", remind: null, nowIso: "2026-03-08T00:00:00.000Z", newId: () => `n${n++}` };
+    const first = planRoutine(made.state.items[0], options, []);
+    expect(first.tasks).toHaveLength(3);
+    const again = planRoutine(made.state.items[0], options, first.tasks);
+    expect(again).toMatchObject({ tasks: [], duplicates: 3, outside: 0 });
+    const some = planRoutine(made.state.items[0], options, [{ ...first.tasks[1], title: " read " }, { ...first.tasks[0], date: "2026-03-10" }]);
+    expect(some.tasks.map(item => item.title)).toEqual(["Run", "Plan"]);
+    expect(some.duplicates).toBe(1);
   });
 });

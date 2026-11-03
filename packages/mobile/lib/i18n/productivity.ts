@@ -24,6 +24,17 @@ export const vi: Record<string, string> = {
 
   // Routines
   "Routines": "Mẫu ngày",
+  "Edit routine": "Sửa mẫu",
+  "Save changes": "Lưu thay đổi",
+  "Every task of this routine is already on the day.": "Mọi việc của mẫu này đã có trong ngày.",
+  "Tick the tasks to save.": "Hãy chọn các việc cần lưu.",
+  "Check each task: a title, a start time like 09:30 and a length that ends before midnight.": "Hãy kiểm tra từng việc: có tên, giờ bắt đầu dạng 09:30 và thời lượng không qua nửa đêm.",
+  "A routine needs at least one task. Delete the routine instead.": "Mẫu cần ít nhất một việc. Hãy xóa cả mẫu nếu không cần nữa.",
+  "Remove task": "Bỏ việc",
+  "Task title": "Tên việc",
+  "Start": "Bắt đầu",
+  "Minutes": "Phút",
+  "TASKS": "VIỆC",
   "ADD TO THIS DAY": "THÊM VÀO NGÀY NÀY",
   "SAVE THIS DAY AS A ROUTINE": "LƯU NGÀY NÀY THÀNH MẪU",
   "Routine name": "Tên mẫu",

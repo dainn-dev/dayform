@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
@@ -52,6 +53,7 @@ export default function StatsScreen() {
       <Text accessibilityRole="header" style={s.title}>{t("Insights")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
       <RangePicker kind={kind} title={rangeTitle(kind, range, locale)} onKindChange={setKind} onShift={shift} action={
         <Pressable onPress={() => setReviewing(true)} accessibilityRole="button" style={s.review}>
+          <Ionicons accessible={false} name="sparkles-outline" size={17} color={colors.primary} />
           <Text numberOfLines={1} style={s.reviewText}>{t("Weekly review")}</Text>
         </Pressable>} />
       {loading
@@ -78,6 +80,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2, marginBottom: 10 },
   title: { color: c.foreground, fontSize: 31, fontWeight: "800", letterSpacing: -1 },
   loading: { marginTop: 40 },
-  review: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: c.primarySoft },
-  reviewText: { flexShrink: 1, color: c.accentForeground, fontSize: 13, fontWeight: "800" },
+  // Same shape as the Week / Month dropdown beside it (card, 14 radius, 2 px border), so the two read as one row.
+  review: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, borderRadius: 14, borderWidth: 2, borderColor: "transparent", backgroundColor: c.card },
+  reviewText: { flex: 1, color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
 });

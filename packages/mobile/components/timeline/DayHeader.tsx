@@ -50,10 +50,10 @@ export function GreetingHeader({ onToday, onFocus, now }: { onToday: () => void;
   </>;
 }
 
-type DayHeaderProps = { selected: string; today: string; scheduled: Task[]; onAdd: () => void; onQuickAdd: () => void; onRoutines: () => void };
+type DayHeaderProps = { selected: string; today: string; scheduled: Task[]; onAdd: () => void; onRoutines: () => void };
 
 /** Day panel header: date, title, add button, summary, progress bar and the DAILY TIMELINE heading. */
-export function DayHeader({ selected, today, scheduled, onAdd, onQuickAdd, onRoutines }: DayHeaderProps) {
+export function DayHeader({ selected, today, scheduled, onAdd, onRoutines }: DayHeaderProps) {
   const { t: tr, locale, summary, timeFormat } = useLanguage();
   const config = useTimelineConfig();
   const colors = useColors();
@@ -73,7 +73,6 @@ export function DayHeader({ selected, today, scheduled, onAdd, onQuickAdd, onRou
       <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
     </View>
     <View style={s.shortcuts}>
-      <Pressable onPress={onQuickAdd} style={s.shortcut} accessibilityRole="button" accessibilityLabel={tr("Quick add")}><Text numberOfLines={1} style={s.shortcutText}>{tr("Quick add")}</Text></Pressable>
       <Pressable onPress={onRoutines} style={s.shortcut} accessibilityRole="button" accessibilityLabel={tr("Routines")}><Text numberOfLines={1} style={s.shortcutText}>{tr("Routines")}</Text></Pressable>
     </View>
     {marks && <View style={s.marksRow} accessible accessibilityLabel={marksLine(marks)}>

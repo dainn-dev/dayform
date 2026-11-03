@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useFocus } from "../../lib/focus-context";
-import { useQuickAdd } from "../../lib/quick-add-context";
 import { useLanguage } from "../../lib/language";
 import { TaskEditor } from "../../components/editor/TaskEditor";
 import { RoutineSheet } from "../../components/routines/RoutineSheet";
@@ -54,7 +53,6 @@ export default function PlannerScreen() {
   const [scrollLocked, setScrollLocked] = useState(false);
   const [routinesOpen, setRoutinesOpen] = useState(false);
   const { openSheet: openFocus } = useFocus();
-  const { openQuickAdd } = useQuickAdd();
   const { tasks, loading, error, clearError, mutate } = useTasks();
   // A tapped reminder opens its task: `?edit=<id>` (validated by findEditTarget), cleared once consumed.
   // An editor that is already open is never replaced (its unsaved edits would be lost): the param waits
@@ -95,7 +93,7 @@ export default function PlannerScreen() {
 
       {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.errorBanner}><Ionicons name="alert-circle-outline" size={18} color={colors.errorIcon} /><Text style={{ color: colors.errorBannerText, fontSize: 12, flex: 1 }}>{tr(error)}</Text><Ionicons name="close" size={16} color={colors.errorIcon} /></Pressable>}
       <View style={s.dailyPanel}>
-        <DayHeader selected={selected} today={today} scheduled={scheduled} onAdd={() => openNew()} onQuickAdd={() => openQuickAdd()} onRoutines={() => setRoutinesOpen(true)} />
+        <DayHeader selected={selected} today={today} scheduled={scheduled} onAdd={() => openNew()} onRoutines={() => setRoutinesOpen(true)} />
         {!loading && carryOver.length > 0 && <CarryOverBanner count={carryOver.length} onMove={moveToToday} />}
         {loading
           ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 42 }} />

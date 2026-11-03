@@ -11,6 +11,7 @@ const FILES = [
   "components/editor/FocusStartRow.tsx",
   "components/quickadd/QuickAddSheet.tsx",
   "components/routines/RoutineSheet.tsx",
+  "components/routines/RoutineEditor.tsx",
   "components/personal/RoutinesSection.tsx",
   "components/focus/FocusSheet.tsx",
   "components/focus/FocusMini.tsx",
