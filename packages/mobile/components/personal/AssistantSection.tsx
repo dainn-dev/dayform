@@ -18,6 +18,7 @@ import { Collapsible } from "../ui/Collapsible";
 const LOOKS = [
   { id: "leo", label: "Leo", source: require("../../assets/assistant/leo.png") },
   { id: "ice-bear", label: "Ice Bear", source: require("../../assets/assistant/ice-bear.png") },
+  { id: "maid", label: "Maid", source: require("../../assets/assistant/maid.webp") },
 ] as const;
 
 const URL_PROBLEMS = {

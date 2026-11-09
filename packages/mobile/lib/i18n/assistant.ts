@@ -193,6 +193,7 @@ export const vi: Record<string, string> = {
   "{n} tasks are past their time and not done yet.": "Có {n} việc đã qua giờ mà chưa xong.",
   "Tips from the assistant": "Gợi ý từ trợ lý",
   "Assistant look": "Diện mạo của trợ lý",
+  "Maid": "Hầu gái",
   "The connection is slow, so I am listening with the phone instead. Please say it again.": "Mạng đang chậm nên mình nghe bằng điện thoại. Bạn nói lại giúp mình nhé.",
   "Now and then I pass on a short tip about the screen you are on or about your day. Only counts are used, never your task titles.": "Thỉnh thoảng mình sẽ nhắc một gợi ý ngắn về màn hình bạn đang xem hoặc về ngày hôm nay. Chỉ dùng số lượng, không bao giờ dùng tên việc của bạn.",
 };

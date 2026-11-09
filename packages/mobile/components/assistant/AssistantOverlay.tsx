@@ -6,6 +6,8 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
+import { eyesClosedAt } from "../../lib/assistant-blink";
+import { MAID_FRAMES, maidFrameAt } from "../../lib/assistant-maid";
 import { playRankSound } from "../../lib/rank-sound-expo";
 import { isNewRealm, rankLabel } from "../../lib/rank-label";
 import { word } from "../../lib/ladder-words";
@@ -35,12 +37,7 @@ import { useTasks } from "../../lib/tasks-context";
 import { ChatSheet } from "./ChatSheet";
 import { useAiChat } from "./use-ai-chat";
 import { useAssistantAdd } from "./use-assistant-add";
-
-// The flat picture of the assistant stands in until the Live2D model is rigged (see the assistant notes in CLAUDE.md).
-const ASSISTANT_IMAGES = {
-  leo: require("../../assets/assistant/leo.png"),
-  "ice-bear": require("../../assets/assistant/ice-bear.png"),
-} as const;
+import { AssistantFigure } from "./AssistantFigure";
 
 
 const HEIGHT = 112;
@@ -171,8 +168,12 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   };
   const anim = useRef({
     dx: new Animated.Value(0), dy: new Animated.Value(0), rotate: new Animated.Value(0),
-    scaleX: new Animated.Value(1), scaleY: new Animated.Value(1),
+    scaleX: new Animated.Value(1), scaleY: new Animated.Value(1), eyesShut: new Animated.Value(0),
+    frame: new Animated.Value(0),
   }).current;
+  // Read by the animation loop, which starts once and must not restart when the look changes.
+  const lookRef = useRef(look);
+  lookRef.current = look;
 
   // Timers of each state: one-shot reactions end, thinking turns into the answer, a quiet idle gets sleepy.
   useEffect(() => {
@@ -321,10 +322,25 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   // The animation loop runs only while the app is in front.
   useEffect(() => {
     let frame: number | null = null;
+    let shut = false;
+    let shown = 0;
     const tick = () => {
       const now = Date.now();
+      const state = stateRef.current;
+      const t = now - stateStart.current;
       const said = speech.current;
-      const talk = stateRef.current === "talking" && said && said.start !== null ? mouthAt(said.spans, now - said.start) : undefined;
+      const talk = state === "talking" && said && said.start !== null ? mouthAt(said.spans, now - said.start) : undefined;
+      // The picture: the eyelid layer of a one-picture look, or the maid's frame. Set only when it changes.
+      const closed = eyesClosedAt({ state, t, now });
+      if (closed !== shut) {
+        shut = closed;
+        anim.eyesShut.setValue(closed ? 1 : 0);
+      }
+      const next = lookRef.current === "maid" ? MAID_FRAMES.indexOf(maidFrameAt({ state, t, now, talk })) : shown;
+      if (next !== shown) {
+        shown = next;
+        anim.frame.setValue(next);
+      }
       const pose = poseAt({
         state: stateRef.current, t: now - stateStart.current, now, dragVx: dragVx.current,
         sinceDrop: droppedAt.current === null ? null : now - droppedAt.current, motion: motion.current, talk,
@@ -715,9 +731,8 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       <Pressable onPress={onPress} onLongPress={() => { heldOnce.current = hasSoniox; listenOnce(); }} delayLongPress={350}
         onPressOut={() => { if (heldOnce.current) { heldOnce.current = false; soniox.finish(); } }} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
         accessibilityHint={`${t("Tap to ask a question. Drag to move.")} ${t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}`} hitSlop={6}>
-        <Animated.Image source={ASSISTANT_IMAGES[look]} resizeMode="contain" style={[s.leo, {
-          transform: [{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }],
-        }]} />
+        <AssistantFigure look={look} width={WIDTH} height={HEIGHT} eyesShut={anim.eyesShut} frame={anim.frame}
+          transform={[{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }]} />
       </Pressable>
       {voiceInput.mode !== "off" && <View style={s.micBadge} pointerEvents="none" accessibilityLabel={t("Listening…")}>
         <Ionicons name="mic" size={12} color={colors.onPrimary} />
@@ -745,7 +760,6 @@ function lineFor(state: AssistantState, name: string, spoken: Line | null): Line
 
 const makeStyles = (c: ThemeColors) => StyleSheet.create({
   holder: { position: "absolute", left: 0, top: 0, width: WIDTH, height: HEIGHT },
-  leo: { width: WIDTH, height: HEIGHT },
   micBadge: {
     position: "absolute", top: 2, right: 2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center",
     backgroundColor: c.primary,

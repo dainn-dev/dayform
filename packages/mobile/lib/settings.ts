@@ -57,7 +57,7 @@ export function isValidName(text: string): boolean {
 // --- Schema ----------------------------------------------------------------------------------------------------
 // Every field carries its own default through `.catch`, so one bad value never rejects its siblings or its group.
 const flag = (fallback: boolean) => z.boolean().catch(fallback);
-export const ASSISTANT_LOOKS = ["leo", "ice-bear"] as const;
+export const ASSISTANT_LOOKS = ["leo", "ice-bear", "maid"] as const;
 export type AssistantLook = (typeof ASSISTANT_LOOKS)[number];
 
 const timeOfDay = (fallback: string) => z.string().regex(TIME_PATTERN).catch(fallback);

@@ -32,6 +32,12 @@ const DROP_MS = 600;
 export const MAX_DRAG_TILT = 25;
 /** How long the angry shake lasts before the assistant turns away. */
 export const ANGRY_SHAKE_MS = 700;
+/** How long the happy bounces last. */
+export const HAPPY_BOUNCE_MS = 1200;
+/** One sleepy nod: the head sinks for SLEEPY_SINK_MS, then jerks back up in SLEEPY_JERK_MS. */
+export const SLEEPY_NOD_MS = 3000;
+export const SLEEPY_SINK_MS = 2200;
+export const SLEEPY_JERK_MS = 250;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 /** 0 → 1 over `ms`, eased out. */
@@ -92,7 +98,7 @@ export function poseAt(input: PoseInput): Pose {
       break;
     case "happy": {
       // Two bounces with a small squash on each landing.
-      if (t < 1200) {
+      if (t < HAPPY_BOUNCE_MS) {
         const hop = Math.abs(Math.sin((Math.PI * t) / 600));
         pose.dy -= hop * 10;
         pose.scaleY = 0.95 + 0.05 * hop;
@@ -102,8 +108,10 @@ export function poseAt(input: PoseInput): Pose {
     }
     case "sleepy": {
       // A slow nod down, then a jerk back up.
-      const cycle = t % 3000;
-      pose.rotate = cycle < 2200 ? 10 * easeIn(cycle, 2200) : 10 * (1 - easeIn(cycle - 2200, 250));
+      const cycle = t % SLEEPY_NOD_MS;
+      pose.rotate = cycle < SLEEPY_SINK_MS
+        ? 10 * easeIn(cycle, SLEEPY_SINK_MS)
+        : 10 * (1 - easeIn(cycle - SLEEPY_SINK_MS, SLEEPY_JERK_MS));
       break;
     }
     case "dragged": {
