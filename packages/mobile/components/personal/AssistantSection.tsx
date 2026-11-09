@@ -19,6 +19,7 @@ const LOOKS = [
   { id: "leo", label: "Leo", source: require("../../assets/assistant/leo.png") },
   { id: "ice-bear", label: "Ice Bear", source: require("../../assets/assistant/ice-bear.png") },
   { id: "maid", label: "Maid", source: require("../../assets/assistant/maid.webp") },
+  { id: "silver", label: "Silver", source: require("../../assets/assistant/silver.webp") },
 ] as const;
 
 const URL_PROBLEMS = {
@@ -132,7 +133,7 @@ export function AssistantSection() {
             style={[s.lookButton, assistant.look === look.id && s.lookButtonActive]} accessibilityRole="radio"
             accessibilityLabel={t(look.label)} accessibilityState={{ checked: assistant.look === look.id }}>
             <Image source={look.source} style={s.lookImage} />
-            <Text style={s.lookLabel}>{t(look.label)}</Text>
+            <Text style={s.lookLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t(look.label)}</Text>
           </Pressable>
         ))}
       </View>
@@ -238,11 +239,12 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   smallButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.primary },
   smallButtonText: { color: c.primary, fontSize: 13, fontWeight: "800" },
   packButton: { marginTop: 10 },
-  lookRow: { flexDirection: "row", gap: 10, marginBottom: 6 },
-  lookButton: { flex: 1, alignItems: "center", gap: 4, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: c.hairline },
+  // Every look in one row: the buttons share the width and the pictures fill their button.
+  lookRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
+  lookButton: { flex: 1, minWidth: 0, alignItems: "center", gap: 4, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: c.hairline },
   lookButtonActive: { borderColor: c.primary, borderWidth: 2 },
-  lookImage: { width: 56, height: 78, resizeMode: "contain" },
-  lookLabel: { color: c.foreground, fontSize: 13, fontWeight: "700" },
+  lookImage: { width: "100%", height: 72, resizeMode: "contain" },
+  lookLabel: { color: c.foreground, fontSize: 12, fontWeight: "700", textAlign: "center" },
   testButton: { minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.primary, marginTop: 14 },
   testText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
   disabled: { opacity: 0.4 },

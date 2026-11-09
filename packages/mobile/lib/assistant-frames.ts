@@ -7,7 +7,7 @@ import type { AssistantLook } from "./settings";
  * owner's art. The component asks for one frame name every animation frame and still applies the shared transforms
  * (hover, tilt, bounce) on top.
  */
-export const FRAME_LOOKS = ["leo", "ice-bear", "maid"] as const satisfies readonly AssistantLook[];
+export const FRAME_LOOKS = ["leo", "ice-bear", "maid", "silver"] as const satisfies readonly AssistantLook[];
 export type FrameLook = (typeof FRAME_LOOKS)[number];
 
 export const ALL_FRAMES = [
@@ -24,6 +24,7 @@ export const LOOK_FRAMES: Record<FrameLook, readonly Frame[]> = {
   // The owner's asset set, like the maid's: duplicate frames dropped.
   leo: ALL_FRAMES,
   maid: ALL_FRAMES,
+  silver: ALL_FRAMES,
   // From the owner's pose sheet; the idle and its blink are the sharp ice-bear.png with its eyelid layer.
   "ice-bear": ALL_FRAMES.filter(f => f !== "blink-half" && f !== "talk-small" && f !== "talk-open"),
 };
@@ -89,6 +90,8 @@ export type FrameArt = { width: number; height: number; body: { left: number; ri
 export const LOOK_ART: Record<FrameLook, FrameArt> = {
   // Cut from the 512 px originals at 110,70 (322x438) and shrunk so the body is 340 px tall.
   leo: { width: 269, height: 366, body: { left: 3.3, right: 236.4, top: 22.6, bottom: 362.6 } },
+  // Cut from the 512 px originals at 60,38 (402x474) and shrunk so the body is 340 px tall.
+  silver: { width: 305, height: 360, body: { left: 49.3, right: 255, top: 12.9, bottom: 352.9 } },
   // Cut from the 512 px originals at 64,62 into a 448 px box (shipped at 352 px, same proportions).
   maid: { width: 448, height: 448, body: { left: 37, right: 340, top: 10, bottom: 442 } },
   // Built in the space of ice-bear.png and shrunk so its body is 392 px tall.
