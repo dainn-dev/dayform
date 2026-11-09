@@ -2,8 +2,8 @@ import type { AssistantState } from "./assistant-state";
 import { ANGRY_SHAKE_MS, HAPPY_BOUNCE_MS, SLEEPY_JERK_MS, SLEEPY_NOD_MS, SLEEPY_SINK_MS } from "./assistant-pose";
 
 /**
- * When the assistant's eyes are shut (framework-free, tested). The picture has one extra layer, the closed eyelids
- * (`assets/assistant/leo-eyes-closed.png`, drawn over the face), so the component only asks "open or shut?" every frame.
+ * How shut the assistant's eyes are (framework-free, tested): open, half or closed. Every look picks its blink frames
+ * from this (lib/assistant-frames.ts), so all looks blink, doze and squeeze their eyes on the same clock.
  *
  * The answer depends only on the moment, never on a random number drawn per frame, so the same frame always gives the
  * same answer and a blink never flickers. Time is cut into slots of BLINK_SLOT_MS; each slot has one blink at an offset
@@ -77,9 +77,4 @@ export function eyeLidsAt({ state, t, now }: BlinkInput): EyeLids {
     default:
       return blinking(now);
   }
-}
-
-/** True whenever the lids are not fully open (a look with only a shut-eyes layer shows it for "half" too). */
-export function eyesClosedAt(input: BlinkInput): boolean {
-  return eyeLidsAt(input) !== "open";
 }

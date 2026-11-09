@@ -6,8 +6,8 @@ import { useColors } from "../../hooks/use-colors";
 import type { ThemeColors } from "../../constants/theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
-import { eyesClosedAt } from "../../lib/assistant-blink";
-import { MAID_FRAMES, maidFrameAt } from "../../lib/assistant-maid";
+import { liftAbove } from "../../lib/assistant-place";
+import { ALL_FRAMES, frameAt, isFrameLook } from "../../lib/assistant-frames";
 import { playRankSound } from "../../lib/rank-sound-expo";
 import { isNewRealm, rankLabel } from "../../lib/rank-label";
 import { word } from "../../lib/ladder-words";
@@ -116,6 +116,11 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   };
   const closeChat = () => {
     setChatOpen(false);
+    setSheetTop(null);
+    if (beforeChat.current) {
+      moveTo(beforeChat.current);
+      beforeChat.current = null;
+    }
     chat.stop();
     stopSpeaking();
     if (awaitingAi.current) {
@@ -135,6 +140,23 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   const [place, setPlace] = useState(() => savedPosition ?? clampPosition(EDGE, maxY - 64));
   const position = useRef(new Animated.ValueXY(place)).current;
   const current = useRef(place);
+
+  // While the chat is open the assistant stands above its sheet, and goes back to its place when the chat closes, unless
+  // the user dragged it somewhere in between.
+  const [sheetTop, setSheetTop] = useState<number | null>(null);
+  const beforeChat = useRef<{ x: number; y: number } | null>(null);
+  const moveTo = (next: { x: number; y: number }) => {
+    current.current = next;
+    setPlace(next);
+    Animated.spring(position, { toValue: next, useNativeDriver: false, bounciness: 4 }).start();
+  };
+  useEffect(() => {
+    if (!chatOpen || sheetTop === null) return;
+    const y = liftAbove(current.current.y, sheetTop, { height: HEIGHT, minY, gap: EDGE });
+    if (y === null) return;
+    if (beforeChat.current === null) beforeChat.current = current.current;
+    moveTo({ x: current.current.x, y });
+  }, [chatOpen, sheetTop]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pose inputs read by the animation loop without re-rendering.
   const stateRef = useRef<AssistantState>(machine.state);
@@ -168,7 +190,7 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   };
   const anim = useRef({
     dx: new Animated.Value(0), dy: new Animated.Value(0), rotate: new Animated.Value(0),
-    scaleX: new Animated.Value(1), scaleY: new Animated.Value(1), eyesShut: new Animated.Value(0),
+    scaleX: new Animated.Value(1), scaleY: new Animated.Value(1),
     frame: new Animated.Value(0),
   }).current;
   // Read by the animation loop, which starts once and must not restart when the look changes.
@@ -322,7 +344,6 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   // The animation loop runs only while the app is in front.
   useEffect(() => {
     let frame: number | null = null;
-    let shut = false;
     let shown = 0;
     const tick = () => {
       const now = Date.now();
@@ -330,13 +351,9 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       const t = now - stateStart.current;
       const said = speech.current;
       const talk = state === "talking" && said && said.start !== null ? mouthAt(said.spans, now - said.start) : undefined;
-      // The picture: the eyelid layer of a one-picture look, or the maid's frame. Set only when it changes.
-      const closed = eyesClosedAt({ state, t, now });
-      if (closed !== shut) {
-        shut = closed;
-        anim.eyesShut.setValue(closed ? 1 : 0);
-      }
-      const next = lookRef.current === "maid" ? MAID_FRAMES.indexOf(maidFrameAt({ state, t, now, talk })) : shown;
+      // The picture: the frame of the look. Set only when it changes.
+      const look = lookRef.current;
+      const next = isFrameLook(look) ? ALL_FRAMES.indexOf(frameAt(look, { state, t, now, talk })) : shown;
       if (next !== shown) {
         shown = next;
         anim.frame.setValue(next);
@@ -369,6 +386,9 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
     // Capture once the finger really moves, so a tap still reaches the picture.
     onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) + Math.abs(g.dy) > 6,
     onPanResponderGrant: () => {
+      // The user picks the place now: stop any step up or back, and do not return to the old place after the chat.
+      position.stopAnimation();
+      beforeChat.current = null;
       stopSpeaking();
       if (soniox.mode === "once") soniox.stop();
       drag.current = { ...current.current };
@@ -695,6 +715,11 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   const rotate = anim.rotate.interpolate({ inputRange: [-360, 360], outputRange: ["-360deg", "360deg"] });
 
   return <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    {/* Drawn before the assistant, so the assistant stays on top of its chat and can still be dragged. */}
+    <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
+      onSend={text => { touched(); if (matchPeriod(text)) void askPeriod(text, true); else void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
+      listening={voiceInput.mode === "question" || soniox.mode === "once"} heard={heard} onMic={listenOnce}
+      recording={soniox.mode === "once"} onSheetTop={setSheetTop} />
     <Animated.View style={[s.holder, { transform: position.getTranslateTransform() }]} {...pan.panHandlers}>
       {chatOpen ? null : add.pending
         ? <View style={[s.bubble, ...bubblePlace]} accessibilityLiveRegion="polite">
@@ -731,17 +756,13 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
       <Pressable onPress={onPress} onLongPress={() => { heldOnce.current = hasSoniox; listenOnce(); }} delayLongPress={350}
         onPressOut={() => { if (heldOnce.current) { heldOnce.current = false; soniox.finish(); } }} accessibilityRole="button" accessibilityLabel={t("{name}, your assistant").replace("{name}", assistantName)}
         accessibilityHint={`${t("Tap to ask a question. Drag to move.")} ${t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}`} hitSlop={6}>
-        <AssistantFigure look={look} width={WIDTH} height={HEIGHT} eyesShut={anim.eyesShut} frame={anim.frame}
+        <AssistantFigure look={look} width={WIDTH} height={HEIGHT} frame={anim.frame}
           transform={[{ translateX: anim.dx }, { translateY: anim.dy }, { rotate }, { scaleX: anim.scaleX }, { scaleY: anim.scaleY }]} />
       </Pressable>
       {voiceInput.mode !== "off" && <View style={s.micBadge} pointerEvents="none" accessibilityLabel={t("Listening…")}>
         <Ionicons name="mic" size={12} color={colors.onPrimary} />
       </View>}
     </Animated.View>
-    <ChatSheet visible={chatOpen} name={assistantName} entries={chat.entries} busy={chat.busy} readiness={chat.readiness}
-      onSend={text => { touched(); if (matchPeriod(text)) void askPeriod(text, true); else void chat.send(text); }} onAnswer={chat.answer} onClose={closeChat} onClear={chat.clear}
-      listening={voiceInput.mode === "question" || soniox.mode === "once"} heard={heard} onMic={listenOnce}
-      recording={soniox.mode === "once"} />
   </View>;
 }
 

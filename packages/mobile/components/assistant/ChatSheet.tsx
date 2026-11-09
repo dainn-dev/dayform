@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,6 +28,8 @@ type Props = {
   /** A clip is being recorded for the provider, or sent to it. */
   recording?: boolean;
   transcribing?: boolean;
+  /** Where the sheet's top edge is (dp from the top of the screen), so the assistant can stand above it. */
+  onSheetTop?: (y: number) => void;
 };
 
 const MISSING: Record<Exclude<AiReadiness, "ready">, string> = {
@@ -38,7 +40,7 @@ const MISSING: Record<Exclude<AiReadiness, "ready">, string> = {
 };
 
 /** The AI chat with the assistant: messages, a confirmation card for every change, and the input. */
-export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onAnswer, onClose, onClear, listening, heard, onMic, recording, transcribing }: Props) {
+export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onAnswer, onClose, onClear, listening, heard, onMic, recording, transcribing, onSheetTop }: Props) {
   const { t } = useLanguage();
   const colors = useColors();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -49,6 +51,20 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
   const scroll = useRef<ScrollView>(null);
 
   useEffect(() => { scroll.current?.scrollToEnd({ animated: true }); }, [entries]);
+
+  // Not a Modal: a Modal is a window of its own above the whole app, which hid the assistant and took every touch, so it
+  // could not be dragged while the chat was open. The sheet is now a layer drawn under the assistant, which slides it in
+  // and closes it on the Back button itself (the Modal did both before).
+  const slide = useRef(new Animated.Value(SLIDE_FROM)).current;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (!visible) return;
+    slide.setValue(SLIDE_FROM);
+    Animated.timing(slide, { toValue: 0, duration: SLIDE_MS, useNativeDriver: true }).start();
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => { closeRef.current(); return true; });
+    return () => sub.remove();
+  }, [visible, slide]);
 
   const submit = () => {
     if (!draft.trim() || busy) return;
@@ -61,14 +77,16 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
     router.push("/settings/assistant");
   };
 
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    {/* iOS lifts the sheet with the KeyboardAvoidingView; on Android the Modal is not resized, so the backdrop is padded by the
-        keyboard. The padding goes on the backdrop, not the sheet: inside the sheet it counted against the sheet's maximum
-        height and pushed the input row under the keyboard. */}
+  if (!visible) return null;
+  return <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    {/* iOS lifts the sheet with the KeyboardAvoidingView; on Android the screen is edge-to-edge and not resized, so the
+        backdrop is padded by the keyboard. The padding goes on the backdrop, not the sheet: inside the sheet it counted
+        against the sheet's maximum height and pushed the input row under the keyboard. */}
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={[s.backdrop, Platform.OS === "android" && keyboard.height > 0 && { paddingBottom: keyboard.height }]}>
       <Pressable style={s.dismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={t("Close")} />
-      <View style={[s.sheet, { paddingBottom: (Platform.OS === "android" && keyboard.height > 0 ? 0 : insets.bottom) + 8 }]}>
+      <Animated.View accessibilityViewIsModal onLayout={e => onSheetTop?.(e.nativeEvent.layout.y)}
+        style={[s.sheet, { paddingBottom: (Platform.OS === "android" && keyboard.height > 0 ? 0 : insets.bottom) + 8, transform: [{ translateY: slide }] }]}>
         <View style={s.header}>
           <Text style={s.title} accessibilityRole="header">{name}</Text>
           <Pressable onPress={onClear} accessibilityRole="button" accessibilityLabel={t("New chat")} hitSlop={8} style={s.iconButton}>
@@ -109,10 +127,14 @@ export function ChatSheet({ visible, name, entries, busy, readiness, onSend, onA
             <Ionicons name="arrow-up" size={20} color={colors.onPrimary} />
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
     </KeyboardAvoidingView>
-  </Modal>;
+  </View>;
 }
+
+/** The sheet slides up from this far below (dp) when it opens. */
+const SLIDE_FROM = 360;
+const SLIDE_MS = 220;
 
 function EntryView({ entry, s, onAnswer }: { entry: ChatEntry; s: ReturnType<typeof makeStyles>; onAnswer: (id: string, yes: boolean) => void }) {
   const { t } = useLanguage();
