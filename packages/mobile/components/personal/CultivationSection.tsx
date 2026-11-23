@@ -1,7 +1,6 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { word } from "../../lib/ladder-words";
 import { rankLabel } from "../../lib/rank-label";
@@ -26,8 +25,7 @@ const STYLE_NAMES = { cultivation: "Cultivation style", engineer: "Engineer styl
  */
 export function CultivationSection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { settings, update } = useSettings();
   const xp = useXp();
   const { rank, state, ladder, style } = xp;
@@ -94,24 +92,30 @@ export function CultivationSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  hero: { alignItems: "center", paddingVertical: 12, gap: 8 },
-  rank: { color: c.foreground, fontSize: 20, lineHeight: 26, fontWeight: "800", marginTop: 6, textAlign: "center", alignSelf: "stretch" },
-  track: { alignSelf: "stretch", height: 8, borderRadius: 4, backgroundColor: c.track, overflow: "hidden", marginTop: 4 },
-  fill: { height: 8, borderRadius: 4, backgroundColor: c.primary },
-  teaser: { color: c.mutedForeground, fontSize: 12, fontStyle: "italic", textAlign: "center" },
-  path: { alignItems: "flex-start", paddingVertical: 6, paddingRight: 8 },
-  pathStep: { flexDirection: "row", alignItems: "flex-start" },
-  link: { width: 14, height: 2, borderRadius: 1, backgroundColor: c.track, marginTop: REALM_TILE / 2 - 1 },
-  realm: { width: 76, alignItems: "center", gap: 4 },
-  realmName: { color: c.mutedForeground, fontSize: 11, lineHeight: 14, fontWeight: "700", textAlign: "center" },
-  realmNameNow: { color: c.primary },
-  unknown: { width: REALM_TILE, height: REALM_TILE, borderRadius: REALM_TILE / 2, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
-  unknownMark: { color: c.mutedForeground, fontSize: 18, fontWeight: "800" },
-  styles: { flexDirection: "row", gap: 10, marginBottom: 6 },
-  styleCard: { flex: 1, alignItems: "center", gap: 4, padding: 10, borderRadius: 14, borderWidth: 1, borderColor: c.hairline },
-  styleCardOn: { borderColor: c.primary, borderWidth: 2, backgroundColor: c.primaryTint },
-  styleName: { color: c.foreground, fontSize: 12, fontWeight: "800", textAlign: "center" },
-  erase: { minHeight: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center", marginTop: 16 },
-  eraseText: { color: c.destructive, fontSize: 13, fontWeight: "700" },
-});
+const TRACK_HEIGHT = 8;
+const LINK_HEIGHT = 2;
+
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    hero: { alignItems: "center", paddingVertical: t.space.md, gap: t.space.sm },
+    rank: { ...t.type.headline, color: c.foreground, marginTop: t.space.xs + 2, textAlign: "center", alignSelf: "stretch" },
+    track: { alignSelf: "stretch", height: TRACK_HEIGHT, borderRadius: TRACK_HEIGHT / 2, backgroundColor: c.track, overflow: "hidden", marginTop: t.space.xs },
+    fill: { height: TRACK_HEIGHT, borderRadius: TRACK_HEIGHT / 2, backgroundColor: c.primary },
+    teaser: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, fontStyle: "italic", textAlign: "center" },
+    path: { alignItems: "flex-start", paddingVertical: t.space.xs + 2, paddingRight: t.space.sm },
+    pathStep: { flexDirection: "row", alignItems: "flex-start" },
+    link: { width: 14, height: LINK_HEIGHT, borderRadius: LINK_HEIGHT / 2, backgroundColor: c.track, marginTop: REALM_TILE / 2 - 1 },
+    realm: { width: 76, alignItems: "center", gap: t.space.xs },
+    realmName: { ...t.type.caption, ...t.font.bold, color: c.mutedForeground, textAlign: "center" },
+    realmNameNow: { color: c.primary },
+    unknown: { width: REALM_TILE, height: REALM_TILE, borderRadius: REALM_TILE / 2, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
+    unknownMark: { ...t.type.title, color: c.mutedForeground },
+    styles: { flexDirection: "row", gap: 10, marginBottom: t.space.xs + 2 },
+    styleCard: { flex: 1, alignItems: "center", gap: t.space.xs, padding: 10, borderRadius: t.radius.md, borderWidth: 1, borderColor: c.hairline },
+    styleCardOn: { borderColor: c.primary, borderWidth: 2, backgroundColor: c.primaryTint },
+    styleName: { ...t.type.meta, ...t.font.bold, color: c.foreground, textAlign: "center" },
+    erase: { minHeight: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center", marginTop: t.space.lg },
+    eraseText: { ...t.type.label, color: c.destructive },
+  });
+};

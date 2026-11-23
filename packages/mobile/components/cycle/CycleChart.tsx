@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import type { CycleState } from "../../lib/cycle-model";
 import { cycleStats } from "../../lib/cycle-stats";
 import { chartSummary, cycleBars } from "../../lib/cycle-ui-chart";
@@ -11,13 +10,14 @@ import { CycleCard } from "./CycleCard";
 import { useCycleFormat } from "./use-cycle-format";
 
 const CHART_HEIGHT = 110;
+/** The date under a bar sits in a column only a bar wide (up to a dozen share the card), so it keeps a tiny fixed size. */
+const TICK_SIZE = 8;
 
 /** Cycle lengths as plain View bars, newest on the right, with the average, shortest and longest. */
 export function CycleChart({ state }: { state: CycleState }) {
   const { t, locale } = useLanguage();
-  const colors = useColors();
   const format = useCycleFormat();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const stats = useMemo(() => cycleStats(state), [state]);
   const bars = useMemo(() => cycleBars(stats, CHART_HEIGHT), [stats]);
   const summary = format.say(chartSummary(stats));
@@ -51,15 +51,17 @@ function Tile({ label, value, styles }: { label: string; value: string; styles: 
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  text: { color: c.foreground, fontSize: 13, lineHeight: 19 },
-  chart: { flexDirection: "row", alignItems: "flex-end", gap: 4, height: CHART_HEIGHT + 40 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  text: { ...t.type.body, color: t.colors.foreground },
+  chart: { flexDirection: "row", alignItems: "flex-end", gap: t.space.xs, height: CHART_HEIGHT + 40 },
   column: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
-  bar: { width: "70%", maxWidth: 22, borderRadius: 6, backgroundColor: c.primary },
-  value: { color: c.foreground, fontSize: 10, fontWeight: "800", marginBottom: 3 },
-  tick: { color: c.foreground, fontSize: 8, marginTop: 4 },
-  tiles: { flexDirection: "row", gap: 8, marginTop: 14 },
-  tile: { flex: 1, backgroundColor: c.primarySoft, borderRadius: 12, padding: 10 },
-  tileLabel: { color: c.foreground, fontSize: 10, fontWeight: "700" },
-  tileValue: { color: c.foreground, fontSize: 13, fontWeight: "800", marginTop: 2 },
+  // xs, not sm: the bar is at most 22px wide, and a bigger corner would round it into a pill.
+  bar: { width: "70%", maxWidth: 22, borderRadius: t.radius.xs, backgroundColor: t.colors.primary },
+  value: { ...t.type.micro, color: t.colors.foreground, marginBottom: 3 },
+  tick: { ...t.type.caption, ...t.font.regular, fontSize: TICK_SIZE, lineHeight: TICK_SIZE + 3, color: t.colors.foreground, marginTop: t.space.xs },
+  tiles: { flexDirection: "row", gap: t.space.sm, marginTop: 14 },
+  tile: { flex: 1, backgroundColor: t.colors.primarySoft, borderRadius: t.radius.md, padding: 10 },
+  // caption, not the upper-case micro: three tiles share a row and an upper-case single word would break mid-word.
+  tileLabel: { ...t.type.caption, color: t.colors.foreground },
+  tileValue: { ...t.type.label, color: t.colors.foreground, marginTop: t.space.xxs },
 });

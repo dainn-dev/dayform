@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Modal, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
+import { Button } from "../ui/Button";
+import { Chip } from "../ui/Chip";
+import { IconButton } from "../ui/IconButton";
 import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
 import { addDays, dateKey, fromKey, type Repeat } from "../../lib/planner";
@@ -21,8 +22,8 @@ const randomSuffix = () => Math.random().toString(36).slice(2);
 /** Type a sentence ("họp team 3pm mai 45p #work"), see what was understood, add it. Several tasks can be added in a row. */
 export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
   const { t, locale, time, duration } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { settings } = useSettings();
   const { visible: categoryIds, label } = useCategories();
   const { tasks, mutate } = useTasks();
@@ -72,8 +73,8 @@ export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
     <SafeAreaView style={s.root} edges={["top", "bottom", "left", "right"]}>
       <View style={s.top}>
-        <View><Text style={s.eyebrow}>{t("WRITE IT LIKE YOU SAY IT")}</Text><Text accessibilityRole="header" style={s.heading}>{t("Quick add")}</Text></View>
-        <Pressable onPress={close} accessibilityLabel={t("Close quick add")} accessibilityRole="button" style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
+        <View style={s.titles}><Text style={s.eyebrow}>{t("WRITE IT LIKE YOU SAY IT")}</Text><Text accessibilityRole="header" style={s.heading}>{t("Quick add")}</Text></View>
+        <IconButton icon="close" label={t("Close quick add")} onPress={close} />
       </View>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <TextInput value={text} onChangeText={value => { setText(value); setAdded(null); }} onSubmitEditing={() => void add()} autoFocus returnKeyType="done" blurOnSubmit={false}
@@ -81,13 +82,11 @@ export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
         {form !== null
           ? <>
             <Text accessibilityRole="header" style={s.title}>{form.title}</Text>
-            <View style={s.chips}>{chips.map((chip, i) => <View key={i} style={s.chip}><Text style={s.chipText}>{chip}</Text></View>)}</View>
+            <View style={s.chips}>{chips.map((chip, i) => <Chip key={i} label={chip} />)}</View>
             {overlapping && <Text style={s.warn}>{t("⚠ Overlaps another task")}</Text>}
           </>
           : <Text style={s.hint}>{t("Try: Gym 6pm Friday, Pay rent every month, Read for 20m")}</Text>}
-        <Pressable onPress={() => void add()} disabled={plan === null} accessibilityRole="button" accessibilityState={{ disabled: plan === null }} style={[s.primary, plan === null && s.primaryOff]}>
-          <Text style={s.primaryText}>{t("Add task")}</Text>
-        </Pressable>
+        <Button label={t("Add task")} onPress={() => void add()} disabled={plan === null} block style={s.primary} />
         {added !== null && <Text accessibilityLiveRegion="polite" style={s.ok}>{`${t("Added")}: ${added}`}</Text>}
         {failed && <Text accessibilityLiveRegion="polite" style={s.warn}>{t("Your change could not be saved. Please try again.")}</Text>}
         <Text style={s.tips}>{t("Words I understand: today, tomorrow, Monday, 15/11, 3pm, 15h30, 45m, 2 hours, every day, every Friday, #category.")}</Text>
@@ -96,23 +95,23 @@ export function QuickAddSheet({ visible, onClose, initialText = "" }: Props) {
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = ({ colors: c, type, font, radius, space, gutter }: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: c.background },
-  top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 2, color: c.primary, marginBottom: 5 },
-  heading: { fontSize: 28, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 24, paddingBottom: 32 },
-  input: { minHeight: 56, backgroundColor: c.card, borderRadius: 16, paddingHorizontal: 16, color: c.foreground, fontSize: 16, borderWidth: 1, borderColor: c.inputBorder },
-  title: { color: c.foreground, fontSize: 20, fontWeight: "800", marginTop: 22 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
-  chip: { justifyContent: "center", minHeight: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: c.primarySoft },
-  chipText: { color: c.accentForeground, fontSize: 12, fontWeight: "700" },
-  warn: { color: c.conflictText, fontSize: 12, fontWeight: "700", marginTop: 12 },
-  hint: { color: c.mutedForeground, fontSize: 13, marginTop: 22 },
-  primary: { marginTop: 26, minHeight: 54, borderRadius: 18, backgroundColor: c.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  primaryOff: { opacity: 0.45 },
-  primaryText: { color: c.onPrimary, fontSize: 16, fontWeight: "800" },
-  ok: { color: c.accentForeground, fontSize: 13, fontWeight: "700", marginTop: 14, textAlign: "center" },
-  tips: { color: c.mutedForeground, fontSize: 11, marginTop: 28, lineHeight: 17 },
+  top: { paddingHorizontal: gutter, paddingTop: space.xl, paddingBottom: space.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
+  titles: { flex: 1, minWidth: 0 },
+  eyebrow: { ...type.micro, color: c.primary, marginBottom: 5 },
+  heading: { ...type.display, color: c.foreground },
+  content: { paddingHorizontal: gutter, paddingBottom: space.xxxl },
+  input: {
+    ...type.body, minHeight: 56, backgroundColor: c.card, borderRadius: radius.md, paddingHorizontal: space.lg, color: c.foreground,
+    borderWidth: 1, borderColor: c.inputBorder,
+  },
+  title: { ...type.headline, color: c.foreground, marginTop: 22 },
+  // The chips only show what was understood; the 10 px gap keeps their (unused) hit areas apart like the editor's chips.
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: space.md },
+  warn: { ...type.meta, ...font.bold, color: c.conflictText, marginTop: space.md },
+  hint: { ...type.body, color: c.mutedForeground, marginTop: 22 },
+  primary: { marginTop: 26 },
+  ok: { ...type.label, color: c.accentForeground, marginTop: 14, textAlign: "center" },
+  tips: { ...type.caption, ...font.regular, color: c.mutedForeground, marginTop: 28 },
 });

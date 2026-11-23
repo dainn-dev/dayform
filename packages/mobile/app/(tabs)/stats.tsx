@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
+import { Title } from "../../components/ui/Title";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { computeStats, followToday, monthRange, shiftRange, weekRange, type RangeKind } from "../../lib/stats";
@@ -24,8 +24,8 @@ import { useTodayKey } from "../../components/stats/use-today-key";
 
 export default function StatsScreen() {
   const { t, locale } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { tasks, loading } = useTasks();
   const weekStart = useSettings().settings.calendar.weekStart;
   const today = useTodayKey();
@@ -50,7 +50,7 @@ export default function StatsScreen() {
   return <SafeAreaView edges={["top", "left", "right"]} style={s.root}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <Text style={s.kicker}>{t("Stats").toUpperCase()}</Text>
-      <Text accessibilityRole="header" style={s.title}>{t("Insights")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
+      <Title>{t("Insights")}</Title>
       <RangePicker kind={kind} title={rangeTitle(kind, range, locale)} onKindChange={setKind} onShift={shift} action={
         <Pressable onPress={() => setReviewing(true)} accessibilityRole="button" style={s.review}>
           <Ionicons accessible={false} name="sparkles-outline" size={17} color={colors.primary} />
@@ -74,13 +74,16 @@ export default function StatsScreen() {
   </SafeAreaView>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: c.background },
-  content: { width: "100%", maxWidth: 680, alignSelf: "center", paddingHorizontal: 22, paddingTop: 28, paddingBottom: 32 },
-  kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2, marginBottom: 10 },
-  title: { color: c.foreground, fontSize: 31, fontWeight: "800", letterSpacing: -1 },
-  loading: { marginTop: 40 },
-  // Same shape as the Week / Month dropdown beside it (card, 14 radius, 2 px border), so the two read as one row.
-  review: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, borderRadius: 14, borderWidth: 2, borderColor: "transparent", backgroundColor: c.card },
-  reviewText: { flex: 1, color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    content: { width: "100%", maxWidth: 680, alignSelf: "center", paddingHorizontal: t.gutter, paddingTop: 28, paddingBottom: t.space.xxxl },
+    kicker: { ...t.type.micro, color: c.primary, marginBottom: 10 },
+    loading: { marginTop: 40 },
+    // Same shape as the Week / Month dropdown beside it (components/tasks/FilterDropdown.tsx: card, md corner, 2 px
+    // transparent border that the bordered styles' card depth replaces with their line), so the two read as one row.
+    review: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", gap: t.space.sm, paddingHorizontal: 13, borderRadius: t.radius.md, borderWidth: 2, borderColor: "transparent", backgroundColor: c.card, ...t.elevation.card },
+    reviewText: { ...t.type.label, flex: 1, color: c.mutedForeground },
+  });
+};

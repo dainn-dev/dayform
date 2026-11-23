@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
+import { IconButton } from "../ui/IconButton";
 import { useLanguage } from "../../lib/language";
 import { fromKey } from "../../lib/planner";
 import { MAX_ROUTINE_NAME, planRoutine, savableTasks, type Routine } from "../../lib/routines";
@@ -28,8 +28,8 @@ const SAVE_MESSAGES: Record<string, string> = {
 /** Lays a saved routine onto the shown day, or saves the shown day as a new routine. */
 export function RoutineSheet({ visible, date, onClose }: Props) {
   const { t, locale, time } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { settings } = useSettings();
   const { items, addFromDay, update, remove } = useRoutines();
   const { tasks, mutate } = useTasks();
@@ -91,15 +91,15 @@ export function RoutineSheet({ visible, date, onClose }: Props) {
 
   if (editing !== null) {
     return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setEditing(null)}>
-      <RoutineEditor routine={editing} colors={colors} onCancel={() => setEditing(null)} update={update} remove={remove} />
+      <RoutineEditor routine={editing} onCancel={() => setEditing(null)} update={update} remove={remove} />
     </Modal>;
   }
 
   return <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
     <SafeAreaView style={s.root} edges={["top", "bottom", "left", "right"]}>
       <View style={s.top}>
-        <View><Text style={s.eyebrow}>{dayLabel.toUpperCase()}</Text><Text accessibilityRole="header" style={s.heading}>{t("Routines")}</Text></View>
-        <Pressable onPress={close} accessibilityLabel={t("Close routines")} accessibilityRole="button" style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
+        <View style={s.titles}><Text style={s.eyebrow}>{dayLabel.toUpperCase()}</Text><Text accessibilityRole="header" style={s.heading}>{t("Routines")}</Text></View>
+        <IconButton icon="close" label={t("Close routines")} onPress={close} />
       </View>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text style={s.label}>{t("ADD TO THIS DAY")}</Text>
@@ -140,27 +140,34 @@ export function RoutineSheet({ visible, date, onClose }: Props) {
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const TOUCH_TARGET = 44;
+const ADD_SIZE = 44;
+
+const makeStyles = ({ colors: c, type, font, radius, space, gutter, elevation, buttonRadius }: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: c.background },
-  top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 1.5, color: c.primary, marginBottom: 5 },
-  heading: { fontSize: 28, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 24, paddingBottom: 32 },
-  label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 9, marginTop: 22 },
-  hint: { color: c.mutedForeground, fontSize: 13, lineHeight: 19 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 16, backgroundColor: c.card, marginBottom: 10 },
+  top: { paddingHorizontal: gutter, paddingTop: space.xl, paddingBottom: space.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
+  titles: { flex: 1, minWidth: 0 },
+  eyebrow: { ...type.micro, color: c.primary, marginBottom: 5 },
+  heading: { ...type.display, color: c.foreground },
+  content: { paddingHorizontal: gutter, paddingBottom: space.xxxl },
+  label: { ...type.micro, color: c.labelText, marginBottom: 9, marginTop: 22 },
+  hint: { ...type.body, color: c.mutedForeground },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, padding: 14, borderRadius: radius.lg, backgroundColor: c.card, marginBottom: 10, ...elevation.card },
   rowText: { flex: 1, minWidth: 0 },
-  rowName: { color: c.foreground, fontSize: 15, fontWeight: "700" },
-  rowMeta: { color: c.mutedForeground, fontSize: 12, marginTop: 4 },
-  iconBtn: { width: 40, height: 44, alignItems: "center", justifyContent: "center" },
-  pickList: { marginBottom: 12 },
-  pickRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 10 },
-  pickTitle: { flex: 1, minWidth: 0, color: c.foreground, fontSize: 14, fontWeight: "600" },
-  add: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  input: { minHeight: 52, backgroundColor: c.card, borderRadius: 15, paddingHorizontal: 16, color: c.foreground, fontSize: 15, borderWidth: 1, borderColor: c.inputBorder },
-  primary: { marginTop: 14, minHeight: 50, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  rowName: { ...type.subtitle, color: c.foreground },
+  rowMeta: { ...type.meta, color: c.mutedForeground, marginTop: space.xs },
+  iconBtn: { width: 40, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
+  pickList: { marginBottom: space.md },
+  pickRow: { minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 10 },
+  pickTitle: { ...type.body, ...font.semibold, flex: 1, minWidth: 0, color: c.foreground },
+  add: { width: ADD_SIZE, height: ADD_SIZE, borderRadius: ADD_SIZE / 2, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
+  input: {
+    ...type.body, minHeight: 52, backgroundColor: c.card, borderRadius: radius.md, paddingHorizontal: space.lg, color: c.foreground,
+    borderWidth: 1, borderColor: c.inputBorder,
+  },
+  // Drawn by hand (not the kit's Button): its words can be a whole sentence that wraps onto two lines.
+  primary: { marginTop: 14, minHeight: 48, borderRadius: buttonRadius, backgroundColor: c.primary, alignItems: "center", justifyContent: "center", paddingHorizontal: space.lg, paddingVertical: space.sm },
   primaryOff: { opacity: 0.45 },
-  primaryText: { color: c.onPrimary, fontSize: 14, fontWeight: "800", textAlign: "center" },
-  message: { color: c.accentForeground, fontSize: 13, fontWeight: "700", marginTop: 14, textAlign: "center" },
+  primaryText: { ...type.label, color: c.onPrimary, textAlign: "center" },
+  message: { ...type.label, color: c.accentForeground, marginTop: 14, textAlign: "center" },
 });

@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useNow } from "../../hooks/use-now";
-import type { ThemeColors } from "../../constants/theme";
 import { useCycle } from "../../lib/cycle-context";
 import type { DialogTarget } from "../../lib/cycle-ui-actions";
 import { useLanguage } from "../../lib/language";
@@ -24,11 +23,11 @@ import { SummaryCard } from "./SummaryCard";
 /** The private cycle screen. Mount it inside CycleLockGate: it assumes the user is allowed to see the data. */
 export function CycleContent() {
   const { t } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const { state, ready, saveError, locked } = useCycle();
   const { settings } = useSettings();
   const today = dateKey(useNow());
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [target, setTarget] = useState<DialogTarget | null>(null);
 
   return <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -60,10 +59,10 @@ export function CycleContent() {
   </ScrollView>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  content: { width: "100%", maxWidth: 680, alignSelf: "center", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 48 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  content: { width: "100%", maxWidth: 680, alignSelf: "center", paddingHorizontal: t.gutter, paddingTop: t.space.lg, paddingBottom: 48 },
   spinner: { marginVertical: 40 },
-  text: { color: c.foreground, fontSize: 13, lineHeight: 19 },
-  error: { backgroundColor: c.errorBg, borderRadius: 14, padding: 13, marginBottom: 12 },
-  errorText: { color: c.errorMessage, fontSize: 12, lineHeight: 17 },
+  text: { ...t.type.body, color: t.colors.foreground },
+  error: { backgroundColor: t.colors.errorBg, borderRadius: t.radius.md, padding: 13, marginBottom: t.space.md },
+  errorText: { ...t.type.meta, ...t.font.regular, color: t.colors.errorMessage },
 });

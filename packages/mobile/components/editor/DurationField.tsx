@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { hoursTextToMinutesText, minutesToHoursText, toggleUnit, type DurationUnit } from "../../lib/duration-input";
 import { useFieldStyles } from "./field-styles";
@@ -24,10 +23,10 @@ type Props = {
  */
 export function DurationField({ minutes, onChange }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const f = useFieldStyles();
   const revealOnFocus = useRevealOnFocus();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [unit, setUnit] = useState<DurationUnit>("min");
   const [hoursDraft, setHoursDraft] = useState("");
   const inHours = unit === "hr";
@@ -74,9 +73,9 @@ export function DurationField({ minutes, onChange }: Props) {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = ({ colors: c, space, type }: Theme) => StyleSheet.create({
   // The unit button sits inside the field, so the input keeps room on the right for it.
   input: { paddingRight: 78 },
-  unitButton: { position: "absolute", right: 0, top: 0, bottom: 0, minWidth: 64, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },
-  unitText: { color: c.primary, fontSize: 13, fontWeight: "700" },
+  unitButton: { position: "absolute", right: 0, top: 0, bottom: 0, minWidth: 64, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.xs },
+  unitText: { ...type.label, color: c.primary },
 });

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { useSettings } from "../../lib/settings-context";
 import { pickerToTime, timeToPicker } from "../../lib/picker-values";
@@ -26,7 +26,7 @@ type Props = { fields: readonly TimeFieldSpec[]; onChange: (id: string, value: s
 export function NotificationTimeFields({ fields, onChange }: Props) {
   const { language, locale, time: formatTime } = useLanguage();
   const { settings } = useSettings();
-  const colors = useColors();
+  const { colors } = useTheme();
   const [openId, setOpenId] = useState<string | null>(null);
   const { timeFormat } = settings.calendar;
   const is24Hour = timeFormat === "24h" || (timeFormat === "auto" && language === "vi");

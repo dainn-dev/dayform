@@ -1,8 +1,7 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import type { CycleState } from "../../lib/cycle-model";
 import { periodRows, type DialogTarget } from "../../lib/cycle-ui-actions";
 import { tx } from "../../lib/cycle-ui-text";
@@ -14,13 +13,15 @@ import { useCycleFormat } from "./use-cycle-format";
 type Props = { state: CycleState; today: string; onOpen: (target: DialogTarget) => void };
 
 const SHOWN_ROWS = 12;
+const TOUCH_TARGET = 44;
+const ROW_MIN_HEIGHT = 52;
 
 /** Logged periods, newest first, each with edit and delete. The newest 12 are listed. */
 export function PeriodList({ state, today, onOpen }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const format = useCycleFormat();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const rows = useMemo(() => periodRows(state, today).slice(0, SHOWN_ROWS), [state, today]);
 
   return <CycleCard title={t("Logged periods")}>
@@ -49,12 +50,12 @@ export function PeriodList({ state, today, onOpen }: Props) {
   </CycleCard>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  empty: { color: c.foreground, fontSize: 13 },
-  row: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.hairline },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  empty: { ...t.type.body, color: t.colors.foreground },
+  row: { flexDirection: "row", alignItems: "center", gap: t.space.xs, minHeight: ROW_MIN_HEIGHT, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.colors.hairline },
   texts: { flex: 1, paddingVertical: 6 },
-  range: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  length: { color: c.foreground, fontSize: 12, marginTop: 2 },
-  iconButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  add: { marginTop: 12 },
+  range: { ...t.type.label, color: t.colors.foreground },
+  length: { ...t.type.meta, ...t.font.regular, color: t.colors.foreground, marginTop: t.space.xxs },
+  iconButton: { width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
+  add: { marginTop: t.space.md },
 });

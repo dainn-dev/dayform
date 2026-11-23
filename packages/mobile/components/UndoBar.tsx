@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "@/hooks/use-colors";
+import { useThemedStyles, type Theme } from "@/hooks/use-theme";
 import { useLanguage } from "@/lib/language";
 import { undoBarBottom, undoTimeout } from "@/lib/shell-layout";
 import { useTasks } from "@/lib/tasks-context";
@@ -56,7 +56,7 @@ function useUndoAttempt(undo: unknown, undoLast: () => Promise<boolean>): { fail
 export function UndoBar() {
   const { undo, undoLast, clearUndo } = useTasks();
   const { t } = useLanguage();
-  const colors = useColors();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const screenReader = useScreenReaderEnabled();
   const { failed, attempt } = useUndoAttempt(undo, undoLast);
@@ -77,13 +77,8 @@ export function UndoBar() {
   if (!visible) return null;
 
   return (
-    <View
-      style={[
-        styles.bar,
-        { bottom: undoBarBottom(insets.bottom), backgroundColor: colors.card, borderColor: colors.border, shadowColor: colors.shadowSoft },
-      ]}
-    >
-      <Text style={[styles.message, { color: colors.foreground }]} numberOfLines={2}>
+    <View style={[styles.bar, { bottom: undoBarBottom(insets.bottom) }]}>
+      <Text style={styles.message} numberOfLines={2}>
         {message}
       </Text>
       {undo !== null && (
@@ -94,38 +89,36 @@ export function UndoBar() {
           onPress={attempt}
           style={styles.action}
         >
-          <Text style={[styles.actionText, { color: colors.accentForeground }]}>{t("Undo")}</Text>
+          <Text style={styles.actionText}>{t("Undo")}</Text>
         </Pressable>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
+  // A floating snackbar: the style's raised depth (a shadow, plus a 1px line in the bordered styles).
   bar: {
     position: "absolute",
     left: BAR_MARGIN,
     right: BAR_MARGIN,
-    minHeight: MIN_TOUCH_TARGET + 8,
+    minHeight: MIN_TOUCH_TARGET + t.space.sm,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingLeft: 16,
-    paddingRight: 8,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    elevation: 6,
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    paddingLeft: t.space.lg,
+    paddingRight: t.space.sm,
+    borderRadius: t.radius.md,
+    backgroundColor: t.colors.card,
+    ...t.elevation.raised,
   },
-  message: { flex: 1, fontSize: 15, fontWeight: "500" },
+  message: { ...t.type.subtitle, ...t.font.medium, flex: 1, color: t.colors.foreground },
   action: {
     minHeight: MIN_TOUCH_TARGET,
     minWidth: MIN_TOUCH_TARGET,
-    paddingHorizontal: 12,
+    paddingHorizontal: t.space.md,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionText: { fontSize: 15, fontWeight: "700" },
+  actionText: { ...t.type.subtitle, ...t.font.bold, color: t.colors.accentForeground },
 });

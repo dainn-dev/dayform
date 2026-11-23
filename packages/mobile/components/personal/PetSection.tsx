@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { PET_LABELS } from "../../lib/pet";
 import type { PetKind } from "../../lib/settings";
@@ -13,8 +12,8 @@ import { SwitchRow } from "./SwitchRow";
 export function PetSection() {
   const { settings, update } = useSettings();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const labels = useMemo(() => Object.fromEntries(Object.entries(PET_LABELS).map(([kind, label]) => [kind, t(label)])) as Record<PetKind, string>, [t]);
   const enabled = settings.pet.kind !== "off";
   const setEnabled = (on: boolean) => {
@@ -35,9 +34,12 @@ export function PetSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 10, marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 },
-  heading: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  credit: { color: c.mutedForeground, fontSize: 11, lineHeight: 16 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    stack: { gap: 10, marginTop: t.space.md, paddingTop: t.space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
+    headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 },
+    heading: { ...t.type.label, ...t.font.heavy, color: c.foreground },
+    credit: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground },
+  });
+};

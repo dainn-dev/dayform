@@ -15,12 +15,12 @@ import { Timeline } from "../../components/timeline/Timeline";
 import { WeekStrip } from "../../components/timeline/WeekStrip";
 import type { TaskPatch } from "../../components/timeline/drag-controller";
 import { SectionEyebrow } from "../../components/ui/SectionEyebrow";
-import { useColors } from "../../hooks/use-colors";
+import { Surface } from "../../components/ui/Surface";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useNow } from "../../hooks/use-now";
 import { useTimelineConfig } from "../../hooks/use-timeline-config";
 import { partitionVisible } from "../../lib/timeline-config";
 import { useSettings } from "../../lib/settings-context";
-import type { ThemeColors } from "../../constants/theme";
 import { carryOverCandidates, carryOverUpdate } from "../../lib/carry-over";
 import { keepUntilValid } from "../../lib/recurrence";
 import { findEditTarget } from "../../lib/notification-actions";
@@ -29,8 +29,8 @@ import { addDays, dateKey, minutes, weekStartOf, Task } from "../../lib/planner"
 
 export default function PlannerScreen() {
   const { t: tr } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const colors = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const now = useNow();
   const today = dateKey(now);
   const [selected, setSelected] = useState(today);
@@ -91,15 +91,15 @@ export default function PlannerScreen() {
       <GreetingHeader onToday={chooseToday} onFocus={() => openFocus()} now={now} />
       <WeekStrip week={week} selected={selected} today={today} tasks={tasks} onSelect={setSelected} onShiftWeek={days => setWeekAnchor(addDays(week, days))} />
 
-      {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.errorBanner}><Ionicons name="alert-circle-outline" size={18} color={colors.errorIcon} /><Text style={{ color: colors.errorBannerText, fontSize: 12, flex: 1 }}>{tr(error)}</Text><Ionicons name="close" size={16} color={colors.errorIcon} /></Pressable>}
-      <View style={s.dailyPanel}>
+      {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.errorBanner}><Ionicons name="alert-circle-outline" size={18} color={colors.errorIcon} /><Text style={s.errorText}>{tr(error)}</Text><Ionicons name="close" size={16} color={colors.errorIcon} /></Pressable>}
+      <Surface padding="none" style={s.dailyPanel}>
         <DayHeader selected={selected} today={today} scheduled={scheduled} onAdd={() => openNew()} onRoutines={() => setRoutinesOpen(true)} />
         {!loading && carryOver.length > 0 && <CarryOverBanner count={carryOver.length} onMove={moveToToday} />}
         {loading
           ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 42 }} />
           : <Timeline visible={visible} scheduledCount={scheduled.length} now={selected === today ? now : null} onAddAt={openNew} onEdit={setEditing} onToggle={toggle} onMove={moveBlock} onLockChange={setScrollLocked} />}
         <OutsideHours outside={outside} scheduled={scheduled} onEdit={setEditing} onToggle={toggle} />
-      </View>
+      </Surface>
 
       <View style={s.backlogHeader}><View><SectionEyebrow>{tr("WHEN YOU'RE READY")}</SectionEyebrow><Text accessibilityRole="header" style={s.backlogTitle}>{tr("On your mind")} <Text style={s.backlogCount}>{backlog.length}</Text></Text></View><Pressable onPress={() => router.push("/(tabs)/explore")} accessibilityRole="link" accessibilityLabel={tr("View all tasks")}><Text style={s.seeAll}>{tr("View all  →")}</Text></Pressable></View>
       {backlog.length ? backlog.slice(0, 2).map(t => <View key={t.id} style={{ marginBottom: 10 }}><TaskCard task={t} onPress={() => setEditing(t)} onToggle={() => toggle(t)} onSchedule={() => setEditing(t)} /></View>) : <Text style={s.backlogEmpty}>{tr("Your backlog is clear. Enjoy the space.")}</Text>}
@@ -109,14 +109,20 @@ export default function PlannerScreen() {
   </SafeAreaView>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: c.background },
-  scroll: { paddingHorizontal: 21, paddingTop: 24, paddingBottom: 110, maxWidth: 680, width: "100%", alignSelf: "center" },
-  errorBanner: { flexDirection: "row", gap: 8, padding: 13, backgroundColor: c.errorBg, borderRadius: 14, alignItems: "center", marginBottom: 12 },
-  dailyPanel: { backgroundColor: c.card, borderRadius: 27, paddingTop: 24, paddingHorizontal: 18, paddingBottom: 24, shadowColor: c.shadowPanel, shadowOpacity: 0.055, shadowRadius: 22, elevation: 2 },
-  backlogHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 30, marginBottom: 16, paddingHorizontal: 2 },
-  backlogTitle: { color: c.foreground, fontSize: 21, fontWeight: "800", letterSpacing: -0.6 },
-  backlogCount: { color: c.primary, fontSize: 15 },
-  seeAll: { color: c.primary, fontSize: 12, fontWeight: "800", marginBottom: 3 },
-  backlogEmpty: { color: c.mutedForeground, fontSize: 12, paddingVertical: 13 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    scroll: { paddingHorizontal: t.gutter, paddingTop: t.space.xxl, paddingBottom: 110, maxWidth: 680, width: "100%", alignSelf: "center" },
+    errorBanner: { flexDirection: "row", gap: t.space.sm, padding: 13, backgroundColor: c.errorBg, borderRadius: t.radius.md, alignItems: "center", marginBottom: t.space.md },
+    errorText: { ...t.type.meta, ...t.font.regular, flex: 1, color: c.errorBannerText },
+    // Surface draws the card colour, the corner and the style's depth (a soft shadow, or a 1px line).
+    dailyPanel: { paddingTop: t.space.xxl, paddingHorizontal: 18, paddingBottom: t.space.xxl },
+    backlogHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 30, marginBottom: t.space.lg, paddingHorizontal: t.space.xxs },
+    backlogTitle: { ...t.type.headline, color: c.foreground },
+    // A smaller count inside the headline; it keeps the headline's line height so the line does not jump on Android.
+    backlogCount: { ...t.type.subtitle, lineHeight: t.type.headline.lineHeight, color: c.primary },
+    seeAll: { ...t.type.meta, ...t.font.heavy, color: c.primary, marginBottom: 3 },
+    backlogEmpty: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, paddingVertical: 13 },
+  });
+};

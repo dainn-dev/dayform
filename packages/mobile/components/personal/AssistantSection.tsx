@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { checkBaseUrl, maskKey } from "../../lib/ai-config";
 import { testConnection } from "../../lib/ai-client";
 import { deleteApiKey, deleteSonioxKey, readApiKey, readSonioxKey, saveApiKey, saveSonioxKey } from "../../lib/ai-key-expo";
@@ -13,6 +12,7 @@ import { useSettings } from "../../lib/settings-context";
 import { AssistantVoicePicker } from "./AssistantVoicePicker";
 import { SwitchRow } from "./SwitchRow";
 import { useRevealOnFocus } from "../editor/reveal-context";
+import { Button } from "../ui/Button";
 import { Collapsible } from "../ui/Collapsible";
 
 const LOOKS = [
@@ -35,8 +35,8 @@ const URL_PROBLEMS = {
 export function AssistantSection() {
   const { settings, update } = useSettings();
   const { t, language } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const revealOnFocus = useRevealOnFocus();
   const { assistant, ai } = settings;
 
@@ -149,26 +149,20 @@ export function AssistantSection() {
         hint={t("While the app is open, the microphone listens for the name, then for your question. Your phone's speech service (Speech Services by Google) does the listening: with its offline pack for the language the audio stays on the phone, otherwise it may be sent to Google. The microphone stops when you leave the app.")} />
       {micNote && <Text style={s.error}>{micNote}</Text>}
       <Text style={s.hint}>{t("Hold the assistant, or tap the microphone in the chat, to say one thing without calling it.")}</Text>
-      <Pressable onPress={() => { void getPack(); }} accessibilityRole="button" style={[s.smallButton, s.packButton]}>
-        <Text style={s.smallButtonText}>{t("Download the offline speech pack")}</Text>
-      </Pressable>
+      <Button variant="secondary" label={t("Download the offline speech pack")} onPress={() => { void getPack(); }} style={s.packButton} />
       {packNote && <Text style={s.hint} accessibilityLiveRegion="polite">{packNote}</Text>}
 
       <Text style={s.label}>{t("Soniox API key (speech to text)")}</Text>
       {sonioxKey
         ? <View style={s.keyRow}>
           <Text style={s.keyText}>{t("Saved key {key}").replace("{key}", maskKey(sonioxKey))}</Text>
-          <Pressable onPress={() => { void removeSoniox(); }} accessibilityRole="button" style={s.smallButton}>
-            <Text style={s.smallButtonText}>{t("Remove")}</Text>
-          </Pressable>
+          <Button variant="secondary" label={t("Remove")} onPress={() => { void removeSoniox(); }} />
         </View>
         : <View style={s.keyRow}>
           <TextInput onFocus={revealOnFocus} value={sonioxDraft} onChangeText={setSonioxDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
             style={[s.input, s.keyInput]} placeholder={t("Paste your Soniox API key")} placeholderTextColor={colors.mutedForeground}
             accessibilityLabel={t("Soniox API key (speech to text)")} />
-          <Pressable onPress={() => { void storeSoniox(); }} disabled={!sonioxDraft.trim()} accessibilityRole="button" style={[s.smallButton, !sonioxDraft.trim() && s.disabled]}>
-            <Text style={s.smallButtonText}>{t("Save")}</Text>
-          </Pressable>
+          <Button variant="secondary" label={t("Save")} disabled={!sonioxDraft.trim()} onPress={() => { void storeSoniox(); }} />
         </View>}
       {sonioxNote && <Text style={sonioxNote.ok ? s.ok : s.error} accessibilityLiveRegion="polite">{sonioxNote.text}</Text>}
       <Text style={s.hint}>{t("With a Soniox key, your voice is streamed to Soniox (stt-rt.soniox.com) in real time while you hold the assistant or tap the microphone in the chat, and the words appear as you speak. With \"Call by voice\" on, the microphone streams to Soniox the whole time the app is open and the assistant is idle, and Soniox charges for that listening time. The key stays in the phone's secure storage. Without a key, the phone's own speech recognizer is used.")}</Text>
@@ -195,16 +189,12 @@ export function AssistantSection() {
         {savedKey
           ? <View style={s.keyRow}>
             <Text style={s.keyText}>{t("Saved key {key}").replace("{key}", maskKey(savedKey))}</Text>
-            <Pressable onPress={() => { void removeKey(); }} accessibilityRole="button" style={s.smallButton}>
-              <Text style={s.smallButtonText}>{t("Remove")}</Text>
-            </Pressable>
+            <Button variant="secondary" label={t("Remove")} onPress={() => { void removeKey(); }} />
           </View>
           : <View style={s.keyRow}>
             <TextInput onFocus={revealOnFocus} value={keyDraft} onChangeText={setKeyDraft} secureTextEntry autoCapitalize="none" autoCorrect={false}
               style={[s.input, s.keyInput]} placeholder={t("Paste your API key")} placeholderTextColor={colors.mutedForeground} accessibilityLabel={t("API key")} />
-            <Pressable onPress={() => { void storeKey(); }} disabled={!keyDraft.trim()} accessibilityRole="button" style={[s.smallButton, !keyDraft.trim() && s.disabled]}>
-              <Text style={s.smallButtonText}>{t("Save")}</Text>
-            </Pressable>
+            <Button variant="secondary" label={t("Save")} disabled={!keyDraft.trim()} onPress={() => { void storeKey(); }} />
           </View>}
         <Text style={s.hint}>{t("The key is kept in the phone's secure storage. It is never in backups, exports or the widget.")}</Text>
 
@@ -212,10 +202,8 @@ export function AssistantSection() {
           onChange={next => { void update({ ai: { shareTitles: next } }); }}
           hint={t("Off: the AI sees only times, durations and status. Period tracking is never shared.")} />
 
-        <Pressable onPress={() => { void runTest(); }} disabled={testing || !savedKey || !urlCheck.ok || !model.trim()} accessibilityRole="button"
-          style={[s.testButton, (testing || !savedKey || !urlCheck.ok || !model.trim()) && s.disabled]}>
-          <Text style={s.testText}>{t(testing ? "Testing…" : "Test the connection")}</Text>
-        </Pressable>
+        <Button block label={t(testing ? "Testing…" : "Test the connection")} onPress={() => { void runTest(); }}
+          disabled={testing || !savedKey || !urlCheck.ok || !model.trim()} style={s.testButton} />
         {testResult && <Text style={testResult.ok ? s.ok : s.error} accessibilityLiveRegion="polite">{testResult.text}</Text>}
       </>}
       </Collapsible>
@@ -223,29 +211,27 @@ export function AssistantSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  label: { color: c.foreground, fontSize: 13, fontWeight: "700", marginTop: 12, marginBottom: 6 },
-  heading: { color: c.foreground, fontSize: 14, fontWeight: "800", marginBottom: 4 },
-  hint: { color: c.mutedForeground, fontSize: 11, lineHeight: 16, marginTop: 4 },
-  error: { color: c.destructive, fontSize: 12, marginTop: 4 },
-  ok: { color: c.foreground, fontSize: 12, marginTop: 6, fontWeight: "700" },
-  input: {
-    minHeight: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.card,
-    borderWidth: 1, borderColor: c.inputBorder, color: c.foreground, fontSize: 14,
-  },
-  keyRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  keyText: { flex: 1, color: c.foreground, fontSize: 13 },
-  keyInput: { flex: 1 },
-  smallButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.primary },
-  smallButtonText: { color: c.primary, fontSize: 13, fontWeight: "800" },
-  packButton: { marginTop: 10 },
-  // Every look in one row: the buttons share the width and the pictures fill their button.
-  lookRow: { flexDirection: "row", gap: 6, marginBottom: 6 },
-  lookButton: { flex: 1, minWidth: 0, alignItems: "center", gap: 4, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: c.hairline },
-  lookButtonActive: { borderColor: c.primary, borderWidth: 2 },
-  lookImage: { width: "100%", height: 72, resizeMode: "contain" },
-  lookLabel: { color: c.foreground, fontSize: 12, fontWeight: "700", textAlign: "center" },
-  testButton: { minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.primary, marginTop: 14 },
-  testText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
-  disabled: { opacity: 0.4 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    label: { ...t.type.label, color: c.foreground, marginTop: t.space.md, marginBottom: t.space.xs + 2 },
+    hint: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xs },
+    error: { ...t.type.meta, ...t.font.regular, color: c.destructive, marginTop: t.space.xs },
+    ok: { ...t.type.meta, ...t.font.bold, color: c.foreground, marginTop: t.space.xs + 2 },
+    input: {
+      ...t.type.body, minHeight: 44, paddingHorizontal: t.space.md, borderRadius: t.radius.md, backgroundColor: c.card,
+      borderWidth: 1, borderColor: c.inputBorder, color: c.foreground,
+    },
+    keyRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+    keyText: { ...t.type.label, ...t.font.regular, flex: 1, color: c.foreground },
+    keyInput: { flex: 1 },
+    packButton: { marginTop: 10 },
+    // Every look in one row: the buttons share the width and the pictures fill their button.
+    lookRow: { flexDirection: "row", gap: t.space.xs + 2, marginBottom: t.space.xs + 2 },
+    lookButton: { flex: 1, minWidth: 0, alignItems: "center", gap: t.space.xs, paddingVertical: t.space.sm, paddingHorizontal: t.space.xs, borderRadius: t.radius.md, borderWidth: 1, borderColor: c.hairline },
+    lookButtonActive: { borderColor: c.primary, borderWidth: 2 },
+    lookImage: { width: "100%", height: 72, resizeMode: "contain" },
+    lookLabel: { ...t.type.meta, color: c.foreground, textAlign: "center" },
+    testButton: { marginTop: 14 },
+  });
+};

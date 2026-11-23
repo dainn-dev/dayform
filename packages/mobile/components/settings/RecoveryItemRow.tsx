@@ -1,6 +1,5 @@
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { StyleSheet, Text, View } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { formatNotice, planImport, type ImportPlan } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
 import type { RecoveryItem } from "../../lib/recovery";
@@ -15,7 +14,7 @@ import {
   summaryLine,
 } from "../../lib/recovery-messages";
 import { useTasks } from "../../lib/tasks-context";
-import type { ThemeColors } from "../../constants/theme";
+import { Button } from "../ui/Button";
 import { RecoveryConfirm } from "./RecoveryConfirm";
 import type { RecoveryActions } from "./use-recovery-actions";
 
@@ -30,8 +29,7 @@ function planText(plan: ImportPlan | null, t: Translate): string {
 /** One recovery copy: description, Preview, Restore (merge / confirmed replace) and Delete (confirmed). */
 export function RecoveryItemRow({ item, actions }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { tasks } = useTasks();
   const { busy, canRestore, pending, preview, togglePreview, restore, ask, cancel, confirmDelete } = actions;
   const mine = pending !== null && pending.kind !== "delete-all" && pending.key === item.key ? pending : null;
@@ -44,10 +42,8 @@ export function RecoveryItemRow({ item, actions }: Props) {
   const replacePlan = planned ? planImport(tasks, parsed, "replace") : null;
 
   const button = (label: string, onPress: () => void, enabled: boolean, destructive = false) =>
-    <Pressable disabled={!enabled} onPress={onPress} accessibilityRole="button" accessibilityLabel={itemActionLabel(label, item, t)}
-      accessibilityState={{ disabled: !enabled }} style={[s.button, !enabled && s.disabled]}>
-      <Text style={destructive ? s.destructiveText : s.buttonText}>{t(label)}</Text>
-    </Pressable>;
+    <Button variant={destructive ? "danger" : "secondary"} label={t(label)} accessibilityLabel={itemActionLabel(label, item, t)}
+      disabled={!enabled} onPress={onPress} />;
 
   return <View style={s.row}>
     <Text style={s.title}>{t(kindLabel(item.kind))}</Text>
@@ -73,15 +69,14 @@ export function RecoveryItemRow({ item, actions }: Props) {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { marginTop: 10, padding: 12, borderRadius: 14, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
-  title: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  meta: { color: c.mutedForeground, fontSize: 12, lineHeight: 18, marginTop: 2 },
-  preview: { marginTop: 8 },
-  error: { color: c.errorMessage, fontSize: 12, marginTop: 4 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
-  button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder },
-  buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
-  destructiveText: { color: c.errorMessage, fontSize: 12, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    row: { marginTop: 10, padding: t.space.md, borderRadius: t.radius.md, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
+    title: { ...t.type.label, color: c.foreground },
+    meta: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xxs },
+    preview: { marginTop: t.space.sm },
+    error: { ...t.type.meta, ...t.font.regular, color: c.errorMessage, marginTop: t.space.xs },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm, marginTop: t.space.sm },
+  });
+};

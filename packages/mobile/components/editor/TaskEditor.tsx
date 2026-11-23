@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
 import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
 import { useRevealFocusedInput } from "../../hooks/use-reveal-focused-input";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { liftCorrection } from "../../lib/keyboard-inset";
-import type { ThemeColors } from "../../constants/theme";
+import { IconButton } from "../ui/IconButton";
 import type { Category, ChecklistItem, Repeat, Status, Task } from "../../lib/planner";
 import { useCategories } from "../../lib/categories-context";
 import { useLanguage } from "../../lib/language";
@@ -70,8 +69,7 @@ function initialValues(task: Task | null | undefined, settings: Settings, knownC
 export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, extraFields }: Props) {
   const { error } = useTasks();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { settings } = useSettings();
   const { visible: visibleCategories } = useCategories();
   const [initial] = useState(() => initialValues(task, settings, visibleCategories, defaultDate, defaultTime));
@@ -121,8 +119,8 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
       <RevealOnFocusProvider value={revealOnFocus}>
       <View style={s.flex}>
         <View style={s.top}>
-          <View><Text style={s.eyebrow}>{t("YOUR PLANNER")}</Text><Text style={s.heading}>{task ? t("Edit task") : t("New task")}</Text></View>
-          <Pressable onPress={onClose} accessibilityLabel={t("Close task editor")} accessibilityRole="button" style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
+          <View style={s.titles}><Text style={s.eyebrow}>{t("YOUR PLANNER")}</Text><Text style={s.heading}>{task ? t("Edit task") : t("New task")}</Text></View>
+          <IconButton icon="close" label={t("Close task editor")} onPress={onClose} />
         </View>
         <View ref={viewportRef} style={s.flex} collapsable={false}>
         <ScrollView ref={scrollRef} contentContainerStyle={contentStyle} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={Keyboard.dismiss}
@@ -157,13 +155,13 @@ export function TaskEditor({ visible, task, defaultDate, defaultTime, onClose, e
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = ({ colors: c, type, space, gutter }: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: c.background },
   flex: { flex: 1 },
-  top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  eyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 2, color: c.primary, marginBottom: 5 },
-  heading: { fontSize: 28, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 24 },
-  footer: { paddingHorizontal: 24, paddingBottom: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, backgroundColor: c.background },
+  top: { paddingHorizontal: gutter, paddingTop: space.xl, paddingBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
+  titles: { flex: 1, minWidth: 0 },
+  eyebrow: { ...type.micro, color: c.primary, marginBottom: 5 },
+  heading: { ...type.display, color: c.foreground },
+  content: { paddingHorizontal: gutter },
+  footer: { paddingHorizontal: gutter, paddingBottom: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, backgroundColor: c.background },
 });

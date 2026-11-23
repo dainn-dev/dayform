@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import type { SloganStyle } from "../../lib/greeting";
 import { useLanguage } from "../../lib/language";
 import { MAX_SLOGAN_LENGTH, normalizeSlogan } from "../../lib/settings";
@@ -22,8 +21,8 @@ const DISABLED_OPACITY = 0.5;
 export function GreetingSection() {
   const { settings, hasName, update } = useSettings();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const revealOnFocus = useRevealOnFocus();
   const { showName, sloganStyle, customSlogan } = settings.greeting;
   const [draft, setDraft] = useState(customSlogan);
@@ -56,10 +55,13 @@ export function GreetingSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  disabled: { opacity: DISABLED_OPACITY },
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
-  input: { minHeight: 44, marginTop: 8, backgroundColor: c.background, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, color: c.foreground, fontSize: 14, borderWidth: 1, borderColor: c.inputBorder },
-  helper: { color: c.mutedForeground, fontSize: 11, lineHeight: 16, marginTop: 4 },
-  preview: { backgroundColor: c.primarySoft, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    disabled: { opacity: DISABLED_OPACITY },
+    caption: { ...t.type.meta, color: c.mutedForeground, marginTop: t.space.md, marginBottom: t.space.xs + 2 },
+    input: { ...t.type.body, minHeight: 44, marginTop: t.space.sm, backgroundColor: c.background, borderRadius: t.radius.md, paddingHorizontal: 14, paddingVertical: 10, color: c.foreground, borderWidth: 1, borderColor: c.inputBorder },
+    helper: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xs },
+    preview: { backgroundColor: c.primarySoft, borderRadius: t.radius.md, paddingHorizontal: t.space.md, paddingVertical: t.space.md },
+  });
+};

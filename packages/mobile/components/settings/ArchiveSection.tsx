@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { IconButton } from "../ui/IconButton";
 import { useNow } from "../../hooks/use-now";
 import {
@@ -20,7 +20,6 @@ import { countItem, formatNotice } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
 import { dateKey } from "../../lib/planner";
 import { useTasks } from "../../lib/tasks-context";
-import type { ThemeColors } from "../../constants/theme";
 
 /** null = not read yet (or unreadable). */
 function useArchivedCount(): { archivedCount: number | null; refresh: () => Promise<void> } {
@@ -36,8 +35,8 @@ function useArchivedCount(): { archivedCount: number | null; refresh: () => Prom
 /** "Archive": move old finished tasks out of the main list (the cheap guard against the storage cap) and back. */
 export function ArchiveSection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { tasks, loading, writesBlocked, mutate } = useTasks();
   const today = dateKey(useNow());
   const { archivedCount, refresh } = useArchivedCount();
@@ -84,12 +83,16 @@ export function ArchiveSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  count: { color: c.foreground, fontSize: 12, fontWeight: "700", marginTop: 4 },
-  row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 10 },
-  question: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  busy: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }, busyText: { color: c.mutedForeground, fontSize: 12 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    count: { ...t.type.meta, ...t.font.bold, color: c.foreground, marginTop: t.space.xs },
+    row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: t.space.sm, marginTop: 10 },
+    question: { ...t.type.label, color: c.foreground },
+    busy: { flexDirection: "row", alignItems: "center", gap: t.space.sm, marginTop: t.space.sm },
+    busyText: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    success: { ...t.type.meta, ...t.font.bold, color: c.success, marginTop: t.space.sm },
+    error: { ...t.type.meta, ...t.font.bold, color: c.errorMessage, marginTop: t.space.sm },
+  });
+};

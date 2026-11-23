@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Platform, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { dateToPicker, pickerToDate } from "../../lib/picker-values";
 import { openAndroidPicker } from "../editor/android-picker";
@@ -21,7 +21,7 @@ type Props = {
 /** A date field that opens the native picker: a dialog on Android, an inline calendar under the field on iOS. */
 export function DateField({ label, accessibilityLabel, value, maximumDate, onChange }: Props) {
   const { locale } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const press = () => {
     if (Platform.OS === "android") {

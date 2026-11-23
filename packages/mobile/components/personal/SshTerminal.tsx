@@ -2,9 +2,8 @@ import React, { useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
 import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { MAX_SSH_COMMAND, SSH_ERROR_TEXTS, type SshResult } from "../../lib/ssh";
 import { readSshCredentials } from "../../lib/ssh-credentials-expo";
@@ -27,8 +26,8 @@ const BYTES_PER_KB = 1024;
 /** Run commands one at a time on a server and read the output. Each command opens its own connection (no shell session yet), so `cd` does not carry over. */
 export function SshTerminal({ visible, host, onClose }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const keyboard = useKeyboardInset();
   const history = useSshHistory();
   const [command, setCommand] = useState("");
@@ -120,34 +119,40 @@ export function SshTerminal({ visible, host, onClose }: Props) {
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: c.background },
-  top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  topText: { flex: 1, minWidth: 0 },
-  heading: { fontSize: 24, fontWeight: "800", color: c.foreground, letterSpacing: -0.6 },
-  meta: { color: c.mutedForeground, fontSize: 12, marginTop: 2 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  log: { flex: 1, marginHorizontal: 16, borderRadius: 16, backgroundColor: c.card },
-  logContent: { padding: 14, gap: 14 },
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 17 },
-  runBox: { gap: 4 },
-  prompt: { color: c.primary, fontFamily: "monospace", fontSize: 12, fontWeight: "700" },
-  stdout: { color: c.foreground, fontFamily: "monospace", fontSize: 12, lineHeight: 17 },
-  stderr: { color: c.errorMessage, fontFamily: "monospace", fontSize: 12, lineHeight: 17 },
-  note: { color: c.mutedForeground, fontSize: 11 },
-  foot: { color: c.mutedForeground, fontSize: 11, fontWeight: "700" },
-  footBad: { color: c.errorMessage, fontSize: 11, fontWeight: "700" },
-  footer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, gap: 8 },
-  recentRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  grow: { flex: 1 },
-  recent: { gap: 6, paddingRight: 6 },
-  chip: { maxWidth: 220, minHeight: 36, justifyContent: "center", paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.primarySoft },
-  chipText: { color: c.accentForeground, fontFamily: "monospace", fontSize: 12 },
-  clear: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  input: { flex: 1, minHeight: 48, maxHeight: 120, backgroundColor: c.card, borderRadius: 14, paddingHorizontal: 14, paddingTop: 12, color: c.foreground, fontFamily: "monospace", fontSize: 14, borderWidth: 1, borderColor: c.inputBorder },
-  runButton: { minHeight: 48, paddingHorizontal: 18, borderRadius: 14, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  runText: { color: c.onPrimary, fontSize: 14, fontWeight: "800" },
-  off: { opacity: 0.45 },
-  fine: { color: c.mutedForeground, fontSize: 10, lineHeight: 14 },
-});
+/** The round close button: a 44dp touch target. */
+const CLOSE_SIZE = 44;
+
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    top: { paddingHorizontal: t.gutter, paddingTop: t.space.xl, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    topText: { flex: 1, minWidth: 0 },
+    heading: { ...t.type.headline, color: c.foreground },
+    meta: { ...t.type.meta, color: c.mutedForeground, marginTop: t.space.xxs },
+    close: { width: CLOSE_SIZE, height: CLOSE_SIZE, borderRadius: CLOSE_SIZE / 2, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    log: { flex: 1, marginHorizontal: t.space.lg, borderRadius: t.radius.lg, backgroundColor: c.card, ...t.elevation.card },
+    logContent: { padding: 14, gap: 14 },
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    runBox: { gap: t.space.xs },
+    prompt: { ...t.type.mono, color: c.primary },
+    stdout: { ...t.type.mono, color: c.foreground },
+    stderr: { ...t.type.mono, color: c.errorMessage },
+    note: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground },
+    foot: { ...t.type.caption, ...t.font.bold, color: c.mutedForeground },
+    footBad: { ...t.type.caption, ...t.font.bold, color: c.errorMessage },
+    footer: { paddingHorizontal: t.space.lg, paddingTop: 10, paddingBottom: t.space.sm, gap: t.space.sm },
+    recentRow: { flexDirection: "row", alignItems: "center", gap: t.space.xs + 2 },
+    grow: { flex: 1 },
+    recent: { gap: t.space.xs + 2, paddingRight: t.space.xs + 2 },
+    chip: { maxWidth: 220, minHeight: 36, justifyContent: "center", paddingHorizontal: t.space.md, borderRadius: t.radius.md, backgroundColor: c.primarySoft },
+    chipText: { ...t.type.mono, color: c.accentForeground },
+    clear: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+    inputRow: { flexDirection: "row", alignItems: "flex-end", gap: t.space.sm },
+    input: { ...t.type.mono, flex: 1, minHeight: 48, maxHeight: 120, backgroundColor: c.card, borderRadius: t.radius.md, paddingHorizontal: 14, paddingTop: t.space.md, color: c.foreground, borderWidth: 1, borderColor: c.inputBorder },
+    runButton: { minHeight: 48, paddingHorizontal: 18, borderRadius: t.buttonRadius, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
+    runText: { ...t.type.label, color: c.onPrimary },
+    off: { opacity: 0.45 },
+    fine: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground },
+  });
+};

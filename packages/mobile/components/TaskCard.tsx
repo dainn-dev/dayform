@@ -1,25 +1,25 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Status, Task } from "../lib/planner";
 import { useLanguage } from "../lib/language";
 import { withAlpha } from "../lib/color-tint";
-import { useColors } from "../hooks/use-colors";
+import { useTheme, useThemedStyles, type Theme } from "../hooks/use-theme";
 import { useCategoryColors } from "../hooks/use-category-colors";
 import { useCategories } from "../lib/categories-context";
-import type { ThemeColors } from "../constants/theme";
 import { HighlightedText } from "./tasks/HighlightedText";
 
 const ICON_TINT_ALPHA = 0.13;
 const TOUCH_TARGET = 44;
+const CHECK_SIZE = 24;
 const STATUS_TEXT: Record<Status, string> = { todo: "To do", in_progress: "Doing", done: "Done" };
 
 type Props = { task: Task; onPress: () => void; onToggle: () => void; onSchedule?: () => void; conflict?: boolean; compact?: boolean; highlight?: string };
 
 export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compact, highlight }: Props) {
   const { t, duration, time } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const color = useCategoryColors().get(task.category);
   const { label: categoryLabel } = useCategories();
   const done = task.status === "done";
@@ -59,13 +59,16 @@ export function TaskCard({ task, onPress, onToggle, onSchedule, conflict, compac
   </Pressable>;
 }
 // The 44dp targets use negative margins so the visual layout matches the old 24dp controls.
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 18, minHeight: 74 },
-  icon: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  title: { color: c.foreground, fontSize: 14, fontWeight: "700" }, done: { textDecorationLine: "line-through", color: c.mutedForeground },
-  meta: { color: c.cardMeta, fontSize: 11, marginTop: 5, fontWeight: "600" },
-  checkTarget: { width: TOUCH_TARGET, height: TOUCH_TARGET, marginHorizontal: -10, alignItems: "center", justifyContent: "center" },
-  check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: c.checkBorder, alignItems: "center", justifyContent: "center" },
-  arrow: { width: TOUCH_TARGET, height: TOUCH_TARGET, marginLeft: -2, marginRight: -8, alignItems: "center", justifyContent: "center" },
-  conflict: { color: c.conflictText, fontSize: 11, fontWeight: "700", marginTop: 5 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    card: { ...t.elevation.card, flexDirection: "row", alignItems: "center", gap: t.space.md, padding: 14, borderRadius: t.radius.lg, minHeight: 74 },
+    icon: { width: 42, height: 42, borderRadius: t.radius.md, alignItems: "center", justifyContent: "center" },
+    title: { ...t.type.subtitle, color: c.foreground }, done: { textDecorationLine: "line-through", color: c.mutedForeground },
+    meta: { ...t.type.caption, color: c.cardMeta, marginTop: t.space.xs },
+    checkTarget: { width: TOUCH_TARGET, height: TOUCH_TARGET, marginHorizontal: -10, alignItems: "center", justifyContent: "center" },
+    check: { width: CHECK_SIZE, height: CHECK_SIZE, borderRadius: CHECK_SIZE / 2, borderWidth: 1.5, borderColor: c.checkBorder, alignItems: "center", justifyContent: "center" },
+    arrow: { width: TOUCH_TARGET, height: TOUCH_TARGET, marginLeft: -2, marginRight: -8, alignItems: "center", justifyContent: "center" },
+    conflict: { ...t.type.caption, ...t.font.bold, color: c.conflictText, marginTop: t.space.xs },
+  });
+};

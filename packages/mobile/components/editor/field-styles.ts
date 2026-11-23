@@ -1,16 +1,19 @@
-import { useMemo } from "react";
 import { StyleSheet } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 
-const makeFieldStyles = (c: ThemeColors) => StyleSheet.create({
-  label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 9, marginTop: 19 },
-  input: { minHeight: 52, backgroundColor: c.card, borderRadius: 15, paddingHorizontal: 16, paddingVertical: 14, color: c.foreground, fontSize: 15, borderWidth: 1, borderColor: c.inputBorder },
-  row: { flexDirection: "row", gap: 12 },
+/** Fixed field height: the status segment beside the duration field matches it. */
+export const FIELD_HEIGHT = 52;
+
+const makeFieldStyles = (t: Theme) => StyleSheet.create({
+  label: { ...t.type.micro, color: t.colors.labelText, marginBottom: 9, marginTop: 19 },
+  input: {
+    ...t.type.body, minHeight: FIELD_HEIGHT, backgroundColor: t.colors.card, borderRadius: t.radius.md, paddingHorizontal: t.space.lg, paddingVertical: 14,
+    color: t.colors.foreground, borderWidth: 1, borderColor: t.colors.inputBorder,
+  },
+  row: { flexDirection: "row", gap: t.space.md },
 });
 
 /** Label / input / row styles shared by every editor field. */
 export function useFieldStyles() {
-  const colors = useColors();
-  return useMemo(() => makeFieldStyles(colors), [colors]);
+  return useThemedStyles(makeFieldStyles);
 }

@@ -1,13 +1,12 @@
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { StyleSheet, Text, View } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import {
   IMPORT_HAS_TRACKER_NOTE, countItem, formatNotice, importErrorMessage, planImport, replaceImportQuestion, type ImportSummary,
 } from "../../lib/backup-flow";
 import { isPersonalDataOnly } from "../../lib/recovery-messages";
 import { useLanguage } from "../../lib/language";
 import { useTasks } from "../../lib/tasks-context";
-import type { ThemeColors } from "../../constants/theme";
+import { Button } from "../ui/Button";
 import type { BackupActions } from "./use-backup-actions";
 
 type Translate = (text: string) => string;
@@ -39,8 +38,7 @@ type Props = Pick<BackupActions, "stage" | "busy" | "importWith" | "askToReplace
 /** Shown after a backup file was read: summary, then Merge / Replace (Replace asks to confirm). */
 export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { tasks } = useTasks();
   if (stage.kind === "idle") return null;
 
@@ -60,36 +58,31 @@ export function ImportPanel({ stage, busy, importWith, askToReplace, cancel }: P
       {replace === null ? null : replace.ok ? <Text style={s.detail}>{detailLine(replace.summary, t)}</Text>
         : <Text accessibilityRole="alert" style={s.error}>{t(importErrorMessage(replace.reason))}</Text>}
       <View style={s.row}>
-        <Pressable disabled={replaceBlocked} onPress={() => { void importWith("replace"); }} accessibilityRole="button"
-          style={[s.button, s.danger, replaceBlocked && s.disabled]}><Text style={s.dangerText}>{t("Yes, replace")}</Text></Pressable>
-        <Pressable onPress={cancel} accessibilityRole="button" style={[s.button, s.secondary]}><Text style={s.secondaryText}>{t("Cancel")}</Text></Pressable>
+        <Button variant="danger" label={t("Yes, replace")} disabled={replaceBlocked} onPress={() => { void importWith("replace"); }} />
+        <Button variant="secondary" label={t("Cancel")} onPress={cancel} />
       </View>
     </> : <>
       <Text style={s.question}>{t("How do you want to import them?")}</Text>
       {merge === null ? null : merge.ok ? <Text style={s.detail}>{detailLine(merge.summary, t)}</Text>
         : <Text accessibilityRole="alert" style={s.error}>{t(importErrorMessage(merge.reason))}</Text>}
       <View style={s.row}>
-        <Pressable disabled={mergeBlocked} onPress={() => { void importWith("merge"); }} accessibilityRole="button"
-          style={[s.button, s.primary, mergeBlocked && s.disabled]}><Text style={s.primaryText}>{t("Merge with current tasks")}</Text></Pressable>
-        <Pressable disabled={replaceBlocked} onPress={askToReplace} accessibilityRole="button"
-          style={[s.button, s.secondary, replaceBlocked && s.disabled]}><Text style={s.secondaryText}>{t("Replace current tasks")}</Text></Pressable>
+        <Button label={t("Merge with current tasks")} disabled={mergeBlocked} onPress={() => { void importWith("merge"); }} />
+        <Button variant="secondary" label={t("Replace current tasks")} disabled={replaceBlocked} onPress={askToReplace} />
       </View>
-      <Pressable onPress={cancel} accessibilityRole="button" style={s.cancel}><Text style={s.cancelText}>{t("Cancel")}</Text></Pressable>
+      <Button variant="ghost" label={t("Cancel")} onPress={cancel} style={s.cancel} />
     </>}
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  panel: { marginTop: 10, padding: 12, borderRadius: 14, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
-  headline: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  question: { color: c.foreground, fontSize: 13, fontWeight: "700", marginTop: 8 },
-  detail: { color: c.mutedForeground, fontSize: 12, marginTop: 4 },
-  error: { color: c.errorMessage, fontSize: 12, marginTop: 4 },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
-  button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  primary: { backgroundColor: c.primary }, primaryText: { color: c.onPrimary, fontSize: 12, fontWeight: "800" },
-  secondary: { backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder }, secondaryText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
-  danger: { backgroundColor: c.destructive }, dangerText: { color: c.onPrimary, fontSize: 12, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
-  cancel: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" }, cancelText: { color: c.accentForeground, fontSize: 12, fontWeight: "700" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    panel: { marginTop: 10, padding: t.space.md, borderRadius: t.radius.md, backgroundColor: c.primarySoft, borderWidth: 1, borderColor: c.primaryBorder },
+    headline: { ...t.type.label, color: c.foreground },
+    question: { ...t.type.label, color: c.foreground, marginTop: t.space.sm },
+    detail: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xs },
+    error: { ...t.type.meta, ...t.font.regular, color: c.errorMessage, marginTop: t.space.xs },
+    row: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm, marginTop: 10 },
+    cancel: { marginTop: t.space.xs },
+  });
+};

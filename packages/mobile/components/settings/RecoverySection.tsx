@@ -1,10 +1,9 @@
-import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { formatNotice } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
 import { LIST_FAILED_MESSAGE, SNAPSHOTS_PAUSED_MESSAGE } from "../../lib/recovery-messages";
-import type { ThemeColors } from "../../constants/theme";
+import { Button } from "../ui/Button";
 import { RecoveryConfirm } from "./RecoveryConfirm";
 import { RecoveryItemRow } from "./RecoveryItemRow";
 import { useRecoveryActions, type RecoveryActions } from "./use-recovery-actions";
@@ -16,13 +15,13 @@ type Styles = ReturnType<typeof makeStyles>;
 
 function ListBody({ actions, s }: { actions: RecoveryActions; s: Styles }) {
   const { t } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const { items, listFailed, busy, pending, ask, cancel, confirmDelete, refresh } = actions;
   if (items === null) return <ActivityIndicator color={colors.primary} size="small" style={s.loading} />;
   if (listFailed) {
     return <View>
       <Text accessibilityRole="alert" style={s.error}>{t(LIST_FAILED_MESSAGE)}</Text>
-      <Pressable onPress={() => { void refresh(); }} accessibilityRole="button" style={s.button}><Text style={s.buttonText}>{t("Try again")}</Text></Pressable>
+      <Button variant="secondary" label={t("Try again")} onPress={() => { void refresh(); }} style={s.spaced} />
     </View>;
   }
   if (items.length === 0) return <Text style={s.empty}>{t("No recovery copies")}</Text>;
@@ -31,10 +30,7 @@ function ListBody({ actions, s }: { actions: RecoveryActions; s: Styles }) {
     {pending?.kind === "delete-all"
       ? <RecoveryConfirm question="Delete every recovery copy for good?" yes="Yes, delete" busy={busy}
         onYes={() => { void confirmDelete(); }} onCancel={cancel} />
-      : <Pressable disabled={busy} onPress={() => { void ask({ kind: "delete-all" }); }} accessibilityRole="button"
-        accessibilityState={{ disabled: busy }} style={[s.button, s.deleteAll, busy && s.disabled]}>
-        <Text style={s.deleteText}>{t("Delete all recovery copies")}</Text>
-      </Pressable>}
+      : <Button variant="danger" label={t("Delete all recovery copies")} disabled={busy} onPress={() => { void ask({ kind: "delete-all" }); }} style={s.spaced} />}
   </View>;
 }
 
@@ -46,8 +42,7 @@ function ListBody({ actions, s }: { actions: RecoveryActions; s: Styles }) {
  */
 export function RecoverySection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const actions = useRecoveryActions();
   const snapshotsPaused = useSnapshotsPaused();
   const { expanded, notice, busy, toggleExpanded, refresh } = actions;
@@ -71,17 +66,20 @@ export function RecoverySection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  loading: { alignSelf: "flex-start", marginTop: 10 },
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  paused: { color: c.foreground, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 6 },
-  empty: { color: c.mutedForeground, fontSize: 12, marginTop: 10 },
-  toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  button: { minHeight: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", alignSelf: "flex-start", backgroundColor: c.primaryTint, marginTop: 10 },
-  buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
-  deleteAll: { backgroundColor: c.card, borderWidth: 1, borderColor: c.primaryBorder },
-  deleteText: { color: c.errorMessage, fontSize: 12, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    loading: { alignSelf: "flex-start", marginTop: 10 },
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    paused: { ...t.type.meta, ...t.font.bold, color: c.foreground, marginTop: t.space.xs + 2 },
+    empty: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: 10 },
+    toolbar: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm },
+    // The expand toggle stays hand-drawn: it reports its expanded state, which the kit's Button has no prop for.
+    button: { minHeight: 44, paddingHorizontal: 14, borderRadius: t.buttonRadius, alignItems: "center", justifyContent: "center", alignSelf: "flex-start", backgroundColor: c.primaryTint, marginTop: 10 },
+    buttonText: { ...t.type.label, color: c.foreground },
+    spaced: { marginTop: 10 },
+    disabled: { opacity: 0.45 },
+    success: { ...t.type.meta, ...t.font.bold, color: c.success, marginTop: t.space.sm },
+    error: { ...t.type.meta, ...t.font.bold, color: c.errorMessage, marginTop: t.space.sm },
+  });
+};

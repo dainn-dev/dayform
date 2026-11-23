@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 
 const TOUCH_TARGET = 44;
 
@@ -18,8 +17,8 @@ type Props = {
 
 /** A labelled "- value +" control that moves a whole hour per tap; both buttons are 44dp targets. */
 export function HourStepper({ label, valueText, decreaseLabel, increaseLabel, onDecrease, onIncrease }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   return <View style={s.row}>
     <Text style={s.label}>{label}</Text>
     <View style={s.control}>
@@ -34,10 +33,13 @@ export function HourStepper({ label, valueText, decreaseLabel, increaseLabel, on
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: TOUCH_TARGET },
-  label: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  control: { flexDirection: "row", alignItems: "center", gap: 4 },
-  button: { width: TOUCH_TARGET, height: TOUCH_TARGET, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder },
-  value: { minWidth: 64, textAlign: "center", color: c.foreground, fontSize: 14, fontWeight: "800" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: TOUCH_TARGET },
+    label: { ...t.type.label, color: c.foreground },
+    control: { flexDirection: "row", alignItems: "center", gap: t.space.xs },
+    button: { width: TOUCH_TARGET, height: TOUCH_TARGET, borderRadius: t.radius.md, alignItems: "center", justifyContent: "center", backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder },
+    value: { ...t.type.body, ...t.font.heavy, minWidth: 64, textAlign: "center", color: c.foreground },
+  });
+};

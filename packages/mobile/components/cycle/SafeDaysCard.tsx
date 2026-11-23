@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import type { CycleState } from "../../lib/cycle-model";
 import { predict } from "../../lib/cycle-predict";
 import { safeDaysView } from "../../lib/cycle-ui-summary";
@@ -16,9 +15,8 @@ import { useCycleFormat } from "./use-cycle-format";
  */
 export function SafeDaysCard({ state, today }: { state: CycleState; today: string }) {
   const { t } = useLanguage();
-  const colors = useColors();
   const format = useCycleFormat();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const view = useMemo(() => safeDaysView(predict(state, today).safeDays, format.short, t), [state, today, format.short, t]);
 
   return <CycleCard title={t("Lower-risk days (estimate)")}>
@@ -41,11 +39,12 @@ export function SafeDaysCard({ state, today }: { state: CycleState; today: strin
   </CycleCard>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   body: { gap: 10 },
   flex: { flex: 1 },
-  text: { color: c.foreground, fontSize: 13, lineHeight: 19 },
-  rangeRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  disclaimer: { backgroundColor: c.warningBg, borderRadius: 12, padding: 12 },
-  disclaimerText: { color: c.warningText, fontSize: 13, lineHeight: 19, fontWeight: "700" },
+  text: { ...t.type.body, color: t.colors.foreground },
+  rangeRow: { flexDirection: "row", alignItems: "flex-start", gap: t.space.sm },
+  disclaimer: { backgroundColor: t.colors.warningBg, borderRadius: t.radius.md, padding: t.space.md },
+  // The safety disclaimer stays bold in every style.
+  disclaimerText: { ...t.type.body, ...t.font.bold, color: t.colors.warningText },
 });

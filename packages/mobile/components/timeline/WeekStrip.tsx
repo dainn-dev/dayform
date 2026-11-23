@@ -1,8 +1,7 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useDayMarks } from "../../hooks/use-day-marks";
 import { markKinds, marksLine } from "../../lib/day-marks";
 import { solarToLunar } from "../../lib/lunar";
@@ -15,6 +14,7 @@ import { CycleMark, useCycleMarks } from "../cycle/CycleMark";
 import { SectionEyebrow } from "../ui/SectionEyebrow";
 
 const MARK_ICON_SIZE = 9;
+const DAY_DOT = 4;
 
 type Props = {
   /** First day of the shown week (per the week-start setting). */
@@ -34,8 +34,8 @@ function lunarShort(key: string): string {
 
 export function WeekStrip({ week, selected, today, tasks, onSelect, onShiftWeek }: Props) {
   const { t: tr, language, locale } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const colors = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const cycleMarks = useCycleMarks(week, today);
   const days = useMemo(() => weekDays(week), [week]);
   const dayMarks = useDayMarks(days);
@@ -72,18 +72,24 @@ export function WeekStrip({ week, selected, today, tasks, onSelect, onShiftWeek 
   </>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  weekHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 17 },
-  month: { color: c.foreground, fontSize: 19, fontWeight: "800", letterSpacing: -0.4 },
-  weekNav: { flexDirection: "row", gap: 7 },
-  navButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  weekStrip: { flexDirection: "row", gap: 4, marginBottom: 26 },
-  dayCell: { flex: 1, minHeight: 76, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: c.card, gap: 5 },
-  dayActive: { backgroundColor: c.primary, shadowColor: c.primary, shadowOpacity: 0.21, shadowRadius: 12, elevation: 4 },
-  dayName: { color: c.mutedForeground, fontSize: 10, fontWeight: "700" },
-  dayNumber: { color: c.foreground, fontSize: 18, fontWeight: "800" },
-  dayTextActive: { color: c.onPrimary },
-  dayDot: { width: 4, height: 4, borderRadius: 3, backgroundColor: "transparent" },
-  markIcons: { flexDirection: "row", gap: 2 },
-  lunar: { color: c.mutedForeground, fontSize: 9, fontWeight: "600", marginTop: -3 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  // The day cells and week buttons sit flat on the page: the bordered styles outline them, Dayform keeps them shadowless.
+  const outline = t.elevation.card.borderWidth !== undefined ? t.elevation.card : t.elevation.none;
+  return StyleSheet.create({
+    weekHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 17 },
+    month: { ...t.type.title, color: c.foreground },
+    weekNav: { flexDirection: "row", gap: 7 },
+    navButton: { width: 44, height: 44, borderRadius: t.radius.lg, backgroundColor: c.card, alignItems: "center", justifyContent: "center", ...outline },
+    weekStrip: { flexDirection: "row", gap: t.space.xs, marginBottom: 26 },
+    dayCell: { flex: 1, minHeight: 76, alignItems: "center", justifyContent: "center", borderRadius: t.radius.lg, backgroundColor: c.card, gap: 5, ...outline },
+    // The selected day fills with the primary colour (black in Minimal); its outline, if any, takes the same colour.
+    dayActive: { backgroundColor: c.primary, ...t.elevation.raised, borderColor: c.primary },
+    dayName: { ...t.type.caption, ...t.font.bold, color: c.mutedForeground },
+    dayNumber: { ...t.type.title, color: c.foreground },
+    dayTextActive: { color: c.onPrimary },
+    dayDot: { width: DAY_DOT, height: DAY_DOT, borderRadius: DAY_DOT / 2, backgroundColor: "transparent" },
+    markIcons: { flexDirection: "row", gap: t.space.xxs },
+    lunar: { ...t.type.micro, color: c.mutedForeground, marginTop: -3 },
+  });
+};

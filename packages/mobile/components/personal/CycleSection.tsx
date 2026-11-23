@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { useColors } from "../../hooks/use-colors";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useNow } from "../../hooks/use-now";
-import type { ThemeColors } from "../../constants/theme";
 import { useCycle } from "../../lib/cycle-context";
 import { predict } from "../../lib/cycle-predict";
 import { failureText } from "../../lib/cycle-ui-actions";
@@ -20,11 +19,10 @@ import { useCycleFormat } from "../cycle/use-cycle-format";
  */
 export function CycleSection() {
   const { t } = useLanguage();
-  const colors = useColors();
   const format = useCycleFormat();
   const { state, ready, acknowledge, setEnabled } = useCycle();
   const today = dateKey(useNow());
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +63,9 @@ export function CycleSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 8 },
-  text: { color: c.foreground, fontSize: 13, lineHeight: 19 },
-  status: { color: c.foreground, fontSize: 15, fontWeight: "800" },
-  error: { color: c.errorMessage, fontSize: 12, lineHeight: 17 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  stack: { gap: t.space.sm },
+  text: { ...t.type.body, color: t.colors.foreground },
+  status: { ...t.type.subtitle, color: t.colors.foreground },
+  error: { ...t.type.meta, ...t.font.regular, color: t.colors.errorMessage },
 });

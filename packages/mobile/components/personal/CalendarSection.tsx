@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
 import { HourStepper } from "./HourStepper";
 import { useLanguage } from "../../lib/language";
@@ -28,8 +27,7 @@ const EXAMPLE_TIME = "09:30";
 export function CalendarSection() {
   const { settings, update } = useSettings();
   const { t, language, timeFormat } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { calendar } = settings;
   const saved = useMemo(() => dayWindowFromMinutes(calendar.dayStart, calendar.dayEnd), [calendar.dayStart, calendar.dayEnd]);
   // The steppers edit a draft: an invalid pair (under 4 hours) is explained inline and never saved or reset.
@@ -80,9 +78,12 @@ export function CalendarSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
-  error: { color: c.errorBannerText, fontSize: 12, lineHeight: 17, marginTop: 4 },
-  example: { color: c.mutedForeground, fontSize: 12, marginTop: 8 },
-  holidays: { marginTop: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    caption: { ...t.type.meta, color: c.mutedForeground, marginTop: t.space.md, marginBottom: t.space.xs + 2 },
+    error: { ...t.type.meta, ...t.font.regular, color: c.errorBannerText, marginTop: t.space.xs },
+    example: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.sm },
+    holidays: { marginTop: t.space.md, paddingTop: t.space.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
+  });
+};

@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import {
   checkDraft, defaultCalendar, draftFromDay, emptyDraft, type DraftField, type SpecialDraft,
@@ -47,8 +46,8 @@ export function SpecialDayEditorModal({ target, onClose }: Props) {
 function EditorBody({ target, onClose }: { target: SpecialDayTarget; onClose: () => void }) {
   const days = useSpecialDays();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const id = target.kind === "edit" ? target.id : null;
   const existing = id === null ? undefined : days.items.find(item => item.id === id);
   const [draft, setDraft] = useState<SpecialDraft>(() => (existing === undefined ? emptyDraft("birthday") : draftFromDay(existing)));
@@ -138,22 +137,25 @@ function EditorBody({ target, onClose }: { target: SpecialDayTarget; onClose: ()
   </KeyboardAvoidingView>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  flex: { flex: 1 },
-  scrim: { backgroundColor: c.scrim },
-  center: { flex: 1, justifyContent: "center", paddingHorizontal: 20, paddingVertical: 24 },
-  card: { width: "100%", maxWidth: 440, maxHeight: "100%", alignSelf: "center", backgroundColor: c.card, borderRadius: 22, padding: 20, flexShrink: 1 },
-  title: { color: c.foreground, fontSize: 19, fontWeight: "800", marginBottom: 2 },
-  scroll: { flexGrow: 0, flexShrink: 1 },
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 14, marginBottom: 6 },
-  input: { minHeight: 48, backgroundColor: c.background, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 10, color: c.foreground, fontSize: 16, borderWidth: 1, borderColor: c.inputBorder },
-  row: { flexDirection: "row", gap: 8 },
-  field: { flex: 1 },
-  helper: { color: c.labelText, fontSize: 11, lineHeight: 16, marginTop: 8 },
-  error: { color: c.errorMessage, fontSize: 12, lineHeight: 17, marginTop: 12 },
-  actions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
-  delete: { minHeight: 44, paddingHorizontal: 12, borderRadius: 13, alignItems: "center", justifyContent: "center", flexShrink: 1 },
-  deleteArmed: { backgroundColor: c.errorBg },
-  deleteText: { color: c.deleteText, fontSize: 13, fontWeight: "700" },
-  deleteTextArmed: { color: c.errorMessage, fontWeight: "800" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    flex: { flex: 1 },
+    scrim: { backgroundColor: c.scrim },
+    center: { flex: 1, justifyContent: "center", paddingHorizontal: t.space.xl, paddingVertical: t.space.xxl },
+    card: { width: "100%", maxWidth: 440, maxHeight: "100%", alignSelf: "center", backgroundColor: c.card, borderRadius: t.radius.xl, padding: t.space.xl, flexShrink: 1, ...t.elevation.overlay },
+    title: { ...t.type.title, color: c.foreground, marginBottom: t.space.xxs },
+    scroll: { flexGrow: 0, flexShrink: 1 },
+    caption: { ...t.type.meta, color: c.mutedForeground, marginTop: 14, marginBottom: t.space.xs + 2 },
+    input: { ...t.type.body, minHeight: 48, backgroundColor: c.background, borderRadius: t.radius.lg, paddingHorizontal: 14, paddingVertical: 10, color: c.foreground, borderWidth: 1, borderColor: c.inputBorder },
+    row: { flexDirection: "row", gap: t.space.sm },
+    field: { flex: 1 },
+    helper: { ...t.type.caption, ...t.font.regular, color: c.labelText, marginTop: t.space.sm },
+    error: { ...t.type.meta, ...t.font.regular, color: c.errorMessage, marginTop: t.space.md },
+    actions: { flexDirection: "row", alignItems: "center", gap: t.space.sm, marginTop: t.space.lg },
+    delete: { minHeight: 44, paddingHorizontal: t.space.md, borderRadius: t.radius.md, alignItems: "center", justifyContent: "center", flexShrink: 1 },
+    deleteArmed: { backgroundColor: c.errorBg },
+    deleteText: { ...t.type.label, color: c.deleteText },
+    deleteTextArmed: { ...t.font.heavy, color: c.errorMessage },
+  });
+};

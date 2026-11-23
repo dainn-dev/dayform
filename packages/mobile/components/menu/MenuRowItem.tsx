@@ -1,9 +1,8 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
 import type { IconName } from "../../hooks/use-category-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import type { MenuTint } from "../../lib/settings-menu";
 
 const CHIP_SIZE = 40;
@@ -22,8 +21,8 @@ type Props = {
 
 /** One tappable menu row: icon chip, title, a live one-line summary and a chevron. Read by TalkBack as "title, summary". */
 export function MenuRowItem({ title, summary, icon, tint, divider, onPress }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const colors = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const chip = colors.category[tint];
   return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}, ${summary}`}
     style={({ pressed }) => [s.row, divider && s.divider, pressed && s.pressed]}>
@@ -38,12 +37,12 @@ export function MenuRowItem({ title, summary, icon, tint, divider, onPress }: Pr
   </Pressable>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   row: { minHeight: ROW_MIN_HEIGHT, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 14, paddingVertical: 10 },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
-  pressed: { backgroundColor: c.muted },
-  chip: { width: CHIP_SIZE, height: CHIP_SIZE, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.colors.hairline },
+  pressed: { backgroundColor: t.colors.muted },
+  chip: { width: CHIP_SIZE, height: CHIP_SIZE, borderRadius: t.radius.md, alignItems: "center", justifyContent: "center" },
   texts: { flex: 1 },
-  title: { color: c.foreground, fontSize: 15, fontWeight: "700" },
-  summary: { color: c.mutedForeground, fontSize: 12, lineHeight: 17, marginTop: 1 },
+  title: { ...t.type.subtitle, color: t.colors.foreground },
+  summary: { ...t.type.meta, ...t.font.regular, color: t.colors.mutedForeground, marginTop: 1 },
 });

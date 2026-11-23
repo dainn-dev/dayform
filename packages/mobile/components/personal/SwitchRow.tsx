@@ -1,14 +1,13 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 
 type Props = { label: string; value: boolean; onChange: (next: boolean) => void; hint?: string };
 
 /** Label + Switch row. The Switch carries the label for TalkBack; the visible text is not a second focus stop. */
 export function SwitchRow({ label, value, onChange, hint }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   return <View style={s.row}>
     <View style={s.texts} accessible={false} importantForAccessibility="no-hide-descendants">
       <Text style={s.label}>{label}</Text>
@@ -19,9 +18,9 @@ export function SwitchRow({ label, value, onChange, hint }: Props) {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 44 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: t.space.md, minHeight: 44 },
   texts: { flex: 1 },
-  label: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  hint: { color: c.mutedForeground, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  label: { ...t.type.label, color: t.colors.foreground },
+  hint: { ...t.type.caption, ...t.font.regular, color: t.colors.mutedForeground, marginTop: t.space.xxs },
 });

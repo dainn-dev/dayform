@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { MAX_CHECKLIST_ITEMS, MAX_CHECKLIST_TEXT, type ChecklistItem } from "../../lib/planner";
 import { useFieldStyles } from "./field-styles";
@@ -11,13 +10,14 @@ import { useRevealOnFocus } from "./reveal-context";
 type Props = { value: ChecklistItem[]; onChange: (value: ChecklistItem[]) => void };
 
 const TOUCH_TARGET = 44;
+const CHECK_SIZE = 22;
 
 /** The steps of a task: tick, rename or remove each one, and add more below. Blank steps are dropped on save. */
 export function ChecklistField({ value, onChange }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const field = useFieldStyles();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const revealOnFocus = useRevealOnFocus();
   const [draft, setDraft] = useState("");
 
@@ -55,12 +55,12 @@ export function ChecklistField({ value, onChange }: Props) {
   </>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  box: { backgroundColor: c.card, borderRadius: 15, borderWidth: 1, borderColor: c.inputBorder, paddingHorizontal: 6, paddingVertical: 4 },
+const makeStyles = ({ colors: c, radius, space, type }: Theme) => StyleSheet.create({
+  box: { backgroundColor: c.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.inputBorder, paddingHorizontal: 6, paddingVertical: space.xs },
   row: { flexDirection: "row", alignItems: "center" },
   target: { width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
-  check: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: c.checkBorder, alignItems: "center", justifyContent: "center" },
+  check: { width: CHECK_SIZE, height: CHECK_SIZE, borderRadius: CHECK_SIZE / 2, borderWidth: 1.5, borderColor: c.checkBorder, alignItems: "center", justifyContent: "center" },
   checkOn: { backgroundColor: c.primary, borderColor: c.primary },
-  text: { flex: 1, minHeight: TOUCH_TARGET, color: c.foreground, fontSize: 15, paddingVertical: 8 },
+  text: { ...type.body, flex: 1, minHeight: TOUCH_TARGET, color: c.foreground, paddingVertical: space.sm },
   textDone: { textDecorationLine: "line-through", color: c.mutedForeground },
 });

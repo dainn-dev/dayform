@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { pickerToTime, timeToPicker } from "../../lib/picker-values";
 import { openAndroidPicker } from "../editor/android-picker";
@@ -19,7 +19,7 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** The fixed start time: a native dialog on Android, an inline spinner on iOS, a plain text input on web. */
 export function DefaultStartTimeField({ value, onChange, onPickerError }: Props) {
   const { t, timeFormat, locale, time: formatTime } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const f = useFieldStyles();
   const [spinnerOpen, setSpinnerOpen] = useState(false);
   const [draft, setDraft] = useState(value);

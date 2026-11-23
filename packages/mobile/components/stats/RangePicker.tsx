@@ -1,8 +1,7 @@
-import React, { useMemo, type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import type { RangeKind } from "../../lib/stats";
 import { FilterDropdown } from "../tasks/FilterDropdown";
@@ -21,8 +20,8 @@ const KINDS: readonly RangeKind[] = ["week", "month"];
 /** Week | Month dropdown (with an optional action beside it) plus previous/next arrows around the range title. */
 export function RangePicker({ kind, title, onKindChange, onShift, action }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const labels: Record<RangeKind, string> = { week: t("Week"), month: t("Month") };
   const prev = kind === "week" ? t("Previous week") : t("Previous month");
   const next = kind === "week" ? t("Next week") : t("Next month");
@@ -41,9 +40,12 @@ export function RangePicker({ kind, title, onKindChange, onShift, action }: Prop
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  controls: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 22 },
-  navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 18, gap: 8 },
-  navButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  title: { flex: 1, textAlign: "center", color: c.foreground, fontSize: 19, fontWeight: "800", letterSpacing: -0.4 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    controls: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 22 },
+    navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 18, gap: t.space.sm },
+    navButton: { ...t.elevation.card, width: 44, height: 44, borderRadius: t.radius.lg, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    title: { ...t.type.title, flex: 1, textAlign: "center", color: c.foreground },
+  });
+};

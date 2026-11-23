@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { monthGrid, type CalendarDay } from "../../lib/cycle-calendar";
 import type { CycleState } from "../../lib/cycle-model";
 import { shiftMonth, type MonthRef } from "../../lib/cycle-ui-actions";
@@ -23,13 +22,18 @@ type Props = {
 
 const OUT_OF_MONTH_OPACITY = 0.4;
 const SYMBOL_SIZE = 9;
+const TOUCH_TARGET = 44;
+/** Day cell geometry (a 7-column grid on a small phone): fixed so the grid never shifts between styles. */
+const CELL_GAP = 3;
+const CELL_PADDING = 4;
+const TODAY_BORDER = 1.5;
 
 /** A month grid. Every day says what it is by color, by shape and in its spoken label; a tap opens the day. */
 export function MonthCalendar({ state, today, weekStart, onSelectDay }: Props) {
   const { t, language } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const format = useCycleFormat();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [shown, setShown] = useState<MonthRef>(() => {
     const [year, month] = today.split("-").map(Number);
     return { year, month };
@@ -65,16 +69,19 @@ export function MonthCalendar({ state, today, weekStart, onSelectDay }: Props) {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   nav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  navButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.background, alignItems: "center", justifyContent: "center" },
-  monthTitle: { flex: 1, textAlign: "center", color: c.foreground, fontSize: 16, fontWeight: "800" },
-  row: { flexDirection: "row", gap: 3, marginBottom: 3 },
-  weekday: { flex: 1, textAlign: "center", color: c.labelText, fontSize: 10, fontWeight: "800" },
-  cell: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 4, borderWidth: 1.5, borderColor: "transparent" },
-  today: { borderColor: c.primary },
+  navButton: { width: TOUCH_TARGET, height: TOUCH_TARGET, borderRadius: t.radius.lg, backgroundColor: t.colors.background, alignItems: "center", justifyContent: "center" },
+  monthTitle: { ...t.type.subtitle, flex: 1, textAlign: "center", color: t.colors.foreground },
+  row: { flexDirection: "row", gap: CELL_GAP, marginBottom: CELL_GAP },
+  weekday: { ...t.type.micro, flex: 1, textAlign: "center", color: t.colors.labelText },
+  cell: {
+    flex: 1, minHeight: TOUCH_TARGET, borderRadius: t.radius.md, alignItems: "center", justifyContent: "center", gap: CELL_GAP,
+    paddingVertical: CELL_PADDING, borderWidth: TODAY_BORDER, borderColor: "transparent",
+  },
+  today: { borderColor: t.colors.primary },
   outside: { opacity: OUT_OF_MONTH_OPACITY },
-  dayNumber: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  todayNumber: { fontWeight: "900" },
+  dayNumber: { ...t.type.label, color: t.colors.foreground },
+  todayNumber: t.font.heavy,
   symbolSlot: { height: SYMBOL_SIZE, justifyContent: "center" },
 });

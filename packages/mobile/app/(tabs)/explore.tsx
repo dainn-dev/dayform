@@ -6,8 +6,8 @@ import { useLanguage } from "../../lib/language";
 import { TaskEditor } from "../../components/TaskEditor";
 import { TaskCard } from "../../components/TaskCard";
 import { useTasks } from "../../lib/tasks-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
+import { Title } from "../../components/ui/Title";
 import { dateKey, fromKey, Task, weekDays, weekStartOf, type Category } from "../../lib/planner";
 import { filterTasks } from "../../lib/search";
 import { SearchBar } from "../../components/tasks/SearchBar";
@@ -25,6 +25,7 @@ import { useTodayKey } from "../../components/stats/use-today-key";
 
 const FILTERS: readonly ExploreFilter[] = ["all", "active", "done"];
 const MIN_TOUCH_TARGET = 44;
+const FAB_SIZE = 57;
 
 const SCROLL_EVENT_THROTTLE_MS = 64;
 
@@ -44,8 +45,8 @@ const TaskRow = memo(function TaskRow({ task, conflict, dateLabel, backlog, high
 
 export default function TasksScreen() {
   const { t, locale } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { tasks, loading, error, clearError, mutate } = useTasks();
   const [editing, setEditing] = useState<Task | null | undefined>(undefined);
   const [filter, setFilter] = useState<ExploreFilter>("all");
@@ -150,7 +151,7 @@ export default function TasksScreen() {
 
   const header = <View>
     <View style={s.topRow}><Text accessibilityRole="header" style={s.kicker}>{t("THE BIG PICTURE")}</Text></View>
-    <Text accessibilityRole="header" style={s.title}>{t("Your tasks this week")}<Text style={{ color: colors.titleDot }}>.</Text></Text>
+    <Title>{t("Your tasks this week")}</Title>
     <Text style={s.subtitle}>{t("Every little thing, all in one place.")}</Text>
     {onlyIds !== undefined
       ? <StaleReviewStrip onShowAll={() => setReviewIds(null)} />
@@ -166,7 +167,7 @@ export default function TasksScreen() {
       <CategoryFilter selected={selectedCategories} onToggle={toggleCategory} onClear={clearCategories} />
     </View>
     {searching && !loading && <Text accessibilityLiveRegion="polite" style={s.resultCount}>{resultCountLabel}</Text>}
-    {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.error}><Text style={{ color: colors.errorMessage }}>{t(error)}  ×</Text></Pressable>}
+    {error && <Pressable onPress={clearError} accessibilityRole="button" style={s.error}><Text style={s.errorText}>{t(error)}  ×</Text></Pressable>}
     {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />}
   </View>;
 
@@ -184,29 +185,32 @@ export default function TasksScreen() {
   </SafeAreaView>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: c.background },
-  content: { width: "100%", maxWidth: 680, alignSelf: "center", paddingHorizontal: 22, paddingTop: 28, paddingBottom: 100 },
-  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2, marginBottom: 10 },
-  title: { color: c.foreground, fontSize: 31, fontWeight: "800", letterSpacing: -1 },
-  subtitle: { color: c.mutedForeground, fontSize: 13, marginTop: 8 },
-  stats: { backgroundColor: c.card, borderRadius: 23, marginTop: 29, paddingVertical: 21, flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
-  statNumber: { color: c.foreground, fontSize: 24, fontWeight: "800", textAlign: "center" },
-  statLabel: { color: c.statLabel, fontSize: 10, fontWeight: "800", letterSpacing: 1, marginTop: 5 },
-  statDivider: { width: 1, height: 32, backgroundColor: c.statDivider },
-  filters: { flexDirection: "row", gap: 10, marginTop: 27, marginBottom: 9 },
-  resultCount: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 14, marginLeft: 4 },
-  noMatches: { alignItems: "center", gap: 8, padding: 26, marginTop: 20, backgroundColor: c.card, borderRadius: 17 },
-  noMatchesTitle: { color: c.foreground, fontSize: 15, fontWeight: "800", textAlign: "center" },
-  groupHeading: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 26, marginBottom: 14 },
-  groupIcon: { width: 35, height: 35, borderRadius: 12, backgroundColor: c.primaryTint, justifyContent: "center", alignItems: "center" },
-  groupTitle: { fontSize: 19, fontWeight: "800", color: c.foreground },
-  count: { fontSize: 12, fontWeight: "800", color: c.countText, marginLeft: 2 },
-  cardWrap: { marginBottom: 10 },
-  dateLabel: { color: c.dateLabel, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginVertical: 8, marginLeft: 4 },
-  empty: { padding: 18, backgroundColor: c.card, borderRadius: 17 },
-  emptyText: { color: c.emptyText, fontSize: 12, lineHeight: 19 },
-  fab: { position: "absolute", bottom: 18, right: 22, width: 57, height: 57, backgroundColor: c.primary, borderRadius: 20, alignItems: "center", justifyContent: "center", elevation: 7, shadowColor: c.fabShadow, shadowOpacity: 0.3, shadowRadius: 14 },
-  error: { padding: 13, backgroundColor: c.errorBg, borderRadius: 12, marginTop: 15, minHeight: MIN_TOUCH_TARGET, justifyContent: "center" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    content: { width: "100%", maxWidth: 680, alignSelf: "center", paddingHorizontal: t.gutter, paddingTop: 28, paddingBottom: 100 },
+    topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: t.space.md },
+    kicker: { ...t.type.micro, color: c.primary, marginBottom: 10 },
+    subtitle: { ...t.type.body, color: c.mutedForeground, marginTop: t.space.sm },
+    stats: { ...t.elevation.card, backgroundColor: c.card, borderRadius: t.radius.xl, marginTop: 29, paddingVertical: t.space.xl, flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
+    statNumber: { ...t.type.display, color: c.foreground, textAlign: "center" },
+    statLabel: { ...t.type.micro, color: c.statLabel, marginTop: t.space.xs },
+    statDivider: { width: 1, height: 32, backgroundColor: c.statDivider },
+    filters: { flexDirection: "row", gap: 10, marginTop: 27, marginBottom: 9 },
+    resultCount: { ...t.type.meta, ...t.font.bold, color: c.mutedForeground, marginTop: 14, marginLeft: t.space.xs },
+    noMatches: { ...t.elevation.card, alignItems: "center", gap: t.space.sm, padding: 26, marginTop: t.space.xl, backgroundColor: c.card, borderRadius: t.radius.lg },
+    noMatchesTitle: { ...t.type.subtitle, color: c.foreground, textAlign: "center" },
+    groupHeading: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 26, marginBottom: 14 },
+    groupIcon: { width: 35, height: 35, borderRadius: t.radius.md, backgroundColor: c.primaryTint, justifyContent: "center", alignItems: "center" },
+    groupTitle: { ...t.type.title, color: c.foreground },
+    count: { ...t.type.meta, ...t.font.bold, color: c.countText, marginLeft: t.space.xxs },
+    cardWrap: { marginBottom: 10 },
+    dateLabel: { ...t.type.micro, color: c.dateLabel, marginVertical: t.space.sm, marginLeft: t.space.xs },
+    empty: { ...t.elevation.card, padding: 18, backgroundColor: c.card, borderRadius: t.radius.lg },
+    emptyText: { ...t.type.meta, ...t.font.regular, color: c.emptyText },
+    fab: { ...t.elevation.raised, position: "absolute", bottom: 18, right: t.gutter, width: FAB_SIZE, height: FAB_SIZE, backgroundColor: c.primary, borderRadius: t.radius.xl, alignItems: "center", justifyContent: "center" },
+    error: { padding: 13, backgroundColor: c.errorBg, borderRadius: t.radius.md, marginTop: 15, minHeight: MIN_TOUCH_TARGET, justifyContent: "center" },
+    errorText: { ...t.type.body, color: c.errorMessage },
+  });
+};

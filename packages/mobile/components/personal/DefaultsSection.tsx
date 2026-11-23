@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useCategoryColors } from "../../hooks/use-category-colors";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
 import { reminderChoices, reminderLabel } from "../editor/reminder-choices";
 import { PERMISSION_HINT, useReminderPermission } from "../editor/use-reminder-permission";
@@ -23,12 +22,11 @@ const PICKER_ERROR = "Could not open the picker. Please try again.";
 export function DefaultsSection() {
   const { settings, update } = useSettings();
   const { t, duration: formatDuration, time: formatTime } = useLanguage();
-  const colors = useColors();
   const categoryColors = useCategoryColors();
   const { visible, label } = useCategories();
   const permission = useReminderPermission();
   const [pickerFailed, setPickerFailed] = useState(false);
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { defaults } = settings;
   const change = (patch: Partial<Settings["defaults"]>) => { void update({ defaults: patch }); };
 
@@ -65,9 +63,12 @@ export function DefaultsSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 12, marginBottom: 6 },
-  gap: { marginTop: 8 },
-  hint: { color: c.warningText, backgroundColor: c.warningBg, fontSize: 12, lineHeight: 17, marginTop: 8, padding: 10, borderRadius: 12, overflow: "hidden" },
-  preview: { color: c.emptyText, fontSize: 12, lineHeight: 18, marginTop: 12 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    caption: { ...t.type.meta, color: c.mutedForeground, marginTop: t.space.md, marginBottom: t.space.xs + 2 },
+    gap: { marginTop: t.space.sm },
+    hint: { ...t.type.meta, ...t.font.regular, color: c.warningText, backgroundColor: c.warningBg, marginTop: t.space.sm, padding: 10, borderRadius: t.radius.md, overflow: "hidden" },
+    preview: { ...t.type.meta, ...t.font.regular, color: c.emptyText, marginTop: t.space.md },
+  });
+};

@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 
 const MIN_TOUCH_TARGET = 44;
@@ -20,8 +19,8 @@ type Props = {
 /** A compact suggestion: a line of text, an optional detail line, action chips and a close button. */
 export function HintCard({ headline, detail, actions, onDismiss }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   return <View style={s.card}>
     <View style={s.body}>
       <Text style={s.headline}>{headline}</Text>
@@ -38,13 +37,16 @@ export function HintCard({ headline, detail, actions, onDismiss }: Props) {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 12, paddingLeft: 14, paddingVertical: 6, backgroundColor: c.primaryTint, borderRadius: 15, borderWidth: 1, borderColor: c.primaryBorder },
-  body: { flex: 1, paddingTop: 8, paddingBottom: 6 },
-  headline: { color: c.foreground, fontSize: 13, fontWeight: "700", lineHeight: 18 },
-  detail: { color: c.mutedForeground, fontSize: 12, lineHeight: 17, marginTop: 2 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
-  chip: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 15, justifyContent: "center", backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.primaryBorder },
-  chipText: { color: c.primary, fontSize: 12, fontWeight: "700" },
-  close: { width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    card: { flexDirection: "row", alignItems: "flex-start", gap: t.space.xs, marginTop: t.space.md, paddingLeft: 14, paddingVertical: 6, backgroundColor: c.primaryTint, borderRadius: t.radius.lg, borderWidth: 1, borderColor: c.primaryBorder },
+    body: { flex: 1, paddingTop: t.space.sm, paddingBottom: 6 },
+    headline: { ...t.type.label, color: c.foreground },
+    detail: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xxs },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm, marginTop: t.space.sm },
+    chip: { minHeight: MIN_TOUCH_TARGET, paddingHorizontal: 15, justifyContent: "center", backgroundColor: c.card, borderRadius: t.radius.md, borderWidth: 1, borderColor: c.primaryBorder },
+    chipText: { ...t.type.meta, ...t.font.bold, color: c.primary },
+    close: { width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
+  });
+};

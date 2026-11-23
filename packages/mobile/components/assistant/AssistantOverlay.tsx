@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, AppState, Pressable, StyleSheet, Text, useWindowDimensions, View, PanResponder } from "react-native";
 import { usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { answer, fill, greetingLine, LINES, QUESTION_IDS, QUESTIONS, talkMs, type Line, type QuestionId } from "../../lib/assistant-answers";
 import { poseAt } from "../../lib/assistant-pose";
 import { liftAbove } from "../../lib/assistant-place";
@@ -71,8 +70,8 @@ function Assistant({ name, voice, voiceId, assistantName, aiEnabled, wakeWord, t
   const { t, time, language } = useLanguage();
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const { tasks, loading } = useTasks();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
 
@@ -779,25 +778,28 @@ function lineFor(state: AssistantState, name: string, spoken: Line | null): Line
   }
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const MIC_BADGE = 20;
+
+const makeStyles = ({ colors: c, type, font, radius, space, elevation }: Theme) => StyleSheet.create({
   holder: { position: "absolute", left: 0, top: 0, width: WIDTH, height: HEIGHT },
   micBadge: {
-    position: "absolute", top: 2, right: 2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center",
+    position: "absolute", top: 2, right: 2, width: MIC_BADGE, height: MIC_BADGE, borderRadius: MIC_BADGE / 2, alignItems: "center", justifyContent: "center",
     backgroundColor: c.primary,
   },
   shadow: {
     position: "absolute", bottom: -2, left: WIDTH * 0.2, width: WIDTH * 0.6, height: 8, borderRadius: 8,
     backgroundColor: c.shadowSoft, opacity: 0.18,
   },
+  // A floating popover: `raised` depth; the line keeps its edge on any screen (the bordered styles draw the same one).
   bubble: {
-    position: "absolute", width: BUBBLE_WIDTH, padding: 10, gap: 6, borderRadius: 16,
-    backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder,
-    shadowColor: c.shadowPanel, shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    position: "absolute", width: BUBBLE_WIDTH, padding: 10, gap: 6, borderRadius: radius.lg,
+    backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder, ...elevation.raised,
   },
-  bubbleText: { color: c.foreground, fontSize: 13, lineHeight: 18, fontWeight: "600" },
-  bubbleTitle: { color: c.foreground, fontSize: 15, lineHeight: 20, fontWeight: "800" },
-  question: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, justifyContent: "center", backgroundColor: c.primary },
-  questionText: { color: c.onPrimary, fontSize: 13, fontWeight: "700" },
+  bubbleText: { ...type.label, ...font.semibold, color: c.foreground },
+  bubbleTitle: { ...type.subtitle, color: c.foreground },
+  // Compact (40 px) so the menu fits beside the assistant; the 6 px gap keeps the buttons apart.
+  question: { minHeight: 40, paddingHorizontal: space.md, borderRadius: radius.md, justifyContent: "center", backgroundColor: c.primary },
+  questionText: { ...type.label, color: c.onPrimary },
   close: { minHeight: 36, alignItems: "center", justifyContent: "center" },
-  closeText: { color: c.mutedForeground, fontSize: 12, fontWeight: "700" },
+  closeText: { ...type.meta, ...font.bold, color: c.mutedForeground },
 });

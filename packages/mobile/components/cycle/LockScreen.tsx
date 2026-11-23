@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import type { LockNotice } from "../../lib/cycle-lock-gate";
 import { tx } from "../../lib/cycle-ui-text";
 import { useLanguage } from "../../lib/language";
@@ -24,11 +23,14 @@ const NOTICE_TEXT: Readonly<Record<Exclude<LockNotice, "none">, string>> = {
   unavailable: tx("This phone has no screen lock or fingerprint set up, so this screen cannot be checked. You can continue, but anyone with your phone could open it. Set a lock in the phone settings to protect it."),
 };
 
+const ICON_BOX = 64;
+const TEXT_MAX_WIDTH = 360;
+
 /** Shown instead of the private content while it is locked. It renders no cycle data of any kind. */
 export function LockScreen({ notice, busy, loading, onUnlock, onContinue }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   return <View style={s.root}>
     <CycleHeader />
     <View style={s.body}>
@@ -48,12 +50,12 @@ export function LockScreen({ notice, busy, loading, onUnlock, onContinue }: Prop
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: c.background, paddingHorizontal: 20, paddingTop: 16 },
-  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingBottom: 60 },
-  icon: { width: 64, height: 64, borderRadius: 22, backgroundColor: c.primarySoft, alignItems: "center", justifyContent: "center" },
-  title: { color: c.foreground, fontSize: 22, fontWeight: "800" },
-  text: { color: c.foreground, fontSize: 13, lineHeight: 19, textAlign: "center", maxWidth: 360 },
-  warning: { color: c.warningText, backgroundColor: c.warningBg, borderRadius: 12, padding: 12 },
-  actions: { alignSelf: "stretch", maxWidth: 360, width: "100%", gap: 8, marginTop: 8 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: t.colors.background, paddingHorizontal: t.gutter, paddingTop: t.space.lg },
+  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: t.space.md, paddingBottom: 60 },
+  icon: { width: ICON_BOX, height: ICON_BOX, borderRadius: t.radius.xl, backgroundColor: t.colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  title: { ...t.type.headline, color: t.colors.foreground },
+  text: { ...t.type.body, color: t.colors.foreground, textAlign: "center", maxWidth: TEXT_MAX_WIDTH },
+  warning: { color: t.colors.warningText, backgroundColor: t.colors.warningBg, borderRadius: t.radius.md, padding: t.space.md },
+  actions: { alignSelf: "stretch", maxWidth: TEXT_MAX_WIDTH, width: "100%", gap: t.space.sm, marginTop: t.space.sm },
 });

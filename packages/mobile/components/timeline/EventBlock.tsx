@@ -1,10 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View, type AccessibilityActionEvent, type LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
 import { useCategoryColors } from "../../hooks/use-category-colors";
 import { useBlockDrag } from "../../hooks/use-block-drag";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import type { Task } from "../../lib/planner";
 import { formatMinutes, SNAP_MINUTES } from "../../lib/timeline-gestures";
@@ -34,13 +33,14 @@ type Props = {
 const CHECK_HIT_SLOP = { top: 10, bottom: 10, left: 6, right: 8 };
 const MOVE_EARLIER = "moveEarlier";
 const MOVE_LATER = "moveLater";
+const CHECK_SIZE = 20;
 
 /** One positioned task block on the timeline: tap to edit, long-press then drag to move or resize. */
 export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress, onToggle, onCommit, onLockChange }: Props) {
   const { t: tr, duration, time } = useLanguage();
-  const colors = useColors();
+  const colors = useTheme().colors;
   const categoryColors = useCategoryColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const config = useTimelineConfig();
   const drag = useBlockDrag({ task, onCommit, onPress, onLockChange });
   // The block's real width decides how much text a one-row block can show (lanes make it narrower).
@@ -117,26 +117,35 @@ export function EventBlock({ task, lane, lanes, visualMinutes, conflict, onPress
   </>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  wrapper: { position: "absolute", zIndex: 3, minWidth: 0 },
-  // Above sibling blocks while armed or dragging; the preview never re-lays out the others.
-  liftedWrapper: { zIndex: 20, transform: [{ scale: 1.02 }], shadowColor: c.shadowPanel, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-  event: { flex: 1, borderLeftWidth: 3, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 9, overflow: "hidden", minWidth: 0 },
-  // 30 minutes or less: 38 px tall, one centred row, tighter corners and padding so nothing is clipped.
-  eventCompact: { justifyContent: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 11 },
-  // 46-63 px: two lines, but with the padding trimmed so the time line is not cut off.
-  eventMedium: { paddingVertical: 6 },
-  liftedEvent: { elevation: 10 },
-  strike: { textDecorationLine: "line-through" },
-  compactRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
-  compactTitle: { flex: 1, minWidth: 0, color: c.foreground, fontSize: 12.5, fontWeight: "800" },
-  compactMeta: { flexShrink: 0, color: c.eventMeta, fontSize: 10.5, fontWeight: "600" },
-  compactOverlap: { flexShrink: 0, color: c.overlapText, fontSize: 11, fontWeight: "800" },
-  eventTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  check: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  eventTitle: { flex: 1, color: c.foreground, fontSize: 14, fontWeight: "800" },
-  eventTitleMedium: { fontSize: 13 },
-  eventMeta: { marginTop: 4, color: c.eventMeta, fontSize: 10, fontWeight: "600" },
-  eventMetaMedium: { marginTop: 2 },
-  overlap: { color: c.overlapText, fontSize: 10, marginTop: 6, fontWeight: "800" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  // A lifted block floats in every style: the overlay token's shadow without its border line (the block keeps its
+  // category edge). The shadow sits on the wrapper because the block clips its children; Android's elevation on the block.
+  const lift = t.elevation.overlay;
+  return StyleSheet.create({
+    wrapper: { position: "absolute", zIndex: 3, minWidth: 0 },
+    // Above sibling blocks while armed or dragging; the preview never re-lays out the others.
+    liftedWrapper: { zIndex: 20, transform: [{ scale: 1.02 }], shadowColor: lift.shadowColor, shadowOpacity: lift.shadowOpacity, shadowRadius: lift.shadowRadius, shadowOffset: lift.shadowOffset },
+    event: { flex: 1, borderLeftWidth: 3, borderRadius: t.radius.md, paddingHorizontal: 10, paddingVertical: 9, overflow: "hidden", minWidth: 0 },
+    // 30 minutes or less: 38 px tall, one centred row, tighter corners and padding so nothing is clipped.
+    eventCompact: { justifyContent: "center", paddingHorizontal: t.space.sm, paddingVertical: t.space.xs, borderRadius: t.radius.sm },
+    // 46-63 px: two lines, but with the padding trimmed so the time line is not cut off.
+    eventMedium: { paddingVertical: 6 },
+    liftedEvent: { elevation: lift.elevation },
+    strike: { textDecorationLine: "line-through" },
+    compactRow: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 },
+    // The block is a measured box: lib/event-density.ts picks the compact row's text from character widths of a 12.5 px
+    // title and 10.5 px meta, and its height thresholds fit a 10 px time line. Those sizes stay numeric; the family and
+    // weight follow the style.
+    compactTitle: { ...t.type.meta, ...t.font.heavy, fontSize: 12.5, flex: 1, minWidth: 0, color: c.foreground },
+    compactMeta: { ...t.type.caption, ...t.font.semibold, fontSize: 10.5, flexShrink: 0, color: c.eventMeta },
+    compactOverlap: { ...t.type.caption, ...t.font.heavy, flexShrink: 0, color: c.overlapText },
+    eventTop: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+    check: { width: CHECK_SIZE, height: CHECK_SIZE, borderRadius: CHECK_SIZE / 2, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+    eventTitle: { ...t.type.body, ...t.font.heavy, flex: 1, color: c.foreground },
+    eventTitleMedium: { ...t.type.label, ...t.font.heavy },
+    eventMeta: { ...t.type.caption, ...t.font.semibold, fontSize: 10, lineHeight: 13, marginTop: t.space.xs, color: c.eventMeta },
+    eventMetaMedium: { marginTop: t.space.xxs },
+    overlap: { ...t.type.caption, ...t.font.heavy, fontSize: 10, lineHeight: 13, color: c.overlapText, marginTop: 6 },
+  });
+};

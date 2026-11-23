@@ -1,6 +1,6 @@
 import React from "react";
-import { Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { StyleSheet, Text, View } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useCycle } from "../../lib/cycle-context";
 import { REMINDER_DAYS_BEFORE_MAX, REMINDER_DAYS_BEFORE_MIN, type CycleState } from "../../lib/cycle-model";
 import { tx } from "../../lib/cycle-ui-text";
@@ -17,7 +17,7 @@ const GAP = 6;
 /** When and how the tracker may notify. Only edits the settings; the reminders bridge schedules from them. */
 export function ReminderSettings({ state }: { state: CycleState }) {
   const { t } = useLanguage();
-  const colors = useColors();
+  const s = useThemedStyles(makeStyles);
   const format = useCycleFormat();
   const { updateReminders, setPaused, setShowOnTimeline } = useCycle();
   const { message, run } = useCycleReport();
@@ -27,7 +27,7 @@ export function ReminderSettings({ state }: { state: CycleState }) {
     : format.sayText(daysBefore === 1 ? tx("{count} day before") : tx("{count} days before"), { count: String(daysBefore) });
 
   return <CycleCard title={t("Settings")}>
-    <View style={{ gap: GAP }}>
+    <View style={s.stack}>
       <SwitchRow label={t("Pause tracking")} hint={t("Stops predictions and reminders. Your history is kept.")}
         value={state.paused} onChange={next => { void run(() => setPaused(next)); }} />
       <SwitchRow label={t("Show marks on the Timeline")}
@@ -48,7 +48,12 @@ export function ReminderSettings({ state }: { state: CycleState }) {
       <SwitchRow label={t("Neutral notification text")}
         hint={t("Notifications will not mention periods or this tracker.")}
         value={neutralText} onChange={next => { void run(() => updateReminders({ neutralText: next })); }} />
-      {message !== null && <Text accessibilityRole="alert" style={{ color: colors.errorMessage, fontSize: 12, lineHeight: 17 }}>{message}</Text>}
+      {message !== null && <Text accessibilityRole="alert" style={s.error}>{message}</Text>}
     </View>
   </CycleCard>;
 }
+
+const makeStyles = (t: Theme) => StyleSheet.create({
+  stack: { gap: GAP },
+  error: { ...t.type.meta, ...t.font.regular, color: t.colors.errorMessage },
+});

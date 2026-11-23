@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { AccessibilityInfo, ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
 import { currentUpdateLabel, describeCurrent } from "../../lib/ota";
@@ -30,8 +29,8 @@ export function UpdateSection() {
   const ota = useOta();
   const { settings, update } = useSettings();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
 
   const kind = summarizeUpdates(apk, ota);
   const line = updateSummaryLine(apk, ota, t);
@@ -66,16 +65,20 @@ export function UpdateSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  version: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 44, marginTop: 4 },
-  switchLabel: { flex: 1, color: c.foreground, fontSize: 13, fontWeight: "700" },
-  button: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 8, minHeight: 44, paddingHorizontal: 14, marginTop: 4, borderRadius: 12, backgroundColor: c.primaryTint },
-  buttonText: { color: c.foreground, fontSize: 12, fontWeight: "800" },
+const makeStyles = ({ colors: c, type, font, radius, space }: Theme) => StyleSheet.create({
+  version: { ...type.meta, ...font.regular, color: c.mutedForeground },
+  switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, minHeight: 44, marginTop: space.xs },
+  switchLabel: { ...type.label, flex: 1, color: c.foreground },
+  // Drawn by hand (not the kit's Button), so the words stay beside the spinner while it checks and the button keeps its width.
+  button: {
+    flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: space.sm, minHeight: 44, paddingHorizontal: 14, marginTop: space.xs,
+    borderRadius: radius.md, backgroundColor: c.primaryTint,
+  },
+  buttonText: { ...type.meta, ...font.heavy, color: c.foreground },
   disabled: { opacity: 0.45 },
-  muted: { color: c.mutedForeground, fontSize: 12, marginTop: 8 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
-  availableRow: { minHeight: 44, justifyContent: "center", marginTop: 2 },
-  available: { color: c.primary, fontSize: 12, fontWeight: "800" },
+  muted: { ...type.meta, ...font.regular, color: c.mutedForeground, marginTop: space.sm },
+  success: { ...type.meta, ...font.bold, color: c.success, marginTop: space.sm },
+  error: { ...type.meta, ...font.bold, color: c.errorMessage, marginTop: space.sm },
+  availableRow: { minHeight: 44, justifyContent: "center", marginTop: space.xxs },
+  available: { ...type.meta, ...font.heavy, color: c.countText },
 });

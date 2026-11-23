@@ -1,11 +1,11 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 
 const TOUCH_TARGET = 44;
 const DISABLED_OPACITY = 0.35;
+const VALUE_MIN_WIDTH = 76;
 
 type Props = {
   label: string;
@@ -24,8 +24,8 @@ type Props = {
  * Vietnamese label never pushes the buttons off a small screen.
  */
 export function CycleStepper({ label, valueText, decreaseLabel, increaseLabel, canDecrease, canIncrease, onDecrease, onIncrease }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   return <View style={s.row}>
     <Text style={s.label}>{label}</Text>
     <View style={s.control}>
@@ -42,11 +42,11 @@ export function CycleStepper({ label, valueText, decreaseLabel, increaseLabel, c
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: TOUCH_TARGET },
-  label: { flex: 1, color: c.foreground, fontSize: 13, fontWeight: "700" },
-  control: { flexDirection: "row", alignItems: "center", gap: 2 },
-  button: { width: TOUCH_TARGET, height: TOUCH_TARGET, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: t.space.sm, minHeight: TOUCH_TARGET },
+  label: { ...t.type.label, flex: 1, color: t.colors.foreground },
+  control: { flexDirection: "row", alignItems: "center", gap: t.space.xxs },
+  button: { width: TOUCH_TARGET, height: TOUCH_TARGET, borderRadius: t.radius.md, alignItems: "center", justifyContent: "center", backgroundColor: t.colors.card, borderWidth: 1, borderColor: t.colors.inputBorder },
   off: { opacity: DISABLED_OPACITY },
-  value: { minWidth: 76, textAlign: "center", color: c.foreground, fontSize: 13, fontWeight: "800" },
+  value: { ...t.type.label, minWidth: VALUE_MIN_WIDTH, textAlign: "center", color: t.colors.foreground },
 });

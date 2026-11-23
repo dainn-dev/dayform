@@ -1,12 +1,11 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { fill } from "../../lib/assistant-answers";
 import { expLine, rankLabel } from "../../lib/rank-label";
 import { useXp } from "../../lib/xp-context";
 import { RankBadge } from "../cultivation/RankBadge";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { NameInput } from "../onboarding/NameInput";
 import { useLanguage } from "../../lib/language";
 import { isValidName, nameInitial } from "../../lib/settings";
@@ -14,6 +13,7 @@ import { useSettings } from "../../lib/settings-context";
 import { IconButton } from "../ui/IconButton";
 
 const AVATAR_SIZE = 56;
+const TRACK_HEIGHT = 5;
 
 /** Avatar, name and an inline editor (same validation as the first-launch prompt). */
 export function ProfileCard() {
@@ -21,8 +21,7 @@ export function ProfileCard() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const { enabled, ready, rank, state, style, ladder } = useXp();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const name = settings.profile.name;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -75,19 +74,22 @@ export function ProfileCard() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: 17, padding: 14, marginBottom: 8 },
-  row: { flexDirection: "row", alignItems: "center", gap: 14 },
-  avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: c.accent, alignItems: "center", justifyContent: "center" },
-  initial: { color: c.accentForeground, fontSize: 24, fontWeight: "800" },
-  badge: { width: AVATAR_SIZE, height: AVATAR_SIZE },
-  // minWidth 0 lets the rank and the experience line wrap under the badge instead of being cut off.
-  who: { flex: 1, minWidth: 0 },
-  name: { color: c.foreground, fontSize: 19, fontWeight: "800" },
-  rank: { color: c.primary, fontSize: 13, lineHeight: 18, fontWeight: "800", marginTop: 3 },
-  exp: { color: c.mutedForeground, fontSize: 12, lineHeight: 17, fontWeight: "700", marginTop: 1 },
-  track: { height: 5, borderRadius: 3, backgroundColor: c.track, overflow: "hidden", marginTop: 5 },
-  fill: { height: 5, borderRadius: 3, backgroundColor: c.primary },
-  editor: { marginTop: 12 },
-  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 10 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    card: { backgroundColor: c.card, borderRadius: t.radius.lg, padding: 14, marginBottom: t.space.sm, ...t.elevation.card },
+    row: { flexDirection: "row", alignItems: "center", gap: 14 },
+    avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: c.accent, alignItems: "center", justifyContent: "center" },
+    initial: { ...t.type.headline, color: c.accentForeground },
+    badge: { width: AVATAR_SIZE, height: AVATAR_SIZE },
+    // minWidth 0 lets the rank and the experience line wrap under the badge instead of being cut off.
+    who: { flex: 1, minWidth: 0 },
+    name: { ...t.type.title, color: c.foreground },
+    rank: { ...t.type.label, color: c.primary, marginTop: 3 },
+    exp: { ...t.type.meta, color: c.mutedForeground, marginTop: 1 },
+    track: { height: TRACK_HEIGHT, borderRadius: TRACK_HEIGHT / 2, backgroundColor: c.track, overflow: "hidden", marginTop: 5 },
+    fill: { height: TRACK_HEIGHT, borderRadius: TRACK_HEIGHT / 2, backgroundColor: c.primary },
+    editor: { marginTop: t.space.md },
+    actions: { flexDirection: "row", justifyContent: "flex-end", gap: t.space.sm, marginTop: 10 },
+  });
+};

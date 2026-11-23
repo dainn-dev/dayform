@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useCategoryColors, type CategoryColors, type IconName } from "../../hooks/use-category-colors";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import {
   DEFAULT_COLOR_SLOT, DEFAULT_ICON, MAX_NAME_LENGTH, addCategory, renameBuiltin, updateCategory,
   type CategoriesState, type CategoryResult, type ColorSlot, type IconKey,
@@ -33,9 +32,9 @@ export function CategoryEditorModal({ target, onClose }: Props) {
 function EditorBody({ target, onClose }: { target: EditorTarget; onClose: () => void }) {
   const cats = useCategories();
   const { t } = useLanguage();
-  const colors = useColors();
+  const { colors } = useTheme();
   const lookup = useCategoryColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
 
   const id = target.kind === "edit" ? target.id : null;
   const resolved = id === null ? null : cats.resolve(id);
@@ -129,19 +128,22 @@ function checkDraft(state: CategoriesState, target: EditorTarget, draft: Draft, 
   return result.ok ? { ok: true } : { ok: false, reason: result.reason };
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  flex: { flex: 1 },
-  scrim: { backgroundColor: c.scrim },
-  center: { flex: 1, justifyContent: "center", paddingHorizontal: 20, paddingVertical: 24 },
-  card: { width: "100%", maxWidth: 440, maxHeight: "100%", alignSelf: "center", backgroundColor: c.card, borderRadius: 22, padding: 20, flexShrink: 1 },
-  title: { color: c.foreground, fontSize: 19, fontWeight: "800", marginBottom: 2 },
-  scroll: { flexGrow: 0, flexShrink: 1 },
-  caption: { color: c.mutedForeground, fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 8 },
-  input: { minHeight: 52, backgroundColor: c.background, borderRadius: 15, paddingHorizontal: 16, paddingVertical: 14, color: c.foreground, fontSize: 16, borderWidth: 1, borderColor: c.inputBorder },
-  error: { color: c.errorMessage, fontSize: 12, lineHeight: 17, marginTop: 8 },
-  helper: { color: c.labelText, fontSize: 12, lineHeight: 18, marginTop: 16 },
-  preview: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 },
-  previewName: { flex: 1, color: c.foreground, fontSize: 15, fontWeight: "700" },
-  reset: { alignSelf: "flex-start", marginTop: 8 },
-  actions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    flex: { flex: 1 },
+    scrim: { backgroundColor: c.scrim },
+    center: { flex: 1, justifyContent: "center", paddingHorizontal: t.space.xl, paddingVertical: t.space.xxl },
+    card: { width: "100%", maxWidth: 440, maxHeight: "100%", alignSelf: "center", backgroundColor: c.card, borderRadius: t.radius.xl, padding: t.space.xl, flexShrink: 1, ...t.elevation.overlay },
+    title: { ...t.type.title, color: c.foreground, marginBottom: t.space.xxs },
+    scroll: { flexGrow: 0, flexShrink: 1 },
+    caption: { ...t.type.meta, color: c.mutedForeground, marginTop: t.space.lg, marginBottom: t.space.sm },
+    input: { ...t.type.body, minHeight: 52, backgroundColor: c.background, borderRadius: t.radius.lg, paddingHorizontal: t.space.lg, paddingVertical: 14, color: c.foreground, borderWidth: 1, borderColor: c.inputBorder },
+    error: { ...t.type.meta, ...t.font.regular, color: c.errorMessage, marginTop: t.space.sm },
+    helper: { ...t.type.meta, ...t.font.regular, color: c.labelText, marginTop: t.space.lg },
+    preview: { flexDirection: "row", alignItems: "center", gap: t.space.md, minHeight: 52 },
+    previewName: { ...t.type.subtitle, flex: 1, color: c.foreground },
+    reset: { alignSelf: "flex-start", marginTop: t.space.sm },
+    actions: { flexDirection: "row", alignItems: "center", gap: t.space.sm, marginTop: t.space.lg },
+  });
+};

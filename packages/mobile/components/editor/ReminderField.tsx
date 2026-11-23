@@ -1,7 +1,6 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, Text } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { ChoiceChips } from "./ChoiceChips";
 import { useFieldStyles } from "./field-styles";
@@ -16,9 +15,8 @@ type Props = { value: number | null; onChange: (value: number | null) => void };
  */
 export function ReminderField({ value, onChange }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
   const f = useFieldStyles();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const permission = useReminderPermission();
 
   const select = (next: number | null) => {
@@ -32,6 +30,6 @@ export function ReminderField({ value, onChange }: Props) {
   </>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  hint: { color: c.warningText, backgroundColor: c.warningBg, fontSize: 12, lineHeight: 17, marginTop: 10, padding: 12, borderRadius: 12, overflow: "hidden" },
+const makeStyles = ({ colors: c, radius, space, type }: Theme) => StyleSheet.create({
+  hint: { ...type.meta, color: c.warningText, backgroundColor: c.warningBg, marginTop: 10, padding: space.md, borderRadius: radius.md, overflow: "hidden" },
 });

@@ -1,10 +1,9 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
 import { useFocusClock } from "../../hooks/use-focus-clock";
 import { useTabBarHeight } from "../../hooks/use-tab-bar-height";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { formatClock, remainingMs } from "../../lib/focus";
 import { useFocus } from "../../lib/focus-context";
 import { useLanguage } from "../../lib/language";
@@ -20,8 +19,8 @@ export function FocusMini() {
   const { session, openSheet } = useFocus();
   const { tasks } = useTasks();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const bottom = useTabBarHeight() + FAB_MARGIN;
   const now = useFocusClock();
   if (session === null) return null;
@@ -38,9 +37,13 @@ export function FocusMini() {
   </Pressable>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  pill: { position: "absolute", height: FAB_SIZE, borderRadius: FAB_SIZE / 2, backgroundColor: c.primary, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, elevation: 6, shadowColor: c.shadowSoft, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+const makeStyles = ({ colors: c, type, space, elevation }: Theme) => StyleSheet.create({
+  pill: {
+    position: "absolute", height: FAB_SIZE, borderRadius: FAB_SIZE / 2, backgroundColor: c.primary, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 18,
+    // The bordered styles' `raised` also draws a 1px line: on a filled pill it takes the fill colour, so it shows no grey ring.
+    ...elevation.raised, borderColor: c.primary,
+  },
   texts: { flex: 1, minWidth: 0 },
-  time: { color: c.onPrimary, fontSize: 18, fontWeight: "800", fontVariant: ["tabular-nums"] },
-  title: { color: c.onPrimary, fontSize: 11, fontWeight: "600", opacity: 0.9 },
+  time: { ...type.title, color: c.onPrimary, fontVariant: ["tabular-nums"] },
+  title: { ...type.caption, color: c.onPrimary, opacity: 0.9 },
 });

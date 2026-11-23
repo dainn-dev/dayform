@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import React, { useCallback, useEffect, useState } from "react";
+import { AppState, StyleSheet, Text, View } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import {
   ensureReminderChannel,
@@ -9,6 +8,7 @@ import {
   requestReminderPermission,
   type ReminderPermission,
 } from "../../lib/reminders-expo";
+import { Button } from "../ui/Button";
 
 const DENIED_HINT = "Notifications are turned off. Turn them on in system settings to get reminders.";
 const UNDETERMINED_HINT = "Notifications are off, so these options have no effect yet.";
@@ -19,8 +19,7 @@ const UNDETERMINED_HINT = "Notifications are off, so these options have no effec
  */
 export function NotificationPermissionHint() {
   const { t, language } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [permission, setPermission] = useState<ReminderPermission | null>(null);
 
   const refresh = useCallback(() => {
@@ -43,15 +42,11 @@ export function NotificationPermissionHint() {
   if (permission === null || permission === "granted") return null;
   return <View accessibilityRole="alert" style={s.box}>
     <Text style={s.text}>{t(permission === "denied" ? DENIED_HINT : UNDETERMINED_HINT)}</Text>
-    <Pressable onPress={() => { void request(); }} accessibilityRole="button" style={s.button}>
-      <Text style={s.buttonText}>{t("Allow notifications")}</Text>
-    </Pressable>
+    <Button label={t("Allow notifications")} onPress={() => { void request(); }} />
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  box: { backgroundColor: c.warningBg, borderRadius: 12, padding: 10, gap: 8 },
-  text: { color: c.warningText, fontSize: 12, lineHeight: 17 },
-  button: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingHorizontal: 16, borderRadius: 14, backgroundColor: c.primary },
-  buttonText: { color: c.onPrimary, fontSize: 12, fontWeight: "700" },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  box: { backgroundColor: t.colors.warningBg, borderRadius: t.radius.md, padding: 10, gap: t.space.sm },
+  text: { ...t.type.meta, ...t.font.regular, color: t.colors.warningText },
 });

@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../../lib/language";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 
 const DEBOUNCE_MS = 200;
 const MIN_TOUCH_TARGET = 44;
@@ -13,8 +12,8 @@ type Props = { value: string; onChange: (query: string) => void };
 /** Search field with a clear button. Typing is debounced; submit and clear apply immediately. */
 export function SearchBar({ value, onChange }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const [text, setText] = useState(value);
 
   useEffect(() => {
@@ -40,8 +39,8 @@ export function SearchBar({ value, onChange }: Props) {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  box: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.card, borderRadius: 15, paddingLeft: 15, minHeight: 48, marginTop: 27 },
-  input: { flex: 1, color: c.foreground, fontSize: 14, minHeight: MIN_TOUCH_TARGET, paddingVertical: 0 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  box: { ...t.elevation.card, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: t.colors.card, borderRadius: t.radius.lg, paddingLeft: 15, minHeight: 48, marginTop: 27 },
+  input: { ...t.type.body, flex: 1, color: t.colors.foreground, minHeight: MIN_TOUCH_TARGET, paddingVertical: 0 },
   clear: { width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
 });

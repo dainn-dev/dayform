@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { SSH_ERROR_TEXTS, shortFingerprint, toSshError } from "../../lib/ssh";
 import { readSshCredentials } from "../../lib/ssh-credentials-expo";
@@ -13,12 +12,12 @@ import { useSettings } from "../../lib/settings-context";
 import { SshHostEditor } from "./SshHostEditor";
 import { SwitchRow } from "./SwitchRow";
 import { SshTerminal } from "./SshTerminal";
+import { Button } from "../ui/Button";
 
 /** "SSH servers": the servers the user can log in to, each with a connection check that shows the server's key before it is trusted. */
 export function SshSection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { items, locked, saveError } = useSshHosts();
   const [editing, setEditing] = useState<SshHost | null>(null);
   const [open, setOpen] = useState(false);
@@ -40,10 +39,7 @@ export function SshSection() {
       {settings.ssh.assistant && <SwitchRow label={t("Send command output to the AI")} hint={t("Off: the assistant only learns whether a command worked, and you read the output yourself. On: up to 8000 characters of each output go to your AI provider, so leave it off for servers whose output can hold secrets.")}
         value={settings.ssh.shareOutput} onChange={value => { void update({ ssh: { shareOutput: value } }); }} />}
     </View>
-    <Pressable onPress={() => { setEditing(null); setOpen(true); }} accessibilityRole="button" style={s.add}>
-      <Ionicons accessible={false} name="add" size={18} color={colors.onPrimary} />
-      <Text style={s.addText}>{t("Add a server")}</Text>
-    </Pressable>
+    <Button block icon="add" label={t("Add a server")} onPress={() => { setEditing(null); setOpen(true); }} />
     <SshHostEditor visible={open} host={editing} onClose={() => setOpen(false)} />
     <SshTerminal visible={terminal !== null} host={terminal} onClose={() => setTerminal(null)} />
   </View>;
@@ -53,8 +49,8 @@ type Check = { kind: "idle" } | { kind: "busy" } | { kind: "ok" } | { kind: "err
 
 function HostRow({ host, supported, onEdit, onRun }: { host: SshHost; supported: boolean; onEdit: () => void; onRun: () => void }) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { trust } = useSshHosts();
   const [check, setCheck] = useState<Check>({ kind: "idle" });
 
@@ -113,21 +109,18 @@ function HostRow({ host, supported, onEdit, onRun }: { host: SshHost; supported:
       <Text selectable style={s.fingerprint}>{check.fingerprint}</Text>
       <Text style={s.hint}>{t("Compare it with what the server shows: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub")}</Text>
       <View style={s.buttons}>
-        <Pressable onPress={() => setCheck({ kind: "idle" })} accessibilityRole="button" style={s.ghost}><Text style={s.ghostText}>{t("Cancel")}</Text></Pressable>
-        <Pressable onPress={() => void accept(check.fingerprint)} accessibilityRole="button" style={s.primary}><Text style={s.primaryText}>{t("Trust and log in")}</Text></Pressable>
+        <Button variant="ghost" label={t("Cancel")} onPress={() => setCheck({ kind: "idle" })} />
+        <Button label={t("Trust and log in")} onPress={() => void accept(check.fingerprint)} />
       </View>
     </View>}
 
     {check.kind === "ok" && <Text accessibilityLiveRegion="polite" style={s.ok}>{t("Connected. The login works.")}</Text>}
     {check.kind === "error" && <View>
       <Text accessibilityLiveRegion="polite" style={s.error}>{check.text}</Text>
-      {check.mismatch && <Pressable onPress={() => void forget()} accessibilityRole="button" style={s.ghost}><Text style={s.ghostText}>{t("Forget the old key")}</Text></Pressable>}
+      {check.mismatch && <Button variant="ghost" label={t("Forget the old key")} onPress={() => void forget()} />}
     </View>}
 
-    {host.fingerprint !== null && check.kind !== "trust" && <Pressable onPress={onRun} disabled={!supported} accessibilityRole="button" style={[s.runBtn, !supported && s.off]}>
-      <Ionicons accessible={false} name="terminal-outline" size={18} color={colors.onPrimary} />
-      <Text style={s.runBtnText}>{t("Run a command")}</Text>
-    </Pressable>}
+    {host.fingerprint !== null && check.kind !== "trust" && <Button block icon="terminal-outline" label={t("Run a command")} disabled={!supported} onPress={onRun} />}
 
     {check.kind !== "trust" && <Pressable onPress={() => void start()} disabled={!supported || check.kind === "busy"} accessibilityRole="button"
       accessibilityState={{ disabled: !supported || check.kind === "busy", busy: check.kind === "busy" }} style={[s.check, (!supported || check.kind === "busy") && s.off]}>
@@ -136,34 +129,29 @@ function HostRow({ host, supported, onEdit, onRun }: { host: SshHost; supported:
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 12 },
-  rules: { gap: 10, paddingTop: 4 },
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 17 },
-  warning: { color: c.errorBannerText, fontSize: 12, lineHeight: 17 },
-  card: { padding: 14, borderRadius: 16, backgroundColor: c.primarySoft, gap: 10 },
-  cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  cardText: { flex: 1, minWidth: 0 },
-  name: { color: c.foreground, fontSize: 15, fontWeight: "800" },
-  meta: { color: c.mutedForeground, fontSize: 12, marginTop: 2 },
-  metaOk: { color: c.accentForeground, fontSize: 11, marginTop: 4, fontWeight: "700" },
-  metaWarn: { color: c.mutedForeground, fontSize: 11, marginTop: 4, fontWeight: "700" },
-  iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  trustBox: { gap: 8, padding: 12, borderRadius: 14, backgroundColor: c.card },
-  trustTitle: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  fingerprint: { color: c.foreground, fontSize: 12, fontFamily: "monospace", lineHeight: 18 },
-  buttons: { flexDirection: "row", gap: 10, justifyContent: "flex-end", marginTop: 4 },
-  ok: { color: c.accentForeground, fontSize: 13, fontWeight: "700" },
-  error: { color: c.errorMessage, fontSize: 13, fontWeight: "700", lineHeight: 18 },
-  check: { minHeight: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.card },
-  checkText: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
-  off: { opacity: 0.5 },
-  runBtn: { minHeight: 44, borderRadius: 14, backgroundColor: c.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  runBtnText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
-  ghost: { minHeight: 44, paddingHorizontal: 14, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  ghostText: { color: c.mutedForeground, fontSize: 13, fontWeight: "700" },
-  primary: { minHeight: 44, paddingHorizontal: 18, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  primaryText: { color: c.onPrimary, fontSize: 13, fontWeight: "800" },
-  add: { minHeight: 48, borderRadius: 15, backgroundColor: c.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  addText: { color: c.onPrimary, fontSize: 14, fontWeight: "800" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    stack: { gap: t.space.md },
+    rules: { gap: 10, paddingTop: t.space.xs },
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    warning: { ...t.type.meta, ...t.font.regular, color: c.errorBannerText },
+    card: { padding: 14, borderRadius: t.radius.lg, backgroundColor: c.primarySoft, gap: 10 },
+    cardTop: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+    cardText: { flex: 1, minWidth: 0 },
+    name: { ...t.type.subtitle, color: c.foreground },
+    meta: { ...t.type.meta, color: c.mutedForeground, marginTop: t.space.xxs },
+    metaOk: { ...t.type.caption, ...t.font.bold, color: c.accentForeground, marginTop: t.space.xs },
+    metaWarn: { ...t.type.caption, ...t.font.bold, color: c.mutedForeground, marginTop: t.space.xs },
+    iconBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    trustBox: { gap: t.space.sm, padding: t.space.md, borderRadius: t.radius.md, backgroundColor: c.card },
+    trustTitle: { ...t.type.label, color: c.foreground },
+    fingerprint: { ...t.type.mono, color: c.foreground },
+    buttons: { flexDirection: "row", gap: 10, justifyContent: "flex-end", marginTop: t.space.xs },
+    ok: { ...t.type.label, color: c.accentForeground },
+    error: { ...t.type.label, color: c.errorMessage },
+    check: { minHeight: 44, borderRadius: t.buttonRadius, alignItems: "center", justifyContent: "center", backgroundColor: c.card },
+    checkText: { ...t.type.label, color: c.accentForeground },
+    off: { opacity: 0.5 },
+  });
+};

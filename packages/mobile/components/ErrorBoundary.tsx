@@ -1,8 +1,8 @@
 import React, { Component, useEffect, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, useColorScheme, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "@/hooks/use-colors";
+import { Colors } from "@/constants/palettes";
 import { formatErrorDetails } from "@/lib/error-report";
 import { vi } from "@/lib/i18n/errors";
 
@@ -10,6 +10,7 @@ import { vi } from "@/lib/i18n/errors";
 const LANGUAGE_KEY = "dayform.language.v1";
 const MIN_TOUCH_TARGET = 44;
 const SCREEN_PADDING = 24;
+const ICON_WRAP = 72;
 
 /** The saved UI language, or English until (or unless) it can be read. */
 function useStoredLanguage(): "en" | "vi" {
@@ -26,8 +27,12 @@ function useStoredLanguage(): "en" | "vi" {
 
 type FallbackProps = { error: unknown; onReset: () => void };
 
+/**
+ * The crash screen sits outside every provider (settings, theme, fonts), so it must not read the design theme: it uses
+ * the original Dayform palette for the system's light/dark scheme and the system font, which always work.
+ */
 function ErrorFallback({ error, onReset }: FallbackProps) {
-  const colors = useColors();
+  const colors = Colors[useColorScheme() === "dark" ? "dark" : "light"];
   const language = useStoredLanguage();
   const [showDetails, setShowDetails] = useState(false);
   const t = (text: string) => (language === "vi" ? vi[text] ?? text : text);
@@ -90,9 +95,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
+// Fixed sizes on purpose: this screen cannot use the theme's text roles (see ErrorFallback).
 const styles = StyleSheet.create({
   screen: { flex: 1, alignItems: "center", paddingHorizontal: SCREEN_PADDING, paddingBottom: SCREEN_PADDING },
-  iconWrap: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginTop: 48 },
+  iconWrap: { width: ICON_WRAP, height: ICON_WRAP, borderRadius: ICON_WRAP / 2, alignItems: "center", justifyContent: "center", marginTop: 48 },
   title: { fontSize: 24, fontWeight: "700", marginTop: 20, textAlign: "center" },
   body: { fontSize: 15, lineHeight: 22, marginTop: 8, textAlign: "center" },
   primaryButton: {

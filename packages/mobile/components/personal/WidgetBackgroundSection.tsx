@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import {
   clearWidgetBackground,
@@ -13,6 +12,7 @@ import {
   setWidgetBackground,
   setWidgetBackgroundVeil,
 } from "../../modules/dayform-widget";
+import { Button } from "../ui/Button";
 import { HourStepper } from "./HourStepper";
 
 const VEIL_STEP = 10;
@@ -23,8 +23,7 @@ const VEIL_STEP = 10;
  */
 export function WidgetBackgroundSection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [state, setState] = useState(() => getWidgetBackground());
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -75,12 +74,8 @@ export function WidgetBackgroundSection() {
     <Text accessibilityRole="header" style={s.heading}>{t("Widget background")}</Text>
     <Text style={s.hint}>{t(state.hasPicture ? "Your picture is behind the widget." : "The widget uses the plain card. Pick a picture from your phone to put behind it.")}</Text>
     <View style={s.buttons}>
-      <Pressable onPress={() => { void choose(); }} disabled={busy} accessibilityRole="button" style={[s.button, s.primary, busy && s.disabled]}>
-        <Text style={s.primaryText}>{t(state.hasPicture ? "Change picture" : "Choose picture")}</Text>
-      </Pressable>
-      {state.hasPicture && <Pressable onPress={() => { void remove(); }} disabled={busy} accessibilityRole="button" style={[s.button, busy && s.disabled]}>
-        <Text style={s.buttonText}>{t("Remove picture")}</Text>
-      </Pressable>}
+      <Button label={t(state.hasPicture ? "Change picture" : "Choose picture")} disabled={busy} onPress={() => { void choose(); }} />
+      {state.hasPicture && <Button variant="secondary" label={t("Remove picture")} disabled={busy} onPress={() => { void remove(); }} />}
     </View>
     {failed && <Text accessibilityRole="alert" style={s.error}>{t("That picture could not be used. Try another one.")}</Text>}
     {state.hasPicture && <HourStepper label={t("Picture fade")} valueText={`${state.veil}%`}
@@ -90,15 +85,13 @@ export function WidgetBackgroundSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 10, marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
-  heading: { color: c.foreground, fontSize: 13, fontWeight: "800" },
-  hint: { color: c.mutedForeground, fontSize: 11, lineHeight: 16 },
-  buttons: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder },
-  primary: { backgroundColor: c.primary, borderColor: c.primary },
-  disabled: { opacity: 0.5 },
-  buttonText: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  primaryText: { color: c.onPrimary, fontSize: 13, fontWeight: "700" },
-  error: { color: c.destructive, fontSize: 12 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    stack: { gap: 10, marginTop: t.space.md, paddingTop: t.space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
+    heading: { ...t.type.label, ...t.font.heavy, color: c.foreground },
+    hint: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground },
+    buttons: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm },
+    error: { ...t.type.meta, ...t.font.regular, color: c.destructive },
+  });
+};

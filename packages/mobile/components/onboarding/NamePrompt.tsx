@@ -1,10 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import React, { useCallback, useState } from "react";
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { isValidName } from "../../lib/settings";
 import { useSettings } from "../../lib/settings-context";
+import { Button } from "../ui/Button";
 import { NameInput } from "./NameInput";
 
 const FOCUS_DELAY_MS = 350;
@@ -23,8 +23,7 @@ function ignoreBack(): void {}
 export function NamePrompt() {
   const { ready, hasName, setName } = useSettings();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const canContinue = isValidName(draft) && !busy;
@@ -44,24 +43,22 @@ export function NamePrompt() {
           <Text accessibilityRole="header" style={s.title}>{t("What's your name?")}</Text>
           <NameInput value={draft} onChange={setDraft} onSubmit={() => { void submit(); }} focusAfterMs={FOCUS_DELAY_MS} />
           <Text style={s.helper}>{t("Your name stays on this device.")}</Text>
-          <Pressable onPress={() => { void submit(); }} disabled={!canContinue} accessibilityRole="button"
-            accessibilityState={{ disabled: !canContinue, busy }} style={[s.button, !canContinue && s.buttonDisabled]}>
-            <Text style={s.buttonText}>{t("Continue")}</Text>
-          </Pressable>
+          <Button block label={t("Continue")} disabled={!canContinue} busy={busy} onPress={() => { void submit(); }} style={s.button} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  flex: { flex: 1 },
-  scrim: { backgroundColor: c.scrim },
-  center: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 24 },
-  card: { width: "100%", maxWidth: 420, alignSelf: "center", backgroundColor: c.card, borderRadius: 22, padding: 22, gap: 10 },
-  title: { color: c.foreground, fontSize: 20, fontWeight: "800", marginBottom: 6 },
-  helper: { color: c.labelText, fontSize: 12, lineHeight: 18 },
-  button: { backgroundColor: c.primary, minHeight: 50, borderRadius: 14, alignItems: "center", justifyContent: "center", marginTop: 8 },
-  buttonDisabled: { opacity: 0.45 },
-  buttonText: { color: c.onPrimary, fontSize: 14, fontWeight: "800" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    flex: { flex: 1 },
+    scrim: { backgroundColor: c.scrim },
+    center: { flexGrow: 1, justifyContent: "center", paddingHorizontal: t.space.xxl, paddingVertical: t.space.xxl },
+    card: { width: "100%", maxWidth: 420, alignSelf: "center", backgroundColor: c.card, borderRadius: t.radius.xl, padding: 22, gap: 10, ...t.elevation.overlay },
+    title: { ...t.type.headline, color: c.foreground, marginBottom: t.space.xs + 2 },
+    helper: { ...t.type.meta, ...t.font.regular, color: c.labelText },
+    button: { marginTop: t.space.sm },
+  });
+};

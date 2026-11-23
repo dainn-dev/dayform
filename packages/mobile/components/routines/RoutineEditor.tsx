@@ -1,15 +1,16 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
+import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 import { useLanguage } from "../../lib/language";
 import { MAX_ROUTINE_NAME, type Routine, type RoutineItem } from "../../lib/routines";
 import type { RoutinesContextValue } from "../../lib/routines-context";
 
 type Props = {
   routine: Routine;
-  colors: ThemeColors;
   onCancel: () => void;
   update: RoutinesContextValue["update"];
   remove: RoutinesContextValue["remove"];
@@ -28,9 +29,10 @@ const MESSAGES: Record<string, string> = {
 };
 
 /** Edit one routine: its name and, for each task, the title, start time and length; remove tasks or the whole routine. */
-export function RoutineEditor({ routine, colors, onCancel, update, remove }: Props) {
+export function RoutineEditor({ routine, onCancel, update, remove }: Props) {
   const { t } = useLanguage();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const [name, setName] = useState(routine.name);
   const [drafts, setDrafts] = useState<Draft[]>(() => routine.items.map((item, key) => ({ key, ...item, duration: String(item.duration) })));
   const [message, setMessage] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function RoutineEditor({ routine, colors, onCancel, update, remove }: Pro
   return <SafeAreaView style={s.root} edges={["top", "bottom", "left", "right"]}>
     <View style={s.top}>
       <Text accessibilityRole="header" style={s.heading}>{t("Edit routine")}</Text>
-      <Pressable onPress={onCancel} accessibilityLabel={t("Cancel")} accessibilityRole="button" style={s.close}><Ionicons name="close" size={22} color={colors.foreground} /></Pressable>
+      <IconButton icon="close" label={t("Cancel")} onPress={onCancel} />
     </View>
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       <Text style={s.label}>{t("Routine name")}</Text>
@@ -91,7 +93,7 @@ export function RoutineEditor({ routine, colors, onCancel, update, remove }: Pro
       </View>)}
 
       {message !== null && <Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>}
-      <Pressable onPress={() => void save()} disabled={busy} accessibilityRole="button" style={s.primary}><Text style={s.primaryText}>{t("Save changes")}</Text></Pressable>
+      <Button label={t("Save changes")} onPress={() => void save()} disabled={busy} block style={s.primary} />
       <Pressable onPress={() => void del()} disabled={busy} accessibilityRole="button" style={[s.danger, armed && s.dangerArmed]}>
         <Text style={s.dangerText}>{armed ? t("Tap again to delete") : t("Delete routine")}</Text>
       </Pressable>
@@ -99,25 +101,29 @@ export function RoutineEditor({ routine, colors, onCancel, update, remove }: Pro
   </SafeAreaView>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const TOUCH_TARGET = 44;
+
+const makeStyles = ({ colors: c, type, font, radius, space, gutter, buttonRadius }: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: c.background },
-  top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  heading: { fontSize: 26, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 24, paddingBottom: 40 },
-  label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 9, marginTop: 20 },
-  small: { color: c.mutedForeground, fontSize: 11, fontWeight: "700", marginBottom: 4 },
-  input: { minHeight: 48, backgroundColor: c.card, borderRadius: 14, paddingHorizontal: 14, color: c.foreground, fontSize: 15, borderWidth: 1, borderColor: c.inputBorder },
-  item: { padding: 12, borderRadius: 16, backgroundColor: c.primarySoft, marginBottom: 10, gap: 10 },
+  top: { paddingHorizontal: gutter, paddingTop: space.xl, paddingBottom: space.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
+  heading: { ...type.display, flex: 1, color: c.foreground },
+  content: { paddingHorizontal: gutter, paddingBottom: 40 },
+  label: { ...type.micro, color: c.labelText, marginBottom: 9, marginTop: space.xl },
+  small: { ...type.caption, ...font.bold, color: c.mutedForeground, marginBottom: space.xs },
+  input: {
+    ...type.body, minHeight: 48, backgroundColor: c.card, borderRadius: radius.md, paddingHorizontal: 14, color: c.foreground,
+    borderWidth: 1, borderColor: c.inputBorder,
+  },
+  item: { padding: space.md, borderRadius: radius.lg, backgroundColor: c.primarySoft, marginBottom: 10, gap: 10 },
   itemTop: { flexDirection: "row", alignItems: "center", gap: 6 },
   titleInput: { flex: 1, minWidth: 0 },
-  trash: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  trash: { width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center" },
   itemRow: { flexDirection: "row", gap: 10 },
   field: { flex: 1, minWidth: 0 },
-  message: { color: c.errorMessage, fontSize: 13, fontWeight: "700", marginTop: 8, textAlign: "center" },
-  primary: { marginTop: 16, minHeight: 50, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  primaryText: { color: c.onPrimary, fontSize: 14, fontWeight: "800" },
-  danger: { marginTop: 10, minHeight: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  message: { ...type.label, color: c.errorMessage, marginTop: space.sm, textAlign: "center" },
+  primary: { marginTop: space.lg },
+  // Drawn by hand (not the kit's danger button): it stays plain text until the first tap arms it.
+  danger: { marginTop: 10, minHeight: 48, borderRadius: buttonRadius, alignItems: "center", justifyContent: "center", paddingHorizontal: space.xl },
   dangerArmed: { backgroundColor: c.errorBg },
-  dangerText: { color: c.deleteText, fontSize: 14, fontWeight: "800" },
+  dangerText: { ...type.label, color: c.deleteText },
 });

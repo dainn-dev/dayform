@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
 
@@ -33,11 +32,11 @@ export function ShowNextDays({ onPress }: { onPress: () => void }) {
 }
 
 function useStyles() {
-  const colors = useColors();
-  return { s: useMemo(() => makeStyles(colors), [colors]), color: colors.accentForeground };
+  const { colors } = useTheme();
+  return { s: useThemedStyles(makeStyles), color: colors.accentForeground };
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { minHeight: MIN_TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 14, marginBottom: 10, borderRadius: 13, backgroundColor: c.primaryTint },
-  text: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  row: { minHeight: MIN_TOUCH_TARGET, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 14, marginBottom: 10, borderRadius: t.radius.md, backgroundColor: t.colors.primaryTint },
+  text: { ...t.type.label, color: t.colors.accentForeground },
 });

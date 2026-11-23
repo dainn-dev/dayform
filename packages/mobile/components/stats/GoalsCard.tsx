@@ -2,26 +2,30 @@ import React, { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useCategories } from "../../lib/categories-context";
 import { GOAL_CHOICES, MAX_GOALS, goalsProgress } from "../../lib/goals";
 import { useGoals } from "../../lib/goals-context";
 import { useLanguage } from "../../lib/language";
 import type { DateRange, Stats } from "../../lib/stats";
+import { Surface } from "../ui/Surface";
+
+const BAR_HEIGHT = 8;
+const CLOSE_SIZE = 44;
+const CHIP_HEIGHT = 40;
 
 type Props = { stats: Pick<Stats, "perCategory">; range: DateRange };
 
 /** Progress toward the weekly goals of the shown week or month, with a button to set or change them. */
 export function GoalsCard({ stats, range }: Props) {
   const { t, duration } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { items, locked } = useGoals();
   const { label } = useCategories();
   const [editing, setEditing] = useState(false);
   const progress = useMemo(() => goalsProgress(items, stats, range), [items, stats, range]);
-  return <View style={s.card}>
+  return <Surface style={s.card}>
     <View style={s.header}>
       <Text accessibilityRole="header" style={s.eyebrow}>{t("Goals").toUpperCase()}</Text>
       <Pressable onPress={() => setEditing(true)} accessibilityRole="button" accessibilityLabel={t("Set goals")} style={s.edit}>
@@ -40,13 +44,13 @@ export function GoalsCard({ stats, range }: Props) {
       </View>)}
     {locked && <Text style={s.error}>{t("Goals could not be loaded, so they cannot be changed now. Try reopening the app.")}</Text>}
     {editing && <GoalSheet onClose={() => setEditing(false)} />}
-  </View>;
+  </Surface>;
 }
 
 function GoalSheet({ onClose }: { onClose: () => void }) {
   const { t, duration } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { items, set, remove } = useGoals();
   const { visible, label } = useCategories();
   const [message, setMessage] = useState<string | null>(null);
@@ -85,33 +89,37 @@ function GoalSheet({ onClose }: { onClose: () => void }) {
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: 23, padding: 18, marginTop: 14 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  eyebrow: { color: c.mutedForeground, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
-  edit: { width: 44, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
-  hint: { color: c.mutedForeground, fontSize: 13, lineHeight: 19 },
-  row: { marginTop: 12 },
-  rowTop: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 6 },
-  name: { flex: 1, color: c.foreground, fontSize: 14, fontWeight: "700" },
-  amount: { color: c.mutedForeground, fontSize: 12, fontWeight: "700" },
-  reached: { color: c.accentForeground },
-  track: { height: 8, borderRadius: 4, backgroundColor: c.track, overflow: "hidden" },
-  fill: { height: 8, borderRadius: 4, backgroundColor: c.primary, opacity: 0.7 },
-  fillReached: { opacity: 1 },
-  error: { color: c.errorBannerText, fontSize: 12, marginTop: 10 },
-  sheet: { flex: 1, backgroundColor: c.background },
-  sheetTop: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  heading: { fontSize: 28, fontWeight: "800", color: c.foreground, letterSpacing: -0.8, marginTop: 5 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  sheetContent: { paddingHorizontal: 24, paddingBottom: 32 },
-  block: { marginTop: 22 },
-  blockTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  remove: { width: 44, height: 44, marginVertical: -10, alignItems: "center", justifyContent: "center" },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder, justifyContent: "center" },
-  chipOn: { backgroundColor: c.primary, borderColor: c.primary },
-  chipOff: { opacity: 0.45 },
-  chipText: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  chipTextOn: { color: c.onPrimary },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  const barRadius = Math.min(t.radius.xs, BAR_HEIGHT / 2);
+  return StyleSheet.create({
+    card: { marginTop: 14 },
+    header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
+    eyebrow: { ...t.type.micro, color: c.mutedForeground },
+    edit: { width: 44, height: 44, marginRight: -10, alignItems: "center", justifyContent: "center" },
+    hint: { ...t.type.body, color: c.mutedForeground },
+    row: { marginTop: t.space.md },
+    rowTop: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 6 },
+    name: { ...t.type.subtitle, flex: 1, color: c.foreground },
+    amount: { ...t.type.meta, ...t.font.bold, color: c.mutedForeground },
+    reached: { color: c.accentForeground },
+    track: { height: BAR_HEIGHT, borderRadius: barRadius, backgroundColor: c.track, overflow: "hidden" },
+    fill: { height: BAR_HEIGHT, borderRadius: barRadius, backgroundColor: c.primary, opacity: 0.7 },
+    fillReached: { opacity: 1 },
+    error: { ...t.type.meta, ...t.font.regular, color: c.errorBannerText, marginTop: 10 },
+    sheet: { flex: 1, backgroundColor: c.background },
+    sheetTop: { paddingHorizontal: t.gutter, paddingTop: t.space.xl, paddingBottom: t.space.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    heading: { ...t.type.display, color: c.foreground, marginTop: 5 },
+    close: { ...t.elevation.card, width: CLOSE_SIZE, height: CLOSE_SIZE, borderRadius: CLOSE_SIZE / 2, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    sheetContent: { paddingHorizontal: t.gutter, paddingBottom: t.space.xxxl },
+    block: { marginTop: 22 },
+    blockTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: t.space.sm },
+    remove: { width: 44, height: 44, marginVertical: -10, alignItems: "center", justifyContent: "center" },
+    chips: { flexDirection: "row", flexWrap: "wrap", gap: t.space.sm },
+    chip: { minHeight: CHIP_HEIGHT, paddingHorizontal: 14, borderRadius: t.radius.pill, backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder, justifyContent: "center" },
+    chipOn: { backgroundColor: c.primary, borderColor: c.primary },
+    chipOff: { opacity: 0.45 },
+    chipText: { ...t.type.label, color: c.foreground },
+    chipTextOn: { color: c.onPrimary },
+  });
+};

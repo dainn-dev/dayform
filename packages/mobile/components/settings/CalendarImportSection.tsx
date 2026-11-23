@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { pickBackupText } from "../../lib/backup-expo";
 import { useCategories } from "../../lib/categories-context";
 import { IMPORT_WINDOW_DAYS, MAX_IMPORTED_TASKS, parseIcs, planIcsImport, type IcsPlan, type IcsSkipped } from "../../lib/ics";
@@ -10,6 +9,7 @@ import { dateKey } from "../../lib/planner";
 import { pickCategory } from "../../lib/new-task-defaults";
 import { useSettings } from "../../lib/settings-context";
 import { useTasks } from "../../lib/tasks-context";
+import { Button } from "../ui/Button";
 
 type Stage =
   | { kind: "idle" }
@@ -34,8 +34,7 @@ function skippedLine(skipped: IcsSkipped, t: (text: string) => string): string {
 /** Brings the events of a calendar file (.ics from Google, Apple or Outlook calendar) in as tasks, once and never twice. */
 export function CalendarImportSection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { settings } = useSettings();
   const { visible } = useCategories();
   const { tasks, mutate } = useTasks();
@@ -76,31 +75,25 @@ export function CalendarImportSection() {
 
   return <View>
     <Text style={s.hint}>{t("Choose a .ics file exported from your calendar. Events of the next 90 days become tasks; importing the same file again adds nothing twice.")}</Text>
-    <Pressable onPress={() => void choose()} disabled={busy} accessibilityRole="button" style={s.button}>
-      {busy && <ActivityIndicator color={colors.primary} />}
-      <Text style={s.buttonText}>{t("Choose a calendar file")}</Text>
-    </Pressable>
+    <Button block variant="secondary" label={t("Choose a calendar file")} busy={busy} onPress={() => void choose()} style={s.button} />
     {stage.kind === "ready" && <View style={s.panel}>
       <Text style={s.headline}>{`${stage.plan.toAdd.length} ${t("events to add")}`}{stage.plan.alreadyThere > 0 ? ` · ${stage.plan.alreadyThere} ${t("already imported")}` : ""}</Text>
       {skippedLine(stage.skipped, t) !== "" && <Text style={s.hint}>{skippedLine(stage.skipped, t)}</Text>}
       {stage.truncated && <Text style={s.hint}>{`${t("Only the first")} ${MAX_IMPORTED_TASKS} ${t("events are imported.")}`}</Text>}
       <Text style={s.hint}>{`${t("Times are read as written in the file; a time with a time zone label is taken as your local time.")} (${IMPORT_WINDOW_DAYS} ${t("days")})`}</Text>
-      <Pressable onPress={() => void add(stage.plan)} disabled={busy || stage.plan.toAdd.length === 0} accessibilityRole="button" style={[s.primary, stage.plan.toAdd.length === 0 && s.off]}>
-        <Text style={s.primaryText}>{t("Add to my tasks")}</Text>
-      </Pressable>
+      <Button block label={t("Add to my tasks")} disabled={busy || stage.plan.toAdd.length === 0} onPress={() => void add(stage.plan)} style={s.button} />
     </View>}
     {stage.kind === "message" && <Text accessibilityLiveRegion="polite" style={s.message}>{stage.text}</Text>}
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18, marginTop: 6 },
-  button: { marginTop: 12, minHeight: 48, borderRadius: 15, backgroundColor: c.primarySoft, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  buttonText: { color: c.accentForeground, fontSize: 14, fontWeight: "800" },
-  panel: { marginTop: 14 },
-  headline: { color: c.foreground, fontSize: 15, fontWeight: "800" },
-  primary: { marginTop: 12, minHeight: 48, borderRadius: 15, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  off: { opacity: 0.45 },
-  primaryText: { color: c.onPrimary, fontSize: 14, fontWeight: "800" },
-  message: { color: c.accentForeground, fontSize: 13, fontWeight: "700", marginTop: 12 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xs + 2 },
+    button: { marginTop: t.space.md },
+    panel: { marginTop: 14 },
+    headline: { ...t.type.subtitle, color: c.foreground },
+    message: { ...t.type.label, color: c.accentForeground, marginTop: t.space.md },
+  });
+};

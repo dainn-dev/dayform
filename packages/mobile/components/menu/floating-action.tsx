@@ -1,9 +1,8 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { FAB_MARGIN, FAB_SIZE } from "../../lib/shell-layout";
 
 /** The round "add" button a settings page floats over its content, like "new task" on the Timeline. */
@@ -35,9 +34,9 @@ export function useFloatingAction({ label, disabled, onPress }: FloatingAction):
 }
 
 export function FloatingAddButton({ action }: { action: FloatingAction }) {
-  const colors = useColors();
+  const colors = useTheme().colors;
   const { bottom } = useSafeAreaInsets();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   // An absolutely placed child ignores the SafeAreaView's padding, so the system bar inset is added by hand.
   return <Pressable onPress={action.onPress} disabled={action.disabled} accessibilityRole="button" accessibilityLabel={action.label}
     accessibilityState={{ disabled: action.disabled }} style={[s.fab, { bottom: FAB_MARGIN + bottom }, action.disabled && s.disabled]}>
@@ -45,7 +44,8 @@ export function FloatingAddButton({ action }: { action: FloatingAction }) {
   </Pressable>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  fab: { position: "absolute", right: 22, width: FAB_SIZE, height: FAB_SIZE, backgroundColor: c.primary, borderRadius: 20, alignItems: "center", justifyContent: "center", elevation: 7, shadowColor: c.fabShadow, shadowOpacity: 0.3, shadowRadius: 14 },
+// Same shape as the Tasks tab's "new task" button: the raised depth of the style, the xl corner, on the page gutter.
+const makeStyles = (t: Theme) => StyleSheet.create({
+  fab: { ...t.elevation.raised, position: "absolute", right: t.gutter, width: FAB_SIZE, height: FAB_SIZE, backgroundColor: t.colors.primary, borderRadius: t.radius.xl, alignItems: "center", justifyContent: "center" },
   disabled: { opacity: 0.45 },
 });

@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useFieldStyles } from "./field-styles";
 
 type Props = {
@@ -18,9 +17,9 @@ type Props = {
 
 /** A label plus an input-looking button that opens a native date/time picker. */
 export function PickerField({ label, display, icon, accessibilityLabel, isActive = false, onPress }: Props) {
-  const colors = useColors();
+  const { colors } = useTheme();
   const f = useFieldStyles();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   return <View style={{ flex: 1 }}>
     <Text style={f.label}>{label}</Text>
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityValue={{ text: display }} style={[f.input, s.field, isActive && s.active]}>
@@ -30,8 +29,8 @@ export function PickerField({ label, display, icon, accessibilityLabel, isActive
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  field: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+const makeStyles = ({ colors: c, space, type }: Theme) => StyleSheet.create({
+  field: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm },
   active: { borderColor: c.primaryBorder, backgroundColor: c.primaryTint },
-  value: { color: c.foreground, fontSize: 15 },
+  value: { ...type.body, color: c.foreground },
 });

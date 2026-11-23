@@ -1,13 +1,17 @@
+import { StyleSheet } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "../../lib/language";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme } from "../../hooks/use-theme";
 import { TAB_BAR_PADDING_TOP, tabBarHeight } from "../../lib/shell-layout";
 
 export default function TabLayout() {
   const { t } = useLanguage();
-  const colors = useColors();
+  const theme = useTheme();
+  const colors = theme.colors;
+  // The bordered styles draw a hairline over the tab bar instead of the default lift.
+  const bordered = theme.elevation.card.borderWidth !== undefined;
   const insets = useSafeAreaInsets();
 
   return (
@@ -25,8 +29,9 @@ export default function TabLayout() {
           height: tabBarHeight(insets.bottom),
           paddingTop: TAB_BAR_PADDING_TOP,
           paddingBottom: insets.bottom,
+          ...(bordered ? { borderTopWidth: StyleSheet.hairlineWidth, elevation: 0, shadowOpacity: 0 } : null),
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700" },
+        tabBarLabelStyle: { ...theme.type.caption, ...theme.font.bold },
       }}
     >
       <Tabs.Screen

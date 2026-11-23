@@ -1,9 +1,10 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useTimelineConfig } from "../../hooks/use-timeline-config";
-import type { ThemeColors } from "../../constants/theme";
+import { IconButton } from "../ui/IconButton";
+import { Title } from "../ui/Title";
 import { useDayMarks } from "../../hooks/use-day-marks";
 import { markKinds, marksLine } from "../../lib/day-marks";
 import { solarToLunar } from "../../lib/lunar";
@@ -14,6 +15,9 @@ import { useSettings } from "../../lib/settings-context";
 import { windowLabel } from "../../lib/timeline-config";
 
 const GREETING_MIN_FONT_SCALE = 0.6;
+/** The day title shrinks rather than wraps beside its two buttons (a long weekday in the larger display styles). */
+const DAY_TITLE_MIN_FONT_SCALE = 0.7;
+const LIVE_DOT = 7;
 
 /**
  * Greeting (with the name when it is shown) and the slogan under it. The greeting stays on one line and shrinks to
@@ -22,8 +26,8 @@ const GREETING_MIN_FONT_SCALE = 0.6;
 export function GreetingLines({ now }: { now: Date }) {
   const { t: tr } = useLanguage();
   const { settings } = useSettings();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const colors = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const { profile, greeting } = settings;
   const title = greetingText(now, profile.name, greeting.showName, tr);
   const slogan = sloganText(now, { style: greeting.sloganStyle, custom: greeting.customSlogan }, tr);
@@ -36,8 +40,8 @@ export function GreetingLines({ now }: { now: Date }) {
 /** Page header: DAYFORM kicker, language switch, greeting and the jump-to-today shortcut. */
 export function GreetingHeader({ onToday, onFocus, now }: { onToday: () => void; onFocus: () => void; now: Date }) {
   const { t: tr } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const colors = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   return <>
     <View style={s.kickerRow}><Text style={s.kicker}>DAYFORM ✦</Text></View>
     <View style={s.header}>
@@ -56,8 +60,8 @@ type DayHeaderProps = { selected: string; today: string; scheduled: Task[]; onAd
 export function DayHeader({ selected, today, scheduled, onAdd, onRoutines }: DayHeaderProps) {
   const { t: tr, locale, summary, timeFormat } = useLanguage();
   const config = useTimelineConfig();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const colors = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const selectedDate = fromKey(selected);
   const selectedKeys = useMemo(() => [selected], [selected]);
   const marks = useDayMarks(selectedKeys)[selected];
@@ -69,10 +73,10 @@ export function DayHeader({ selected, today, scheduled, onAdd, onRoutines }: Day
   const progress = scheduled.length ? completed / scheduled.length * 100 : 0;
   return <>
     <View style={s.dailyTop}>
-      <View style={s.dailyHead}><Text numberOfLines={1} style={s.panelEyebrow}>{selectedDate.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }).toUpperCase()}{lunarText}</Text><Text accessibilityRole="header" style={s.dailyTitle}>{dateTitle}<Text style={{ color: colors.punctuation }}>.</Text></Text></View>
+      <View style={s.dailyHead}><Text numberOfLines={1} style={s.panelEyebrow}>{selectedDate.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }).toUpperCase()}{lunarText}</Text><Title numberOfLines={1} adjustsFontSizeToFit minimumFontScale={DAY_TITLE_MIN_FONT_SCALE}>{dateTitle}</Title></View>
       <View style={s.actions}>
-        <Pressable onPress={onRoutines} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Routines")}><Ionicons name="layers-outline" size={20} color={colors.primary} /></Pressable>
-        <Pressable onPress={onAdd} style={s.addSmall} accessibilityRole="button" accessibilityLabel={tr("Add task")}><Ionicons name="add" size={21} color={colors.primary} /></Pressable>
+        <IconButton icon="layers-outline" label={tr("Routines")} onPress={onRoutines} />
+        <IconButton icon="add" label={tr("Add task")} onPress={onAdd} />
       </View>
     </View>
     {marks && <View style={s.marksRow} accessible accessibilityLabel={marksLine(marks)}>
@@ -85,28 +89,29 @@ export function DayHeader({ selected, today, scheduled, onAdd, onRoutines }: Day
   </>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  kickerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 36 },
-  kicker: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 2.4, marginBottom: 9 },
-  greetingText: { flex: 1, minWidth: 0, marginRight: 12 },
-  headerButtons: { flexDirection: "row", gap: 10 },
-  dailyHead: { flex: 1, minWidth: 0, marginRight: 12 },
-  greeting: { color: c.foreground, fontSize: 27, fontWeight: "800", letterSpacing: -1.1 },
-  subtitle: { color: c.mutedForeground, fontSize: 13, marginTop: 6 },
-  todayShortcut: { width: 44, height: 44, backgroundColor: c.card, borderRadius: 16, alignItems: "center", justifyContent: "center", shadowColor: c.shadowSoft, shadowOpacity: 0.08, shadowRadius: 14, elevation: 2 },
-  dailyTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 },
-  panelEyebrow: { color: c.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, marginBottom: 6 },
-  dailyTitle: { fontSize: 26, color: c.foreground, fontWeight: "800", letterSpacing: -0.9 },
-  actions: { flexDirection: "row", gap: 8 },
-  addSmall: { width: 44, height: 44, borderRadius: 15, backgroundColor: c.primarySoft, alignItems: "center", justifyContent: "center" },
-  marksRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginLeft: 4 },
-  marksText: { flexShrink: 1, color: c.accentForeground, fontSize: 12, fontWeight: "700" },
-  summary: { color: c.mutedForeground, fontSize: 12, marginTop: 10, marginLeft: 4 },
-  progressTrack: { marginTop: 17, height: 5, borderRadius: 4, backgroundColor: c.track, overflow: "hidden", marginHorizontal: 4 },
-  progressFill: { height: 5, borderRadius: 4, backgroundColor: c.primary },
-  timelineHeading: { flexDirection: "row", alignItems: "center", marginTop: 28, marginBottom: 19, paddingHorizontal: 4 },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.live, marginRight: 8 },
-  timelineHeadingText: { fontSize: 10, fontWeight: "900", letterSpacing: 1.5, color: c.foreground },
-  timelineHint: { marginLeft: "auto", color: c.mutedForeground, fontSize: 10, fontWeight: "600" },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    kickerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
+    header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 36 },
+    kicker: { ...t.type.micro, color: c.primary, marginBottom: 9 },
+    greetingText: { flex: 1, minWidth: 0, marginRight: t.space.md },
+    headerButtons: { flexDirection: "row", gap: 10 },
+    dailyHead: { flex: 1, minWidth: 0, marginRight: t.space.md },
+    greeting: { ...t.type.display, color: c.foreground },
+    subtitle: { ...t.type.body, color: c.mutedForeground, marginTop: 6 },
+    todayShortcut: { width: 44, height: 44, backgroundColor: c.card, borderRadius: t.radius.lg, alignItems: "center", justifyContent: "center", ...t.elevation.card },
+    dailyTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: t.space.xs },
+    panelEyebrow: { ...t.type.micro, color: c.primary, marginBottom: 6 },
+    actions: { flexDirection: "row", gap: t.space.sm },
+    marksRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: t.space.sm, marginLeft: t.space.xs },
+    marksText: { ...t.type.meta, ...t.font.bold, flexShrink: 1, color: c.accentForeground },
+    summary: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: 10, marginLeft: t.space.xs },
+    progressTrack: { marginTop: 17, height: 5, borderRadius: t.radius.xs, backgroundColor: c.track, overflow: "hidden", marginHorizontal: t.space.xs },
+    progressFill: { height: 5, borderRadius: t.radius.xs, backgroundColor: c.primary },
+    timelineHeading: { flexDirection: "row", alignItems: "center", marginTop: 28, marginBottom: 19, paddingHorizontal: t.space.xs },
+    liveDot: { width: LIVE_DOT, height: LIVE_DOT, borderRadius: LIVE_DOT / 2, backgroundColor: c.live, marginRight: t.space.sm },
+    timelineHeadingText: { ...t.type.micro, color: c.foreground },
+    timelineHint: { ...t.type.caption, marginLeft: "auto", color: c.mutedForeground },
+  });
+};

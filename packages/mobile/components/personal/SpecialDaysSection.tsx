@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { dateKey } from "../../lib/planner";
 import { describeDate, sortByNext, untilText } from "../../lib/special-day-draft";
@@ -21,8 +20,8 @@ const ICON_BADGE = 40;
 export function SpecialDaysSection() {
   const days = useSpecialDays();
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const [editing, setEditing] = useState<SpecialDayTarget | null>(null);
   const today = dateKey(new Date());
   const sorted = useMemo(() => sortByNext(days.items, today), [days.items, today]);
@@ -55,16 +54,19 @@ export function SpecialDaysSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  lead: { color: c.mutedForeground, fontSize: 12, lineHeight: 17, marginBottom: 8 },
-  notice: { color: c.warningText, backgroundColor: c.warningBg, fontSize: 12, lineHeight: 17, marginBottom: 6, marginTop: 4, padding: 10, borderRadius: 12, overflow: "hidden" },
-  empty: { color: c.labelText, fontSize: 13, lineHeight: 19, paddingVertical: 14 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
-  badge: { width: ICON_BADGE, height: ICON_BADGE, borderRadius: 14, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
-  texts: { flex: 1 },
-  name: { color: c.foreground, fontSize: 15, fontWeight: "700" },
-  meta: { color: c.mutedForeground, fontSize: 12, marginTop: 1 },
-  until: { color: c.mutedForeground, fontSize: 12, fontWeight: "700" },
-  untilToday: { color: c.accentForeground },
-  hint: { color: c.labelText, fontSize: 11, lineHeight: 16, marginTop: 6 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    lead: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginBottom: t.space.sm },
+    notice: { ...t.type.meta, ...t.font.regular, color: c.warningText, backgroundColor: c.warningBg, marginBottom: t.space.xs + 2, marginTop: t.space.xs, padding: 10, borderRadius: t.radius.md, overflow: "hidden" },
+    empty: { ...t.type.body, color: c.labelText, paddingVertical: 14 },
+    row: { flexDirection: "row", alignItems: "center", gap: t.space.md, minHeight: 56, paddingVertical: t.space.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
+    badge: { width: ICON_BADGE, height: ICON_BADGE, borderRadius: t.radius.md, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
+    texts: { flex: 1 },
+    name: { ...t.type.subtitle, color: c.foreground },
+    meta: { ...t.type.meta, color: c.mutedForeground, marginTop: 1 },
+    until: { ...t.type.meta, ...t.font.bold, color: c.mutedForeground },
+    untilToday: { color: c.accentForeground },
+    hint: { ...t.type.caption, ...t.font.regular, color: c.labelText, marginTop: t.space.xs + 2 },
+  });
+};

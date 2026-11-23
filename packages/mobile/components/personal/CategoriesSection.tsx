@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useCategoryColors } from "../../hooks/use-category-colors";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { MAX_CUSTOM, allCategoryIds, reassignOnDelete } from "../../lib/categories";
 import { useCategories } from "../../lib/categories-context";
 import { countTasksByCategory, taskCountOf } from "../../lib/category-counts";
@@ -27,10 +26,9 @@ export function CategoriesSection() {
   const cats = useCategories();
   const { tasks, mutate } = useTasks();
   const { t } = useLanguage();
-  const palette = useColors();
   const lookup = useCategoryColors();
   const countText = useTaskCountText();
-  const s = useMemo(() => makeStyles(palette), [palette]);
+  const s = useThemedStyles(makeStyles);
   const [editing, setEditing] = useState<EditorTarget | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   /** The category whose swipe action (delete) is uncovered; only one row is open at a time. */
@@ -105,7 +103,10 @@ export function CategoriesSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  notice: { color: c.warningText, backgroundColor: c.warningBg, fontSize: 12, lineHeight: 17, marginBottom: 6, marginTop: 4, padding: 10, borderRadius: 12, overflow: "hidden" },
-  hint: { color: c.labelText, fontSize: 11, lineHeight: 16, marginTop: 4 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    notice: { ...t.type.meta, ...t.font.regular, color: c.warningText, backgroundColor: c.warningBg, marginBottom: t.space.xs + 2, marginTop: t.space.xs, padding: 10, borderRadius: t.radius.md, overflow: "hidden" },
+    hint: { ...t.type.caption, ...t.font.regular, color: c.labelText, marginTop: t.space.xs },
+  });
+};

@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, View, type DimensionValue, type GestureResponderHandlers } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { handleHitTop } from "../../lib/timeline-gestures";
-import type { ThemeColors } from "../../constants/theme";
 
 /** Touch target of a resize handle (px); the visible grip is smaller. */
 export const HANDLE_HIT_PX = 28;
@@ -24,8 +23,7 @@ type Props = {
 
 /** Drag handle on the top or bottom edge of an armed block. A sibling of the block, never a child. */
 export function EdgeHandle({ edge, blockTop, blockHeight, containerHeight, place, handlers, label }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const edgeY = edge === "top" ? blockTop : blockTop + blockHeight;
   // The whole touch area stays inside the timeline (Android drops touches outside a parent's bounds),
   // so at the window start / end it shifts inward and the grip is drawn on the block edge within it.
@@ -41,7 +39,8 @@ export function EdgeHandle({ edge, blockTop, blockHeight, containerHeight, place
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  hit: { position: "absolute", height: HANDLE_HIT_PX, zIndex: 21, elevation: 11, alignItems: "center" },
+const makeStyles = ({ colors: c }: Theme) => StyleSheet.create({
+  // zIndex and Android elevation keep the handle above the lifted block (elevation 10..12), so this is stacking, not depth.
+  hit: { position: "absolute", height: HANDLE_HIT_PX, zIndex: 21, elevation: 13, alignItems: "center" },
   grip: { width: 40, height: GRIP_HEIGHT, borderRadius: GRIP_HEIGHT / 2, backgroundColor: c.primary, borderWidth: 1.5, borderColor: c.card },
 });

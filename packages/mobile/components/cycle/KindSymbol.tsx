@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme } from "../../hooks/use-theme";
 import { KIND_META, type KindShape, type MarkedKind } from "../../lib/cycle-ui-kinds";
 
 type Props = {
@@ -20,7 +20,7 @@ const MIN_STROKE = 1.5;
  * Plain Views: no icon font, so it stays crisp at any size. Decorative: the parent carries the accessibility label.
  */
 export function KindSymbol({ kind, size, color }: Props) {
-  const colors = useColors();
+  const { colors } = useTheme();
   const { group, shape } = KIND_META[kind];
   const tint = color ?? colors.cycle[group].accent;
   return <View accessible={false} importantForAccessibility="no-hide-descendants"

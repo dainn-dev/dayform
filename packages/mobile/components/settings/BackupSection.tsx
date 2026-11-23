@@ -1,18 +1,16 @@
-import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { IconButton } from "../ui/IconButton";
 import { HEALTH_DATA_WARNING, formatNotice } from "../../lib/backup-flow";
 import { useLanguage } from "../../lib/language";
-import type { ThemeColors } from "../../constants/theme";
 import { ImportPanel } from "./ImportPanel";
 import { useBackupActions } from "./use-backup-actions";
 
 /** "Backup": export the tasks to a shareable JSON file, or import one (merge or replace). */
 export function BackupSection() {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const { stage, notice, busy, includesHealthData, exportTasks, startImport, importWith, askToReplace, cancel } = useBackupActions();
   const importBlocked = busy || stage.kind !== "idle";
 
@@ -30,12 +28,16 @@ export function BackupSection() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 18 },
-  note: { color: c.mutedForeground, fontSize: 12, lineHeight: 18, marginTop: 4 },
-  healthNote: { color: c.errorMessage, fontSize: 12, lineHeight: 18, fontWeight: "700", marginTop: 4 },
-  row: { flexDirection: "row", gap: 8, marginTop: 10 },
-  busy: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }, busyText: { color: c.mutedForeground, fontSize: 12 },
-  success: { color: c.success, fontSize: 12, fontWeight: "700", marginTop: 8 },
-  error: { color: c.errorMessage, fontSize: 12, fontWeight: "700", marginTop: 8 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    note: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: t.space.xs },
+    healthNote: { ...t.type.meta, ...t.font.bold, color: c.errorMessage, marginTop: t.space.xs },
+    row: { flexDirection: "row", gap: t.space.sm, marginTop: 10 },
+    busy: { flexDirection: "row", alignItems: "center", gap: t.space.sm, marginTop: t.space.sm },
+    busyText: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground },
+    success: { ...t.type.meta, ...t.font.bold, color: c.success, marginTop: t.space.sm },
+    error: { ...t.type.meta, ...t.font.bold, color: c.errorMessage, marginTop: t.space.sm },
+  });
+};

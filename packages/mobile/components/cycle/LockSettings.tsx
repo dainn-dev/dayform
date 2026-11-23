@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useCycle } from "../../lib/cycle-context";
 import { LOCK_TIMEOUTS, type CycleState } from "../../lib/cycle-model";
 import { isLockAvailable } from "../../lib/cycle-lock-expo";
@@ -25,10 +24,9 @@ type Props = { state: CycleState; onEraseAll: () => void };
 /** The lock switch and its timeout, plus "Delete all cycle data". */
 export function LockSettings({ state, onEraseAll }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
   const { updateLock } = useCycle();
   const { message, run } = useCycleReport();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const [available, setAvailable] = useState(true);
   const { enabled, timeoutSec } = state.lock;
 
@@ -57,10 +55,10 @@ export function LockSettings({ state, onEraseAll }: Props) {
   </CycleCard>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   stack: { gap: 10 },
-  caption: { color: c.foreground, fontSize: 12, fontWeight: "700", marginBottom: 8 },
-  warning: { color: c.warningText, backgroundColor: c.warningBg, borderRadius: 12, padding: 12, fontSize: 12, lineHeight: 18 },
-  error: { color: c.errorMessage, fontSize: 12, lineHeight: 17 },
-  note: { color: c.foreground, fontSize: 12, lineHeight: 18 },
+  caption: { ...t.type.meta, color: t.colors.foreground, marginBottom: t.space.sm },
+  warning: { ...t.type.meta, ...t.font.regular, color: t.colors.warningText, backgroundColor: t.colors.warningBg, borderRadius: t.radius.md, padding: t.space.md },
+  error: { ...t.type.meta, ...t.font.regular, color: t.colors.errorMessage },
+  note: { ...t.type.meta, ...t.font.regular, color: t.colors.foreground },
 });

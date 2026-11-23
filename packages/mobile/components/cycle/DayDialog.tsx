@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { monthGrid } from "../../lib/cycle-calendar";
 import { useCycle } from "../../lib/cycle-context";
 import type { CycleState, Period } from "../../lib/cycle-model";
@@ -9,6 +8,7 @@ import { dayActions, periodAt, type DayAction, type DialogTarget } from "../../l
 import { KIND_META, isMarked } from "../../lib/cycle-ui-kinds";
 import { tx } from "../../lib/cycle-ui-text";
 import { useLanguage } from "../../lib/language";
+import { Surface } from "../ui/Surface";
 import { CycleButton } from "./CycleButton";
 import { KindSymbol } from "./KindSymbol";
 import { useCycleFormat } from "./use-cycle-format";
@@ -32,11 +32,10 @@ const ACTION_LABEL: Readonly<Record<DayAction, string>> = {
 /** What a tapped day is, and what can be done with it. Future days only show what the estimate says. */
 export function DayDialog({ date, state, today, onClose, onOpen }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
   const format = useCycleFormat();
   const { addPeriod, updatePeriod } = useCycle();
   const { message, busy, run } = useCycleReport();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const actions = dayActions(state, date, today);
   const kind = useMemo(() => {
     const [year, month] = date.split("-").map(Number);
@@ -57,7 +56,7 @@ export function DayDialog({ date, state, today, onClose, onOpen }: Props) {
   return <Modal visible transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
     <View style={s.center}>
       <Pressable style={[StyleSheet.absoluteFill, s.scrim]} onPress={onClose} accessible={false} importantForAccessibility="no" />
-      <View style={s.card} accessibilityViewIsModal>
+      <Surface level="overlay" padding="xl" style={s.card} accessibilityViewIsModal>
         <ScrollView showsVerticalScrollIndicator={false}>
           <Text accessibilityRole="header" style={s.title}>{format.long(date)}</Text>
           <View style={s.kindRow}>
@@ -73,19 +72,19 @@ export function DayDialog({ date, state, today, onClose, onOpen }: Props) {
             <CycleButton label={t("Close")} variant="secondary" onPress={onClose} />
           </View>
         </ScrollView>
-      </View>
+      </Surface>
     </View>
   </Modal>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 24 },
-  scrim: { backgroundColor: c.scrim },
-  card: { width: "100%", maxWidth: 420, maxHeight: "100%", alignSelf: "center", backgroundColor: c.card, borderRadius: 22, padding: 20 },
-  title: { color: c.foreground, fontSize: 18, fontWeight: "800" },
-  kindRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8, marginBottom: 12 },
-  kindText: { flexShrink: 1, color: c.foreground, fontSize: 13, fontWeight: "700" },
-  note: { color: c.foreground, fontSize: 13, lineHeight: 19, marginBottom: 12 },
-  error: { color: c.errorMessage, fontSize: 12, lineHeight: 17, marginBottom: 10 },
-  actions: { gap: 8 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  center: { flex: 1, justifyContent: "center", paddingHorizontal: t.space.xxl, paddingVertical: t.space.xxl },
+  scrim: { backgroundColor: t.colors.scrim },
+  card: { width: "100%", maxWidth: 420, maxHeight: "100%", alignSelf: "center" },
+  title: { ...t.type.title, color: t.colors.foreground },
+  kindRow: { flexDirection: "row", alignItems: "center", gap: t.space.sm, marginTop: t.space.sm, marginBottom: t.space.md },
+  kindText: { ...t.type.label, flexShrink: 1, color: t.colors.foreground },
+  note: { ...t.type.body, color: t.colors.foreground, marginBottom: t.space.md },
+  error: { ...t.type.meta, ...t.font.regular, color: t.colors.errorMessage, marginBottom: 10 },
+  actions: { gap: t.space.sm },
 });

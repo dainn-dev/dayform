@@ -2,9 +2,8 @@ import React, { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "../../hooks/use-colors";
 import { useKeyboardInset } from "../../hooks/use-keyboard-inset";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { pickBackupText } from "../../lib/backup-expo";
 import { useLanguage } from "../../lib/language";
 import { cleanPrivateKey, looksLikePrivateKey } from "../../lib/ssh";
@@ -13,6 +12,7 @@ import { DEFAULT_SSH_PORT, MAX_HOST_NAME, type SshAuth, type SshHost, type SshHo
 import { useSshHistory } from "../../lib/ssh-history-context";
 import { useSshHosts } from "../../lib/ssh-hosts-context";
 import { ChoiceChips } from "../editor/ChoiceChips";
+import { Button } from "../ui/Button";
 
 type Props = { visible: boolean; host: SshHost | null; onClose: () => void };
 
@@ -37,8 +37,8 @@ const AUTH_CHOICES = [{ value: "key" as const, label: "Private key" }, { value: 
 /** Add a server or edit one: where it is, who logs in, and the password or key, which only ever goes to the phone's secure storage. */
 export function SshHostEditor({ visible, host, onClose }: Props) {
   const { t } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const keyboard = useKeyboardInset();
   const { add, update, remove } = useSshHosts();
   const history = useSshHistory();
@@ -138,7 +138,7 @@ export function SshHostEditor({ visible, host, onClose }: Props) {
             <Text style={s.label}>{t("Private key")}</Text>
             <TextInput value={secret} onChangeText={setSecret} multiline autoCapitalize="none" autoCorrect={false} spellCheck={false} accessibilityLabel={t("Private key")}
               placeholder={saved && host?.auth === "key" ? t("A key is saved. Leave empty to keep it.") : "-----BEGIN OPENSSH PRIVATE KEY-----"} placeholderTextColor={colors.placeholder} style={[s.input, s.keyBox]} />
-            <Pressable onPress={() => void chooseFile()} accessibilityRole="button" style={s.secondary}><Text style={s.secondaryText}>{t("Choose a key file")}</Text></Pressable>
+            <Button block variant="secondary" label={t("Choose a key file")} onPress={() => void chooseFile()} style={s.secondary} />
             <Text style={s.label}>{t("Key passphrase (if it has one)")}</Text>
             <TextInput value={passphrase} onChangeText={setPassphrase} secureTextEntry autoCapitalize="none" autoCorrect={false} accessibilityLabel={t("Key passphrase (if it has one)")} placeholderTextColor={colors.placeholder} style={s.input} />
           </>
@@ -150,7 +150,7 @@ export function SshHostEditor({ visible, host, onClose }: Props) {
         <Text style={s.hint}>{t("The password or key stays in your phone's secure storage. It is never saved in a backup and never sent to the assistant.")}</Text>
 
         {message !== null && <Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>}
-        <Pressable onPress={() => void save()} disabled={busy} accessibilityRole="button" style={s.primary}><Text style={s.primaryText}>{t("Save")}</Text></Pressable>
+        <Button block label={t("Save")} disabled={busy} onPress={() => void save()} style={s.primary} />
         {host !== null && <Pressable onPress={() => void del()} disabled={busy} accessibilityRole="button" style={[s.danger, armed && s.dangerArmed]}>
           <Text style={s.dangerText}>{armed ? t("Tap again to delete") : t("Delete server")}</Text>
         </Pressable>}
@@ -165,25 +165,29 @@ function formOf(host: SshHost | null): SshHostForm {
     : { name: host.name, host: host.host, port: host.port === DEFAULT_SSH_PORT ? "" : String(host.port), user: host.user, auth: host.auth };
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: c.background },
-  top: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  heading: { fontSize: 26, fontWeight: "800", color: c.foreground, letterSpacing: -0.8 },
-  close: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: 24 },
-  label: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 8, marginTop: 18, textTransform: "uppercase" },
-  hint: { color: c.mutedForeground, fontSize: 12, lineHeight: 17, marginTop: 14 },
-  input: { minHeight: 48, backgroundColor: c.card, borderRadius: 14, paddingHorizontal: 14, color: c.foreground, fontSize: 15, borderWidth: 1, borderColor: c.inputBorder },
-  row: { flexDirection: "row", gap: 10 },
-  grow: { flex: 1, minWidth: 0 },
-  port: { width: 92, textAlign: "center" },
-  keyBox: { minHeight: 120, paddingTop: 12, textAlignVertical: "top", fontFamily: "monospace", fontSize: 12 },
-  secondary: { marginTop: 10, minHeight: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.primarySoft },
-  secondaryText: { color: c.accentForeground, fontSize: 13, fontWeight: "800" },
-  message: { color: c.errorMessage, fontSize: 13, fontWeight: "700", marginTop: 14, textAlign: "center" },
-  primary: { marginTop: 18, minHeight: 50, borderRadius: 16, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-  primaryText: { color: c.onPrimary, fontSize: 14, fontWeight: "800" },
-  danger: { marginTop: 10, minHeight: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  dangerArmed: { backgroundColor: c.errorBg },
-  dangerText: { color: c.deleteText, fontSize: 14, fontWeight: "800" },
-});
+/** The round close button: a 44dp touch target. */
+const CLOSE_SIZE = 44;
+
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.background },
+    top: { paddingHorizontal: t.gutter, paddingTop: t.space.xl, paddingBottom: t.space.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    heading: { ...t.type.headline, color: c.foreground },
+    close: { width: CLOSE_SIZE, height: CLOSE_SIZE, borderRadius: CLOSE_SIZE / 2, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    content: { paddingHorizontal: t.gutter },
+    label: { ...t.type.micro, color: c.labelText, marginBottom: t.space.sm, marginTop: 18 },
+    hint: { ...t.type.meta, ...t.font.regular, color: c.mutedForeground, marginTop: 14 },
+    input: { ...t.type.body, minHeight: 48, backgroundColor: c.card, borderRadius: t.radius.md, paddingHorizontal: 14, color: c.foreground, borderWidth: 1, borderColor: c.inputBorder },
+    row: { flexDirection: "row", gap: 10 },
+    grow: { flex: 1, minWidth: 0 },
+    port: { width: 92, textAlign: "center" },
+    keyBox: { ...t.type.mono, minHeight: 120, paddingTop: t.space.md, textAlignVertical: "top" },
+    secondary: { marginTop: 10 },
+    message: { ...t.type.label, color: c.errorMessage, marginTop: 14, textAlign: "center" },
+    primary: { marginTop: 18 },
+    danger: { marginTop: 10, minHeight: 48, borderRadius: t.buttonRadius, alignItems: "center", justifyContent: "center" },
+    dangerArmed: { backgroundColor: c.errorBg },
+    dangerText: { ...t.type.label, color: c.deleteText },
+  });
+};

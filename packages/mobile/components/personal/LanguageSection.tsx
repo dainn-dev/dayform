@@ -1,7 +1,6 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { type Language, useLanguage } from "../../lib/language";
 import { ChoiceChips, type Choice } from "../editor/ChoiceChips";
 
@@ -14,14 +13,13 @@ const CHOICES: readonly Choice<Language>[] = [
 /** The interface language (it used to be an EN / VI switch in the header of the Timeline and Tasks tabs). */
 export function LanguageSection() {
   const { language, setLanguage, languageError } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   return <View>
     <ChoiceChips choices={CHOICES} value={language} onChange={setLanguage} />
     {languageError && <Text accessibilityRole="alert" style={s.error}>{languageError}</Text>}
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  error: { color: c.errorMessage, fontSize: 12, marginTop: 8 },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  error: { ...t.type.meta, ...t.font.regular, color: t.colors.errorMessage, marginTop: t.space.sm },
 });

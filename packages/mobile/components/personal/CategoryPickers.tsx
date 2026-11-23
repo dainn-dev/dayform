@@ -1,9 +1,8 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
 import type { IconName } from "../../hooks/use-category-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { COLOR_SLOTS, ICON_KEYS, type ColorSlot, type IconKey } from "../../lib/categories";
 import { COLOR_LABELS, ICON_LABELS } from "../../lib/category-labels";
 import { useLanguage } from "../../lib/language";
@@ -13,9 +12,9 @@ const RING = 3;
 
 /** One swatch per palette slot. Selected = ring + check mark, so the state is not carried by color alone. */
 export function ColorPicker({ value, onChange, disabled }: { value: ColorSlot; onChange: (slot: ColorSlot) => void; disabled?: boolean }) {
-  const colors = useColors();
+  const { colors } = useTheme();
   const { t } = useLanguage();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   return <View style={s.grid}>
     {COLOR_SLOTS.map(slot => {
       const selected = slot === value;
@@ -33,9 +32,9 @@ export function ColorPicker({ value, onChange, disabled }: { value: ColorSlot; o
 export function IconPicker({ value, onChange, slot, disabled }: {
   value: IconKey; onChange: (icon: IconKey) => void; slot: ColorSlot; disabled?: boolean;
 }) {
-  const colors = useColors();
+  const { colors } = useTheme();
   const { t } = useLanguage();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useThemedStyles(makeStyles);
   const { bg, accent } = colors.category[slot];
   return <View style={s.grid}>
     {ICON_KEYS.map(icon => {
@@ -49,9 +48,9 @@ export function IconPicker({ value, onChange, slot, disabled }: {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
+const makeStyles = (t: Theme) => StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   cell: { width: TARGET, height: TARGET, borderRadius: TARGET / 2, alignItems: "center", justifyContent: "center", borderWidth: 2 },
-  ring: { borderColor: c.foreground, borderWidth: RING },
-  iconCell: { borderRadius: 14, backgroundColor: c.background, borderColor: c.inputBorder },
+  ring: { borderColor: t.colors.foreground, borderWidth: RING },
+  iconCell: { borderRadius: t.radius.md, backgroundColor: t.colors.background, borderColor: t.colors.inputBorder },
 });

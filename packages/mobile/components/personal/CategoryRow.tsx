@@ -1,9 +1,8 @@
-import React, { useMemo, type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { CategoryColors } from "../../hooks/use-category-colors";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { useLanguage } from "../../lib/language";
 import { fillPlaceholders } from "../../lib/text-template";
 import { CategoryBadge } from "./CategoryBadge";
@@ -50,8 +49,8 @@ export function useTaskCountText(): (count: number) => string {
  */
 export function CategoryRow({ label, colors, taskCount, hidden, builtin, lastVisible, disabled, open, onOpenChange, onEdit, onToggleHidden, onDelete, children }: Props) {
   const { t } = useLanguage();
-  const palette = useColors();
-  const s = useMemo(() => makeStyles(palette), [palette]);
+  const { colors: palette } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const countText = useTaskCountText()(taskCount);
   const summary = fillPlaceholders(t(hidden ? "{name}, {tasks}, hidden" : "{name}, {tasks}"), { name: label, tasks: countText });
   const hideBlocked = !hidden && lastVisible;
@@ -106,20 +105,23 @@ function IconButton({ icon, a11y, disabled, hint, color, onPress, styles: s }: I
   </Pressable>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  row: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
-  line: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
-  texts: { flex: 1 },
-  buttons: { flexDirection: "row", alignItems: "center", gap: 10 },
-  nameLine: { flexDirection: "row", alignItems: "center", gap: 8 },
-  name: { flexShrink: 1, color: c.foreground, fontSize: 15, fontWeight: "700" },
-  dim: { color: c.mutedForeground },
-  badge: { backgroundColor: c.primaryTint, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-  badgeText: { color: c.accentForeground, fontSize: 10, fontWeight: "800" },
-  meta: { color: c.mutedForeground, fontSize: 12, marginTop: 1 },
-  iconButton: { width: ICON_BUTTON, height: ICON_BUTTON, borderRadius: 12, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
-  deleteAction: { flex: 1, backgroundColor: c.errorBg, alignItems: "center", justifyContent: "center", gap: 2 },
-  deleteText: { color: c.errorMessage, fontSize: 11, fontWeight: "800" },
-  disabled: { opacity: 0.45 },
-  hint: { color: c.labelText, fontSize: 11, lineHeight: 16, marginTop: 2, marginBottom: 4 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    row: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.hairline },
+    line: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: t.space.sm },
+    texts: { flex: 1 },
+    buttons: { flexDirection: "row", alignItems: "center", gap: 10 },
+    nameLine: { flexDirection: "row", alignItems: "center", gap: t.space.sm },
+    name: { ...t.type.subtitle, flexShrink: 1, color: c.foreground },
+    dim: { color: c.mutedForeground },
+    badge: { backgroundColor: c.primaryTint, borderRadius: t.radius.sm, paddingHorizontal: 7, paddingVertical: t.space.xxs },
+    badgeText: { ...t.type.caption, ...t.font.bold, color: c.accentForeground },
+    meta: { ...t.type.meta, color: c.mutedForeground, marginTop: 1 },
+    iconButton: { width: ICON_BUTTON, height: ICON_BUTTON, borderRadius: t.radius.md, backgroundColor: c.primaryTint, alignItems: "center", justifyContent: "center" },
+    deleteAction: { flex: 1, backgroundColor: c.errorBg, alignItems: "center", justifyContent: "center", gap: t.space.xxs },
+    deleteText: { ...t.type.caption, ...t.font.bold, color: c.errorMessage },
+    disabled: { opacity: 0.45 },
+    hint: { ...t.type.caption, ...t.font.regular, color: c.labelText, marginTop: t.space.xxs, marginBottom: t.space.xs },
+  });
+};

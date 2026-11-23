@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, useThemedStyles, type Theme } from "../../hooks/use-theme";
 import { voiceNeedsNetwork, type SpeechLanguage, type VoiceInfo } from "../../lib/assistant-speech";
 import { listVoices, speakLine, stopSpeaking } from "../../lib/assistant-speech-expo";
 import { useLanguage } from "../../lib/language";
@@ -17,8 +16,8 @@ const SAMPLE = "Hi, I'm Leo! Shall we plan your day?";
 export function AssistantVoicePicker() {
   const { settings, update } = useSettings();
   const { t, language } = useLanguage();
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const { colors } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const speechLanguage: SpeechLanguage = language === "vi" ? "vi" : "en";
   const [voices, setVoices] = useState<VoiceInfo[] | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
@@ -80,20 +79,23 @@ export function AssistantVoicePicker() {
   </View>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  stack: { gap: 8, marginTop: 4 },
-  label: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  list: { gap: 6 },
-  option: {
-    minHeight: 48, paddingLeft: 12, borderRadius: 12, flexDirection: "row", alignItems: "center",
-    backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder,
-  },
-  optionBody: { flex: 1, minHeight: 46, paddingVertical: 6, justifyContent: "center" },
-  play: { width: 48, height: 46, alignItems: "center", justifyContent: "center" },
-  optionOn: { backgroundColor: c.primary, borderColor: c.primary },
-  optionText: { color: c.foreground, fontSize: 13, fontWeight: "700" },
-  optionTextOn: { color: c.onPrimary },
-  note: { color: c.mutedForeground, fontSize: 11, marginTop: 1 },
-  hint: { color: c.mutedForeground, fontSize: 11, lineHeight: 16 },
-  warning: { color: c.foreground, fontSize: 12, lineHeight: 17 },
-});
+const makeStyles = (t: Theme) => {
+  const c = t.colors;
+  return StyleSheet.create({
+    stack: { gap: t.space.sm, marginTop: t.space.xs },
+    label: { ...t.type.label, color: c.foreground },
+    list: { gap: t.space.xs + 2 },
+    option: {
+      minHeight: 48, paddingLeft: t.space.md, borderRadius: t.radius.md, flexDirection: "row", alignItems: "center",
+      backgroundColor: c.card, borderWidth: 1, borderColor: c.inputBorder,
+    },
+    optionBody: { flex: 1, minHeight: 46, paddingVertical: t.space.xs + 2, justifyContent: "center" },
+    play: { width: 48, height: 46, alignItems: "center", justifyContent: "center" },
+    optionOn: { backgroundColor: c.primary, borderColor: c.primary },
+    optionText: { ...t.type.label, color: c.foreground },
+    optionTextOn: { color: c.onPrimary },
+    note: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground, marginTop: 1 },
+    hint: { ...t.type.caption, ...t.font.regular, color: c.mutedForeground },
+    warning: { ...t.type.meta, ...t.font.regular, color: c.foreground },
+  });
+};

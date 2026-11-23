@@ -1,21 +1,20 @@
-import React, { useMemo, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import React, { type ReactNode } from "react";
+import { StyleSheet, Text } from "react-native";
+import { useThemedStyles, type Theme } from "../../hooks/use-theme";
+import { Surface } from "../ui/Surface";
 
 type Props = { title?: string; children: ReactNode };
 
 /** A rounded surface of the cycle screen, with an optional small uppercase title. */
 export function CycleCard({ title, children }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  return <View style={s.card}>
+  const s = useThemedStyles(makeStyles);
+  return <Surface style={s.card}>
     {title ? <Text accessibilityRole="header" style={s.title}>{title}</Text> : null}
     {children}
-  </View>;
+  </Surface>;
 }
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  card: { backgroundColor: c.card, borderRadius: 20, padding: 16, marginBottom: 12 },
-  title: { color: c.labelText, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, marginBottom: 12, textTransform: "uppercase" },
+const makeStyles = (t: Theme) => StyleSheet.create({
+  card: { marginBottom: t.space.md },
+  title: { ...t.type.micro, color: t.colors.labelText, marginBottom: t.space.md, textTransform: "uppercase" },
 });
