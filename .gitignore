@@ -94,3 +94,6 @@ signing-info*
 
 # OTA publisher output (generated static Expo Updates site)
 ota-site
+
+# design-system write-ups used as references for the app styles (third-party analyses, not shipped)
+design-md/

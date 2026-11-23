@@ -9,6 +9,12 @@ const MAX_CATEGORY_LENGTH = 40;
 
 export const ACCENT_IDS = ["violet", "ocean", "lagoon", "forest", "sunset", "blossom"] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
+/**
+ * The look of the whole app (lib/design-theme.ts, constants/styles.ts): colours, type, corners and depth. "dayform" is the
+ * original look and the only one the accent sets apply to; the others carry their own primary colour.
+ */
+export const STYLE_IDS = ["dayform", "paper", "precision", "minimal"] as const;
+export type StyleId = (typeof STYLE_IDS)[number];
 /** The home-screen widget's pet: a pixel cat, a pixel dog, a kitsune, a chick, Goku Black, the Love couple (Boy and Girl), or none. */
 export const PET_KINDS = ["gray-cat", "dog", "kitsune", "chicken", "goku", "love", "off"] as const;
 export type PetKind = (typeof PET_KINDS)[number];
@@ -137,6 +143,8 @@ const group = <S extends z.ZodType>(schema: S): z.ZodCatch<S> =>
 const settingsSchema = z.object({
   profile: group(profileSchema),
   accent: choice(ACCENT_IDS, "violet"),
+  /** An older build drops this field when it rewrites the settings, which only brings back the original look. */
+  style: choice(STYLE_IDS, "dayform"),
   defaults: group(defaultsSchema),
   notifications: group(notificationsSchema),
   greeting: group(greetingSchema),

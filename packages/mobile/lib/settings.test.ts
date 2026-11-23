@@ -38,6 +38,7 @@ describe("defaults", () => {
     expect(DEFAULT_SETTINGS).toEqual({
       profile: { name: "" },
       accent: "violet",
+    style: "dayform",
       defaults: { duration: 30, category: "Focus", remind: null, scheduleNew: false, startMode: "fixed", startFixed: "09:00" },
       notifications: { quietEnabled: false, quietFrom: "22:00", quietTo: "07:00", hideTitles: false, snoozeMinutes: 10, summaryEnabled: false, summaryTime: "08:00" },
       greeting: { showName: true, sloganStyle: "rotate", customSlogan: "" },
@@ -73,6 +74,7 @@ describe("resolveSettings", () => {
     const raw = {
       profile: { name: "Linh" },
       accent: "forest",
+      style: "paper",
       defaults: { duration: 45, category: "Work", remind: 15, scheduleNew: true, startMode: "next-hour", startFixed: "10:30" },
       notifications: { quietEnabled: true, quietFrom: "23:00", quietTo: "06:30", hideTitles: true, snoozeMinutes: 5, summaryEnabled: true, summaryTime: "07:15" },
       greeting: { showName: false, sloganStyle: "custom", customSlogan: "Go go" },

@@ -33,6 +33,7 @@ import { TasksProvider } from "../lib/tasks-context";
 import { UpdateProvider } from "../lib/update-context";
 import { LanguageProvider, useLanguage } from "../lib/language";
 import { ThemeProvider, useThemePreference } from "../lib/theme-context";
+import { loadAppFonts, useAppFontsState } from "../hooks/use-app-fonts";
 
 // Keep the native splash up until the stored theme and language are read, so the first frame is never the wrong one.
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -57,9 +58,11 @@ function AppReadyGate() {
   const languageReady = useLanguage().ready;
   const settingsReady = useSettings().ready;
   const categoriesReady = useCategories().ready;
+  // Fonts that fail to load are not waited for: the theme then keeps the system font.
+  const fontsSettled = useAppFontsState() !== "loading";
   useEffect(() => {
-    if (themeReady && languageReady && settingsReady && categoriesReady) hideSplashOnce();
-  }, [themeReady, languageReady, settingsReady, categoriesReady]);
+    if (themeReady && languageReady && settingsReady && categoriesReady && fontsSettled) hideSplashOnce();
+  }, [themeReady, languageReady, settingsReady, categoriesReady, fontsSettled]);
   return null;
 }
 
@@ -73,6 +76,7 @@ function WidgetBridge() {
 export default function RootLayout() {
   // Lives outside the providers so a provider that fails to mount can never leave the splash stuck.
   useEffect(() => {
+    loadAppFonts();
     const timer = setTimeout(hideSplashOnce, SPLASH_SAFETY_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, []);

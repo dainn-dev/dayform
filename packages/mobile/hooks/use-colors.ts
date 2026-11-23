@@ -1,23 +1,12 @@
-import { applyAccent } from "@/constants/accents";
-import { Colors, type ThemeColors } from "@/constants/palettes";
-import { useSettings } from "@/lib/settings-context";
-import { useResolvedScheme } from "@/lib/theme-context";
+import type { ThemeColors } from "@/constants/palettes";
+import { useTheme } from "./use-theme";
 
 /**
- * Returns the color palette for the resolved color scheme (the user's Light/Dark/System choice, see
- * `lib/theme-context.tsx`) with the chosen accent applied (`settings.accent`, see `constants/accents.ts`).
- * `applyAccent` is memoised per palette and accent, so the returned reference only changes when the scheme or
- * the accent does and is safe as a `useMemo` dependency (`useMemo(() => makeStyles(colors), [colors])`).
- *
- * ```tsx
- * const colors = useColors();
- * <View style={{ backgroundColor: colors.background }}>
- *   <Text style={{ color: colors.foreground }}>Hello</Text>
- * </View>
- * ```
+ * The colour palette of the current theme: the user's style (settings.style), Light/Dark choice (lib/theme-context.tsx)
+ * and, for the original style, the chosen accent (constants/accents.ts). Memoised in lib/design-theme.ts, so the
+ * reference only changes when one of those does and is safe as a `useMemo` dependency. New code should prefer
+ * `useTheme()` / `useThemedStyles()` (hooks/use-theme.ts), which also give the type scale, corners and depth.
  */
 export function useColors(): ThemeColors {
-  const scheme = useResolvedScheme();
-  const { settings } = useSettings();
-  return applyAccent(Colors[scheme], settings.accent);
+  return useTheme().colors;
 }

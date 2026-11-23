@@ -34,6 +34,7 @@ import { vi as specialDays } from "./special-days";
 import { vi as stats } from "./stats";
 import { vi as store } from "./store";
 import { vi as theme } from "./theme";
+import { vi as design } from "./design";
 import { vi as ssh } from "./ssh";
 import { vi as undo } from "./undo";
 import { vi as update } from "./update";
@@ -81,6 +82,7 @@ export const extraTranslations: Record<string, string> = {
   ...stats,
   ...store,
   ...theme,
+  ...design,
   ...undo,
   ...update,
   ...widget,

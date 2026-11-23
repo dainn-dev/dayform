@@ -1,8 +1,7 @@
 import React, { memo, useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../../hooks/use-colors";
-import type { ThemeColors } from "../../constants/theme";
+import { useTheme, type Theme } from "../../hooks/use-theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 export type IconButtonTone = "tint" | "primary" | "danger";
@@ -28,8 +27,9 @@ const DISABLED_OPACITY = 0.45;
 
 /** A button that is only an icon: a 44dp touch target with an accessibility label in place of visible text. */
 export const IconButton = memo(function IconButton({ icon, text, label, onPress, tone = "tint", disabled = false, busy = false, style }: Props) {
-  const colors = useColors();
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const theme = useTheme();
+  const colors = theme.colors;
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const inactive = disabled || busy;
   const iconColor = tone === "primary" ? colors.onPrimary : tone === "danger" ? colors.deleteText : colors.primary;
   return <Pressable onPress={onPress} disabled={inactive} accessibilityRole="button" accessibilityLabel={label}
@@ -40,11 +40,11 @@ export const IconButton = memo(function IconButton({ icon, text, label, onPress,
   </Pressable>;
 });
 
-const makeStyles = (c: ThemeColors) => StyleSheet.create({
-  button: { minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
-  tint: { backgroundColor: c.primaryTint },
+const makeStyles = ({ colors: c, radius, type, font, style }: Theme) => StyleSheet.create({
+  button: { minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, borderRadius: radius.md, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  tint: style === "dayform" ? { backgroundColor: c.primaryTint } : { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
   primary: { backgroundColor: c.primary },
   danger: { backgroundColor: c.errorBg },
   inactive: { opacity: DISABLED_OPACITY },
-  text: { fontSize: 15, fontWeight: "800" },
+  text: { ...type.subtitle, ...font.heavy },
 });
