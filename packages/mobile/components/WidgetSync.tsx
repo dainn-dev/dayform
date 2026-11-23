@@ -35,7 +35,7 @@ export function WidgetSync({ showTitles = true, pet = "gray-cat", petWalks = tru
     const groups = new Set(HOLIDAY_GROUPS.filter(group => holidayGroups[group]));
     return (keys: readonly string[]) => dayMarks(keys, { holidays: showHolidays, groups, language, specials: specialItems, t });
   }, [showHolidays, holidayGroups, language, specialItems, t]);
-  const accent = useMemo(() => widgetAccent(settings.accent), [settings.accent]);
+  const accent = useMemo(() => widgetAccent(settings.accent, settings.style), [settings.accent, settings.style]);
   const canSync = !loading && !writesBlocked && specialReady;
   const latest = useRef<WidgetSyncInput>({ tasks, showTitles, locale: language, pet, petWalks, accent, marksFor, canSync });
   const syncer = useRef<WidgetSyncer | null>(null);

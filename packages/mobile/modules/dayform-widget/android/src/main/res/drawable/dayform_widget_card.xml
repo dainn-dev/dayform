@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The surface of a style's card, drawn 1 dp inside the outline and recoloured by WidgetRenderer (white is never shown). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="23dp" />
+</shape>

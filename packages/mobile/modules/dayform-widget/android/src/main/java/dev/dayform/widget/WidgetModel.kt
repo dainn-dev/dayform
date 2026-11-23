@@ -19,8 +19,36 @@ internal data class WidgetLabels(
   val special: String,
 )
 
-/** The user's accent from the Theme page: the strong colour (progress, times, badge text) and its tint (badge and next-row background). */
-internal data class WidgetAccent(val primary: Int, val tint: Int)
+/**
+ * The light card colours of the app's style (any style but the original): the surface, the main text, the muted text
+ * and the outline. The finished-task grey and bar are mixed from them, so all four are needed.
+ */
+internal data class WidgetCard(val background: Int, val foreground: Int, val muted: Int, val line: Int) {
+  /** Text of a finished task: the muted text faded towards the surface. */
+  val done: Int get() = blend(muted, background, DONE_FADE)
+  /** Bar of a finished task: the outline darkened towards the muted text. */
+  val doneBar: Int get() = blend(line, muted, DONE_BAR_DEPTH)
+
+  private companion object {
+    const val DONE_FADE = 0.35f
+    const val DONE_BAR_DEPTH = 0.2f
+
+    fun blend(from: Int, to: Int, amount: Float): Int {
+      fun channel(a: Int, b: Int) = Math.round(a + (b - a) * amount)
+      return Color.rgb(
+        channel(Color.red(from), Color.red(to)),
+        channel(Color.green(from), Color.green(to)),
+        channel(Color.blue(from), Color.blue(to)),
+      )
+    }
+  }
+}
+
+/**
+ * The user's accent from the Theme page: the strong colour (progress, times, badge text) and its tint (badge and
+ * next-row background). `card` is null for the original style or an older app: the card then keeps its resource colours.
+ */
+internal data class WidgetAccent(val primary: Int, val tint: Int, val card: WidgetCard? = null)
 
 /** `pet` is a kind id of the Pet settings page ("gray-cat", "dog", "kitsune", "chicken", "goku" or "off"); both pet fields are optional so an older app still works. */
 internal data class WidgetSnapshot(
@@ -80,7 +108,15 @@ internal object WidgetSnapshotParser {
     val primary = accent.optString("p")
     val tint = accent.optString("t")
     if (!HEX_COLOR.matches(primary) || !HEX_COLOR.matches(tint)) return null
-    return WidgetAccent(primary = Color.parseColor(primary), tint = Color.parseColor(tint))
+    return WidgetAccent(primary = Color.parseColor(primary), tint = Color.parseColor(tint), card = readCard(accent))
+  }
+
+  /** The style's card colours (`bg`, `fg`, `mu`, `ln`): all four valid or none, so a style's text never lands on another card. */
+  private fun readCard(accent: JSONObject): WidgetCard? {
+    val colors = listOf("bg", "fg", "mu", "ln").map { accent.optString(it) }
+    if (colors.any { !HEX_COLOR.matches(it) }) return null
+    val (background, foreground, muted, line) = colors.map { Color.parseColor(it) }
+    return WidgetCard(background = background, foreground = foreground, muted = muted, line = line)
   }
 
   private fun readDay(day: JSONObject): WidgetDay {

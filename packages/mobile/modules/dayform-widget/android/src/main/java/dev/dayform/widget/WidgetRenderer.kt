@@ -74,11 +74,13 @@ internal object WidgetRenderer {
     val day = snapshot?.days?.get(WidgetClock.todayKey(nowMs))
     val views = RemoteViews(context.packageName, R.layout.dayform_widget)
     val accent = snapshot?.accent
+    val card = cardColors(context, accent, tints)
     bindHeader(context, views, snapshot, day, nowMs)
     bindAccent(views, accent, tints)
+    bindCard(context, views, card, tints)
     val hasMarks = day?.marks?.isNotEmpty() == true
     val capacity = lineCapacity(options, hasMarks)
-    bindRows(context, views, snapshot, day, capacity, nowMs, accent, tints)
+    bindRows(context, views, snapshot, day, capacity, nowMs, accent, tints, card)
     bindPet(context, views, snapshot, day, capacity, options, hasMarks)
     bindBackground(context, views, options)
     bindClick(context, views)
@@ -146,9 +148,51 @@ internal object WidgetRenderer {
     }
   }
 
-  /** Tints the background drawable of a view (API 31+); an older launcher keeps the colour of the resource. */
-  private fun tintBackground(views: RemoteViews, id: Int, color: Int) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) views.setColorStateList(id, "setBackgroundTintList", ColorStateList.valueOf(color))
+  /**
+   * The style's card colours, when the widget can wear them: only with the tints (API 31+, the outline, bars and track
+   * need them, so an older launcher keeps the whole original card rather than half of a style) and never over the user's
+   * picture, where the card keeps its white veil, darker greys and glow.
+   */
+  private fun cardColors(context: Context, accent: WidgetAccent?, tints: Boolean): WidgetCard? {
+    val card = accent?.card ?: return null
+    if (!tints || Build.VERSION.SDK_INT < Build.VERSION_CODES.S || WidgetBackground.exists(context)) return null
+    return card
+  }
+
+  /**
+   * Paints the card in the style's colours: the surface, its outline, the progress track and the header texts. Without
+   * them the card shows its resource colours; since a launcher reapplies a new draw onto the views of the last one, a
+   * style's tints and text colours are then taken back explicitly (the resource colours resolve on the launcher's side,
+   * as in the layout), or a switch back to the original style would keep them.
+   */
+  private fun bindCard(context: Context, views: RemoteViews, card: WidgetCard?, tints: Boolean) {
+    if (card == null) {
+      views.setViewVisibility(R.id.dayform_widget_card, View.GONE)
+      if (!tints || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+      tintBackground(views, R.id.dayform_widget_root, null)
+      views.setColorStateList(R.id.dayform_widget_progress, "setProgressBackgroundTintList", null as ColorStateList?)
+      views.setColorStateList(R.id.dayform_widget_title, "setTextColor", R.color.dayform_widget_text_primary)
+      // Over a picture the date and the empty line keep the darker grey that bindHeader and bindRows give them.
+      if (!WidgetBackground.exists(context)) {
+        views.setColorStateList(R.id.dayform_widget_date, "setTextColor", R.color.dayform_widget_text_secondary)
+        views.setColorStateList(R.id.dayform_widget_empty, "setTextColor", R.color.dayform_widget_text_secondary)
+      }
+      return
+    }
+    views.setInt(R.id.dayform_widget_card, "setColorFilter", card.background)
+    views.setViewVisibility(R.id.dayform_widget_card, View.VISIBLE)
+    tintBackground(views, R.id.dayform_widget_root, card.line)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      views.setColorStateList(R.id.dayform_widget_progress, "setProgressBackgroundTintList", ColorStateList.valueOf(card.line))
+    }
+    views.setTextColor(R.id.dayform_widget_title, card.foreground)
+    views.setTextColor(R.id.dayform_widget_date, card.muted)
+    views.setTextColor(R.id.dayform_widget_empty, card.muted)
+  }
+
+  /** Tints the background drawable of a view (API 31+); an older launcher keeps the colour of the resource. Null removes the tint. */
+  private fun tintBackground(views: RemoteViews, id: Int, color: Int?) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) views.setColorStateList(id, "setBackgroundTintList", color?.let { ColorStateList.valueOf(it) })
   }
 
   /** The names of the day's holidays and special days, on one line under the header (hidden when there are none). */
@@ -183,7 +227,17 @@ internal object WidgetRenderer {
     views.setViewVisibility(R.id.dayform_widget_progress, View.VISIBLE)
   }
 
-  private fun bindRows(context: Context, views: RemoteViews, snapshot: WidgetSnapshot?, day: WidgetDay?, capacity: Int, nowMs: Long, accent: WidgetAccent?, tints: Boolean) {
+  private fun bindRows(
+    context: Context,
+    views: RemoteViews,
+    snapshot: WidgetSnapshot?,
+    day: WidgetDay?,
+    capacity: Int,
+    nowMs: Long,
+    accent: WidgetAccent?,
+    tints: Boolean,
+    card: WidgetCard?,
+  ) {
     val items = day?.items.orEmpty()
     val total = day?.total ?: 0
     val plan = planRows(total, items.size, capacity)
@@ -196,7 +250,7 @@ internal object WidgetRenderer {
           index == nextIndex -> RowState.NEXT
           else -> RowState.UPCOMING
         }
-        bindRow(context, views, ROWS[index], items[index], state, accent, tints)
+        bindRow(context, views, ROWS[index], items[index], state, accent, tints, card)
         bindToggle(context, views, ROWS[index].row, index, items[index])
       } else {
         views.setViewVisibility(ROWS[index].row, View.GONE)
@@ -219,12 +273,22 @@ internal object WidgetRenderer {
     }
   }
 
-  private fun bindRow(context: Context, views: RemoteViews, ids: RowIds, item: WidgetItem, state: RowState, userAccent: WidgetAccent?, tints: Boolean) {
-    val primary = context.getColor(R.color.dayform_widget_text_primary)
+  /** `card` is the style's card colours (null: the resource colours, or the darker greys over a picture). */
+  private fun bindRow(
+    context: Context,
+    views: RemoteViews,
+    ids: RowIds,
+    item: WidgetItem,
+    state: RowState,
+    userAccent: WidgetAccent?,
+    tints: Boolean,
+    card: WidgetCard?,
+  ) {
+    val primary = card?.foreground ?: context.getColor(R.color.dayform_widget_text_primary)
     // Over a picture the grey texts are darkened: they were the ones that washed out.
     val onPicture = WidgetBackground.exists(context)
-    val secondary = context.getColor(if (onPicture) R.color.dayform_widget_text_secondary_photo else R.color.dayform_widget_text_secondary)
-    val muted = context.getColor(if (onPicture) R.color.dayform_widget_text_done_photo else R.color.dayform_widget_text_done)
+    val secondary = card?.muted ?: context.getColor(if (onPicture) R.color.dayform_widget_text_secondary_photo else R.color.dayform_widget_text_secondary)
+    val muted = card?.done ?: context.getColor(if (onPicture) R.color.dayform_widget_text_done_photo else R.color.dayform_widget_text_done)
     val accent = userAccent?.primary ?: context.getColor(R.color.dayform_widget_accent)
 
     views.setViewVisibility(ids.row, View.VISIBLE)
@@ -241,7 +305,16 @@ internal object WidgetRenderer {
 
     if (state == RowState.NEXT && userAccent != null && tints) {
       tintBackground(views, ids.row, userAccent.tint)
-      tintBackground(views, ids.bar, userAccent.primary)
+    }
+    // Every draw sets the bar's tint (null = the drawable's own colour): the launcher reuses the views of the last draw,
+    // so a row that was the next one, or drawn in a style, would otherwise keep that colour. `card` implies the tints.
+    if (tints) {
+      val barTint = when (state) {
+        RowState.NEXT -> userAccent?.primary
+        RowState.DONE -> card?.doneBar
+        RowState.UPCOMING -> card?.muted
+      }
+      tintBackground(views, ids.bar, barTint)
     }
 
     views.setTextViewText(ids.time, item.start)

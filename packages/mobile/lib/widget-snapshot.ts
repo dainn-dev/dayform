@@ -2,7 +2,7 @@ import { addDays, dateKey, minutes, type Task } from "./planner";
 import { vi } from "./i18n/widget";
 import type { DayMark } from "./day-marks";
 import type { PetKind } from "./settings";
-import { isHexColor, type WidgetAccent } from "./widget-accent";
+import { accentJson, type WidgetAccent, type WidgetAccentJson } from "./widget-accent";
 
 /** What the native home-screen widget reads. Titles are already localised or user-written; dates are local. */
 export type WidgetItem = {
@@ -40,8 +40,12 @@ export type WidgetSnapshot = {
   pet: PetKind;
   /** Whether the pet strolls along the bottom (true) or stays in the corner (false). */
   petWalks: boolean;
-  /** The user's accent as `#rrggbb` (`p` strong, `t` tint); left out when unknown, so an older widget keeps its own colours. */
-  ac?: { p: string; t: string };
+  /**
+   * The user's accent as `#rrggbb` (`p` strong, `t` tint); left out when unknown, so an older widget keeps its own colours.
+   * For a style other than the original it also has the style's light card colours (`bg` surface, `fg` main text, `mu`
+   * muted text, `ln` outline), all four or none; an older widget ignores them.
+   */
+  ac?: WidgetAccentJson;
 };
 export type BuildOptions = {
   now: Date;
@@ -181,6 +185,11 @@ function fitSize(snapshot: WidgetSnapshot): WidgetSnapshotResult {
   return { snapshot: current, json, truncated };
 }
 
+function withAccent(accent: WidgetAccent | undefined): { ac?: WidgetAccentJson } {
+  const ac = accentJson(accent);
+  return ac ? { ac } : {};
+}
+
 /** Builds the widget payload from the scheduled tasks of today and the following days. */
 export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOptions): WidgetSnapshotResult {
   const { now, showTitles, locale, days = DEFAULT_DAYS, maxPerDay = DEFAULT_MAX_PER_DAY, pet = "gray-cat", petWalks = true, accent, marksFor } = options;
@@ -195,7 +204,7 @@ export function buildWidgetSnapshot(tasks: readonly Task[], options: BuildOption
     labels,
     pet,
     petWalks,
-    ...(accent && isHexColor(accent.primary) && isHexColor(accent.tint) ? { ac: { p: accent.primary, t: accent.tint } } : {}),
+    ...withAccent(accent),
   });
 }
 

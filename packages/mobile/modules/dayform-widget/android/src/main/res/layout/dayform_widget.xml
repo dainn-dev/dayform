@@ -5,6 +5,17 @@
     android:layout_height="match_parent"
     android:background="@drawable/dayform_widget_bg">
 
+    <!-- The surface in the colours of the app's style (not the original one); the root's tinted background shows as its 1 dp outline. -->
+    <ImageView
+        android:id="@+id/dayform_widget_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="1dp"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/dayform_widget_card"
+        android:visibility="gone" />
+
     <ImageView
         android:id="@+id/dayform_widget_photo"
         android:layout_width="match_parent"
